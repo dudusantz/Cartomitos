@@ -2,6 +2,8 @@
 
 import { supabase } from "@/lib/supabase"
 
+// ... (Mantenha as funções de 1 a 23 inalteradas) ...
+
 // 1. Função que busca na API do Cartola (Rodando no servidor para evitar bloqueio)
 export async function buscarTimeCartola(termo: string) {
   const res = await fetch(`https://api.cartola.globo.com/times?q=${termo}`)
@@ -594,22 +596,20 @@ export async function buscarHistoricoConfrontoDireto(campeonatoId: number, timeI
   return jogos || []
 }
 
-// 24. GERA CONFRONTOS COM POTES (SEM ZERAR TUDO OBRIGATORIAMENTE)
+// 24. GERA CONFRONTOS COM POTES (COM IDA E VOLTA)
 export async function gerarSorteioMataMata(campeonatoId: number, timesPotA: number[], timesPotB: number[], rodada: number = 1) {
-  // Verifica se os potes têm o mesmo tamanho
   if (timesPotA.length !== timesPotB.length) {
-      return { success: false, msg: "Os potes devem ter o mesmo número de times!" };
+      return { success: false, msg: "Os potes devem ter o mesmo tamanho!" };
   }
 
-  // Embaralha os potes aleatoriamente
   const shuffle = (array: number[]) => array.sort(() => Math.random() - 0.5);
   const potA = shuffle([...timesPotA]);
   const potB = shuffle([...timesPotB]);
   
   const partidasParaSalvar = [];
 
-  // Cria os confrontos: 1º do A contra 1º do B, etc.
   for (let i = 0; i < potA.length; i++) {
+      // Jogo de Ida (Time A em casa)
       partidasParaSalvar.push({
           campeonato_id: campeonatoId,
           rodada: rodada,
@@ -617,12 +617,20 @@ export async function gerarSorteioMataMata(campeonatoId: number, timesPotA: numb
           time_visitante: potB[i],
           status: 'agendado'
       });
+      // Jogo de Volta (Time B em casa)
+      partidasParaSalvar.push({
+          campeonato_id: campeonatoId,
+          rodada: rodada, // Mesma "Fase", mas é o segundo jogo
+          time_casa: potB[i],
+          time_visitante: potA[i],
+          status: 'agendado'
+      });
   }
 
   const { error } = await supabase.from('partidas').insert(partidasParaSalvar);
 
   if (error) return { success: false, msg: error.message };
-  return { success: true, msg: `${partidasParaSalvar.length} confrontos criados!` };
+  return { success: true, msg: `Confrontos de Ida e Volta criados!` };
 }
 
 // 25. ADICIONAR TIME EM FASE AVANÇADA
@@ -646,72 +654,144 @@ export async function adicionarFaseAvancada(campeonatoId: number, timeId: number
   return { success: true, msg: "Time posicionado na fase avançada!" };
 }
 
-// 27. AVANÇAR DE FASE (Mata-Mata Automático)
+// 26. AVANÇAR DE FASE (Mata-Mata Automático - COM AGREGADO)
 export async function avancarFaseMataMata(campeonatoId: number, faseAtual: number) {
-  // 1. Busca os jogos da fase atual JÁ FINALIZADOS e ordenados por ID (para manter a chave)
+  // Busca jogos finalizados da fase ordenados por ID para manter a ordem da chave
   const { data: jogos, error } = await supabase
     .from('partidas')
-    .select('*, casa:times!partidas_time_casa_fkey(*), visitante:times!partidas_time_visitante_fkey(*)')
+    .select('*')
     .eq('campeonato_id', campeonatoId)
     .eq('rodada', faseAtual)
     .eq('status', 'finalizado')
     .order('id', { ascending: true })
 
-  if (error) return { success: false, msg: error.message }
-  
-  // Verifica se todos os jogos da fase estão terminados
-  // (Você pode remover essa trava se quiser avançar parcialmente, mas não recomendo para chaves)
-  const { count } = await supabase
-    .from('partidas')
-    .select('*', { count: 'exact', head: true })
-    .eq('campeonato_id', campeonatoId)
-    .eq('rodada', faseAtual)
-  
-  if (jogos.length !== count) {
-    return { success: false, msg: "Todos os jogos da fase atual precisam estar finalizados!" }
+  if (error || !jogos) return { success: false, msg: error?.message || "Erro ao buscar jogos." }
+
+  // Agrupa os jogos por confronto (Ida + Volta)
+  const confrontos = new Map();
+
+  jogos.forEach(jogo => {
+      // Chave única ordenando IDs dos times
+      const chave = [jogo.time_casa, jogo.time_visitante].sort((a, b) => a - b).join('-');
+      if (!confrontos.has(chave)) {
+          confrontos.set(chave, { timeA: jogo.time_casa, timeB: jogo.time_visitante, golsA: 0, golsB: 0, jogos: 0 });
+      }
+      const conf = confrontos.get(chave);
+      
+      // Soma os gols (Time A vs Time B)
+      if (jogo.time_casa === conf.timeA) {
+          conf.golsA += (jogo.placar_casa || 0);
+          conf.golsB += (jogo.placar_visitante || 0);
+      } else {
+          conf.golsA += (jogo.placar_visitante || 0);
+          conf.golsB += (jogo.placar_casa || 0);
+      }
+      conf.jogos += 1;
+  });
+
+  const classificados = [];
+
+  // Define vencedores pelo agregado
+  for (const [chave, dados] of confrontos) {
+      if (dados.jogos < 2) return { success: false, msg: "Alguns confrontos não têm jogo de volta finalizado." };
+
+      if (dados.golsA > dados.golsB) classificados.push(dados.timeA);
+      else if (dados.golsB > dados.golsA) classificados.push(dados.timeB);
+      else return { success: false, msg: `Empate no agregado entre os times ID ${chave}. Ajuste um placar manualmente para desempatar.` };
   }
 
-  if (jogos.length < 2) return { success: false, msg: "Fase final já atingida (apenas 1 jogo)." }
+  if (classificados.length < 2) return { success: false, msg: "Campeão definido ou erro na quantidade de times." };
 
-  const classificados = []
-
-  // 2. Determina os vencedores
-  for (const jogo of jogos) {
-    if (jogo.placar_casa > jogo.placar_visitante) {
-      classificados.push(jogo.time_casa)
-    } else if (jogo.placar_visitante > jogo.placar_casa) {
-      classificados.push(jogo.time_visitante)
-    } else {
-      return { success: false, msg: `O jogo entre ${jogo.casa.nome} e ${jogo.visitante.nome} terminou empatado. Defina um vencedor manualmente (mude o placar).` }
-    }
-  }
-
-  // 3. Cria a próxima fase (Winner 1 vs Winner 2, Winner 3 vs Winner 4...)
-  const novasPartidas = []
-  const proximaRodada = faseAtual + 1
+  // Cria a próxima fase (Ida e Volta)
+  const novasPartidas = [];
+  const proximaRodada = faseAtual + 1;
 
   for (let i = 0; i < classificados.length; i += 2) {
-    // Se sobrar um time ímpar (ex: tinha 5 classificados), ele passa de graça (BYE) ou tratamos erro
-    if (i + 1 >= classificados.length) {
-       // Lógica de "Bye" (Passa direto) - Opcional, aqui cria um jogo contra ele mesmo pra indicar espera
-       // Ou você pode simplesmente não criar e avisar.
-       continue; 
+    if (i + 1 >= classificados.length) break; // Bye se ímpar
+
+    const time1 = classificados[i];
+    const time2 = classificados[i+1];
+
+    // Ida
+    novasPartidas.push({ campeonato_id: campeonatoId, rodada: proximaRodada, time_casa: time1, time_visitante: time2, status: 'agendado' });
+    // Volta
+    novasPartidas.push({ campeonato_id: campeonatoId, rodada: proximaRodada, time_casa: time2, time_visitante: time1, status: 'agendado' });
+  }
+
+  const { error: errInsert } = await supabase.from('partidas').insert(novasPartidas);
+  if (errInsert) return { success: false, msg: errInsert.message };
+  
+  return { success: true, msg: `Próxima fase gerada com jogos de Ida e Volta!` };
+}
+
+// 27. ATUALIZAR RODADA MATA-MATA (IDA E VOLTA COM RODADAS DIFERENTES)
+export async function atualizarRodadaMataMata(campeonatoId: number, fase: number, rodadaCartolaIda: number, rodadaCartolaVolta: number) {
+  // 1. Busca os jogos dessa fase ordenados por ID (Ida é sempre o ID menor, Volta o maior no par)
+  const { data: partidas } = await supabase
+    .from('partidas')
+    .select('*, casa:times!partidas_time_casa_fkey(*), visitante:times!partidas_time_visitante_fkey(*)')
+    .eq('campeonato_id', campeonatoId)
+    .eq('rodada', fase)
+    .order('id', { ascending: true })
+
+  if (!partidas || partidas.length === 0) return { success: false, msg: "Nenhum jogo nesta fase." }
+
+  const headersGlobo = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Accept': 'application/json'
+  }
+
+  // Agrupa os jogos em pares (Ida e Volta)
+  const confrontos = new Map();
+  partidas.forEach(p => {
+      const key = [p.time_casa, p.time_visitante].sort((a, b) => a - b).join('-');
+      if (!confrontos.has(key)) confrontos.set(key, []);
+      confrontos.get(key).push(p);
+  });
+
+  for (const [key, jogos] of confrontos) {
+      // O primeiro jogo criado é a Ida, o segundo é a Volta
+      const jogoIda = jogos[0];
+      const jogoVolta = jogos[1];
+
+      // --- ATUALIZA IDA ---
+      if (jogoIda) {
+          await atualizarJogoIndividual(jogoIda, rodadaCartolaIda, headersGlobo);
+      }
+
+      // --- ATUALIZA VOLTA ---
+      if (jogoVolta) {
+          await atualizarJogoIndividual(jogoVolta, rodadaCartolaVolta, headersGlobo);
+      }
+  }
+
+  return { success: true, msg: `Fase ${fase} atualizada! Ida: R${rodadaCartolaIda}, Volta: R${rodadaCartolaVolta}` }
+}
+
+// Função auxiliar interna para não repetir código
+async function atualizarJogoIndividual(jogo: any, rodadaCartola: number, headers: any) {
+    if (!rodadaCartola || rodadaCartola <= 0) return; // Se for 0, não atualiza
+
+    try {
+        const resCasa = await fetch(`https://api.cartola.globo.com/time/id/${jogo.casa.time_id_cartola}/${rodadaCartola}`, { headers });
+        const dadosCasa = await resCasa.json();
+        const ptsCasa = dadosCasa.pontos || 0;
+
+        const resVis = await fetch(`https://api.cartola.globo.com/time/id/${jogo.visitante.time_id_cartola}/${rodadaCartola}`, { headers });
+        const dadosVis = await resVis.json();
+        const ptsVis = dadosVis.pontos || 0;
+
+        // Se a rodada não aconteceu (ambos 0 e status não finalizado), ignora ou define como 0
+        // Aqui vamos forçar a atualização
+        await supabase.from('partidas').update({
+            pontos_reais_casa: ptsCasa,
+            placar_casa: Math.floor(ptsCasa),
+            pontos_reais_visitante: ptsVis,
+            placar_visitante: Math.floor(ptsVis),
+            status: 'finalizado'
+        }).eq('id', jogo.id);
+
+    } catch (e) {
+        console.error("Erro ao atualizar jogo", e);
     }
-
-    novasPartidas.push({
-      campeonato_id: campeonatoId,
-      rodada: proximaRodada,
-      time_casa: classificados[i],
-      time_visitante: classificados[i+1],
-      status: 'agendado'
-    })
-  }
-
-  if (novasPartidas.length > 0) {
-    const { error: errInsert } = await supabase.from('partidas').insert(novasPartidas)
-    if (errInsert) return { success: false, msg: errInsert.message }
-    return { success: true, msg: `Próxima fase (${proximaRodada}ª) gerada com sucesso!` }
-  }
-
-  return { success: false, msg: "Erro ao gerar chaves." }
 }

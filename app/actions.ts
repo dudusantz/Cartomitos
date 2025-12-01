@@ -594,43 +594,54 @@ export async function buscarHistoricoConfrontoDireto(campeonatoId: number, timeI
   return jogos || []
 }
 
-// 24. GERA CONFRONTOS INICIAIS DE MATA-MATA (Sorteio)
-export async function gerarChaveamentoMataMata(campeonatoId: number, timesPotA: number[], timesPotB: number[]) {
-    // Verifica se o número de times é igual nos dois potes
-    if (timesPotA.length !== timesPotB.length || timesPotA.length === 0) {
-        return { success: false, msg: "Os potes A e B devem ter o mesmo número de times e não podem estar vazios." };
-    }
+// 24. GERA CONFRONTOS COM POTES (SEM ZERAR TUDO OBRIGATORIAMENTE)
+export async function gerarSorteioMataMata(campeonatoId: number, timesPotA: number[], timesPotB: number[], rodada: number = 1) {
+  // Verifica se os potes têm o mesmo tamanho
+  if (timesPotA.length !== timesPotB.length) {
+      return { success: false, msg: "Os potes devem ter o mesmo número de times!" };
+  }
 
-    // Algoritmo de Fisher-Yates para embaralhar os potes
-    const shuffle = (array: number[]) => {
-        let currentIndex = array.length, randomIndex;
-        while (currentIndex !== 0) {
-            randomIndex = Math.floor(Math.random() * currentIndex);
-            currentIndex--;
-            [array[currentIndex], array[randomIndex]] = [array[currentIndex], array[randomIndex]];
-        }
-        return array;
-    };
+  // Embaralha os potes aleatoriamente
+  const shuffle = (array: number[]) => array.sort(() => Math.random() - 0.5);
+  const potA = shuffle([...timesPotA]);
+  const potB = shuffle([...timesPotB]);
+  
+  const partidasParaSalvar = [];
 
-    const potA = shuffle([...timesPotA]);
-    const potB = shuffle([...timesPotB]);
-    const partidasParaSalvar = [];
+  // Cria os confrontos: 1º do A contra 1º do B, etc.
+  for (let i = 0; i < potA.length; i++) {
+      partidasParaSalvar.push({
+          campeonato_id: campeonatoId,
+          rodada: rodada,
+          time_casa: potA[i],
+          time_visitante: potB[i],
+          status: 'agendado'
+      });
+  }
 
-    // Criação dos confrontos (Pot A vs Pot B)
-    for (let i = 0; i < potA.length; i++) {
-        partidasParaSalvar.push({
-            campeonato_id: campeonatoId,
-            rodada: 1, // Primeira fase
-            time_casa: potA[i],
-            time_visitante: potB[i],
-            status: 'agendado'
-        });
-    }
+  const { error } = await supabase.from('partidas').insert(partidasParaSalvar);
 
-    // Apaga jogos antigos e salva os novos
-    await zerarJogos(campeonatoId); // Reutiliza a função de zerar jogos
-    const { error } = await supabase.from('partidas').insert(partidasParaSalvar);
+  if (error) return { success: false, msg: error.message };
+  return { success: true, msg: `${partidasParaSalvar.length} confrontos criados!` };
+}
 
-    if (error) return { success: false, msg: error.message };
-    return { success: true, msg: `${partidasParaSalvar.length} confrontos criados na 1ª fase!` };
+// 25. ADICIONAR TIME EM FASE AVANÇADA
+export async function adicionarFaseAvancada(campeonatoId: number, timeId: number, rodada: number) {
+  // 1. Garante que o time esteja cadastrado na liga
+  await adicionarTimeAoCampeonato(campeonatoId, timeId);
+
+  // 2. Cria uma partida "placeholder" na rodada desejada.
+  // Colocamos o mesmo time como visitante temporariamente para indicar que falta oponente.
+  const { error } = await supabase.from('partidas').insert([{
+    campeonato_id: campeonatoId,
+    rodada: rodada,
+    time_casa: timeId,
+    time_visitante: timeId, // Placeholder: usuário deverá editar o oponente depois
+    status: 'agendado',
+    placar_casa: 0,
+    placar_visitante: 0
+  }]);
+
+  if (error) return { success: false, msg: error.message };
+  return { success: true, msg: "Time posicionado na fase avançada!" };
 }

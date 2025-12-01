@@ -645,3 +645,73 @@ export async function adicionarFaseAvancada(campeonatoId: number, timeId: number
   if (error) return { success: false, msg: error.message };
   return { success: true, msg: "Time posicionado na fase avançada!" };
 }
+
+// 27. AVANÇAR DE FASE (Mata-Mata Automático)
+export async function avancarFaseMataMata(campeonatoId: number, faseAtual: number) {
+  // 1. Busca os jogos da fase atual JÁ FINALIZADOS e ordenados por ID (para manter a chave)
+  const { data: jogos, error } = await supabase
+    .from('partidas')
+    .select('*, casa:times!partidas_time_casa_fkey(*), visitante:times!partidas_time_visitante_fkey(*)')
+    .eq('campeonato_id', campeonatoId)
+    .eq('rodada', faseAtual)
+    .eq('status', 'finalizado')
+    .order('id', { ascending: true })
+
+  if (error) return { success: false, msg: error.message }
+  
+  // Verifica se todos os jogos da fase estão terminados
+  // (Você pode remover essa trava se quiser avançar parcialmente, mas não recomendo para chaves)
+  const { count } = await supabase
+    .from('partidas')
+    .select('*', { count: 'exact', head: true })
+    .eq('campeonato_id', campeonatoId)
+    .eq('rodada', faseAtual)
+  
+  if (jogos.length !== count) {
+    return { success: false, msg: "Todos os jogos da fase atual precisam estar finalizados!" }
+  }
+
+  if (jogos.length < 2) return { success: false, msg: "Fase final já atingida (apenas 1 jogo)." }
+
+  const classificados = []
+
+  // 2. Determina os vencedores
+  for (const jogo of jogos) {
+    if (jogo.placar_casa > jogo.placar_visitante) {
+      classificados.push(jogo.time_casa)
+    } else if (jogo.placar_visitante > jogo.placar_casa) {
+      classificados.push(jogo.time_visitante)
+    } else {
+      return { success: false, msg: `O jogo entre ${jogo.casa.nome} e ${jogo.visitante.nome} terminou empatado. Defina um vencedor manualmente (mude o placar).` }
+    }
+  }
+
+  // 3. Cria a próxima fase (Winner 1 vs Winner 2, Winner 3 vs Winner 4...)
+  const novasPartidas = []
+  const proximaRodada = faseAtual + 1
+
+  for (let i = 0; i < classificados.length; i += 2) {
+    // Se sobrar um time ímpar (ex: tinha 5 classificados), ele passa de graça (BYE) ou tratamos erro
+    if (i + 1 >= classificados.length) {
+       // Lógica de "Bye" (Passa direto) - Opcional, aqui cria um jogo contra ele mesmo pra indicar espera
+       // Ou você pode simplesmente não criar e avisar.
+       continue; 
+    }
+
+    novasPartidas.push({
+      campeonato_id: campeonatoId,
+      rodada: proximaRodada,
+      time_casa: classificados[i],
+      time_visitante: classificados[i+1],
+      status: 'agendado'
+    })
+  }
+
+  if (novasPartidas.length > 0) {
+    const { error: errInsert } = await supabase.from('partidas').insert(novasPartidas)
+    if (errInsert) return { success: false, msg: errInsert.message }
+    return { success: true, msg: `Próxima fase (${proximaRodada}ª) gerada com sucesso!` }
+  }
+
+  return { success: false, msg: "Erro ao gerar chaves." }
+}

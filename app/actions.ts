@@ -214,7 +214,7 @@ export async function buscarParciaisAoVivo(jogos: any[]) {
   return { success: true, jogos: jogosComParcial }
 }
 
-// Buscar Histórico Confronto Direto
+// Buscar Histórico Confronto Direto (Necessário para desempate)
 export async function buscarHistoricoConfrontoDireto(campeonatoId: number, timeIds: number[]) {
   const { data: jogos } = await supabase.from('partidas')
     .select('time_casa, time_visitante, placar_casa, placar_visitante')
@@ -426,7 +426,7 @@ export async function atualizarRodadaMataMata(campeonatoId: number, fase: number
   return { success: true, msg: `Pontos atualizados!${msgExtra}` };
 }
 
-// AUXILIAR (AGORA PRESENTE NO ARQUIVO)
+// Auxiliar
 async function atualizarJogoIndividual(jogo: any, rodadaCartola: number, headers: any) {
     if (!rodadaCartola || rodadaCartola <= 0) return;
     try {

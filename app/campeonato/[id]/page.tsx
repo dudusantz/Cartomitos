@@ -6,6 +6,8 @@ import Link from 'next/link'
 import { supabase } from "@/lib/supabase"
 // Importamos a nova função aqui:
 import { buscarTabela, listarPartidas, buscarParciaisAoVivo, buscarHistoricoConfrontoDireto } from "../../actions" 
+// Importamos o componente visual do Bracket
+import MataMataBracket from '@/app/components/MataMataBracket'
 
 // Definição de Tipo para o Time na Tabela
 type TimeClassificacao = {
@@ -39,7 +41,7 @@ export default function PaginaPublica() {
   const [tabelaOriginal, setTabelaOriginal] = useState<TimeClassificacao[]>([]) 
   const [partidas, setPartidas] = useState<any[]>([])
   
-  // Controle de Rodadas
+  // Controle de Rodadas (Pontos Corridos)
   const [rodadaReal, setRodadaReal] = useState(1) 
   const [rodadaView, setRodadaView] = useState(1) 
   const [totalRodadas, setTotalRodadas] = useState(38)
@@ -48,120 +50,93 @@ export default function PaginaPublica() {
   const [loadingAoVivo, setLoadingAoVivo] = useState(false)
   const [modoAoVivo, setModoAoVivo] = useState(false)
 
-  // Função para aplicar o Confronto Direto
+  // --- LÓGICA PONTOS CORRIDOS (CONFRONTO DIRETO) ---
   const aplicarConfrontoDireto = useCallback(async (tabelaInicial: TimeClassificacao[]) => {
     if (!campeonatoId) return tabelaInicial;
 
     let tabelaFinal: TimeClassificacao[] = [];
     let i = 0;
 
-    // Iterar pela tabela para encontrar grupos empatados
     while (i < tabelaInicial.length) {
       const timeAtual = tabelaInicial[i];
       let grupoEmpatado: TimeClassificacao[] = [timeAtual];
       let j = i + 1;
 
-      // 1. Encontrar todos os times com empate rigoroso nos 4 critérios
       while (j < tabelaInicial.length) {
         const proximoTime = tabelaInicial[j];
-        
-        // Critério de empate: Pontos, Vitórias, Saldo de Pontos, Pontos Pró
         const empatado = (
           timeAtual.pts === proximoTime.pts &&
           timeAtual.v === proximoTime.v &&
           timeAtual.sp === proximoTime.sp &&
           timeAtual.pp === proximoTime.pp
         );
-
-        if (empatado) {
-          grupoEmpatado.push(proximoTime);
-        } else {
-          break; // O critério de desempate primário mudou
-        }
+        if (empatado) grupoEmpatado.push(proximoTime);
+        else break; 
         j++;
       }
 
-      // 2. Se o grupo tiver 2 ou mais times, aplicar o H2H
       if (grupoEmpatado.length >= 2) {
         const timeIds = grupoEmpatado.map(t => t.time_id);
         const jogosH2H = await buscarHistoricoConfrontoDireto(campeonatoId, timeIds);
-        
-        // Estrutura para calcular pontos no H2H
         const pontosH2H: { [key: number]: number } = {};
         timeIds.forEach(id => pontosH2H[id] = 0);
 
-        // 3. Calcular pontos H2H
         jogosH2H.forEach(jogo => {
-          if (jogo.placar_casa > jogo.placar_visitante) {
-            pontosH2H[jogo.time_casa] += 3;
-          } else if (jogo.placar_visitante > jogo.placar_casa) {
-            pontosH2H[jogo.time_visitante] += 3;
-          } else if (jogo.placar_casa === jogo.placar_visitante && jogo.placar_casa !== null) {
+          if (jogo.placar_casa > jogo.placar_visitante) pontosH2H[jogo.time_casa] += 3;
+          else if (jogo.placar_visitante > jogo.placar_casa) pontosH2H[jogo.time_visitante] += 3;
+          else if (jogo.placar_casa === jogo.placar_visitante && jogo.placar_casa !== null) {
             pontosH2H[jogo.time_casa] += 1;
             pontosH2H[jogo.time_visitante] += 1;
           }
         });
 
-        // 4. Reordenar o grupo Empatado usando os pontos H2H
         grupoEmpatado.sort((a, b) => {
           const h2ha = pontosH2H[a.time_id] || 0;
           const h2hb = pontosH2H[b.time_id] || 0;
-
-          // Se pontos H2H desempata, usa H2H
           if (h2hb !== h2ha) return h2hb - h2ha;
-
-          // Se H2H empata (ou não houve confronto), mantém a ordem inicial (que já é PTS/V/SP/PP)
-          // Isso garante que para grupos de 3+ times, se o H2H falhar, a ordem anterior se mantém
           return 0; 
         });
-
         tabelaFinal.push(...grupoEmpatado);
       } else {
-        // Apenas um time, sem empate
         tabelaFinal.push(timeAtual);
       }
-      
-      i = j; // Pula para o próximo time que não estava no grupo
+      i = j; 
     }
-
     return tabelaFinal;
-  }, [campeonatoId]); // Garante que a função só mude se o ID mudar
+  }, [campeonatoId]); 
 
   const carregarTudo = useCallback(async () => {
     // 1. Liga
     const { data: dadosLiga } = await supabase.from('campeonatos').select('*').eq('id', campeonatoId).single()
     setLiga(dadosLiga)
 
-    // 2. Tabela (Já ordenada por PTS, V, SP, PP no 'app/actions.ts')
-    const dadosTabela = await buscarTabela(campeonatoId) as TimeClassificacao[]
-    const tabelaFormatada = dadosTabela.map((t: any, index: number) => ({ ...t, pos_original: index + 1, variacao: 0 }))
-    
-    // 3. Aplica o Confronto Direto
-    const tabelaComH2H = await aplicarConfrontoDireto(tabelaFormatada);
-    
-    // 4. Finaliza a Tabela
-    // Recalcula a posição original após o desempate final
-    const tabelaFinal = tabelaComH2H.map((t, index) => ({
-      ...t,
-      pos_original: index + 1 // Atualiza a posição final para o cálculo de variação
-    }))
-
-    setTabela(tabelaFinal)
-    setTabelaOriginal(tabelaFinal) // Tabela original com H2H aplicado
-    
-    // 5. Jogos
+    // 2. Jogos (Comuns a ambos)
     const dadosJogos = await listarPartidas(campeonatoId)
     setPartidas(dadosJogos)
 
-    if (dadosJogos.length > 0) {
-      const maxRodada = Math.max(...dadosJogos.map((j: any) => j.rodada))
-      setTotalRodadas(maxRodada)
-      
-      const proximoJogo = dadosJogos.find((j: any) => j.status !== 'finalizado')
-      let rodadaParaExibir = proximoJogo ? proximoJogo.rodada : maxRodada
-      
-      setRodadaReal(rodadaParaExibir)
-      setRodadaView(rodadaParaExibir)
+    // 3. Se for Pontos Corridos, carrega a tabela
+    if (dadosLiga?.tipo === 'pontos_corridos') {
+        const dadosTabela = await buscarTabela(campeonatoId) as TimeClassificacao[]
+        const tabelaFormatada = dadosTabela.map((t: any, index: number) => ({ ...t, pos_original: index + 1, variacao: 0 }))
+        
+        const tabelaComH2H = await aplicarConfrontoDireto(tabelaFormatada);
+        
+        const tabelaFinal = tabelaComH2H.map((t, index) => ({
+          ...t,
+          pos_original: index + 1 
+        }))
+
+        setTabela(tabelaFinal)
+        setTabelaOriginal(tabelaFinal) 
+
+        if (dadosJogos.length > 0) {
+          const maxRodada = Math.max(...dadosJogos.map((j: any) => j.rodada))
+          setTotalRodadas(maxRodada)
+          const proximoJogo = dadosJogos.find((j: any) => j.status !== 'finalizado')
+          let rodadaParaExibir = proximoJogo ? proximoJogo.rodada : maxRodada
+          setRodadaReal(rodadaParaExibir)
+          setRodadaView(rodadaParaExibir)
+        }
     }
   }, [campeonatoId, aplicarConfrontoDireto])
 
@@ -169,14 +144,11 @@ export default function PaginaPublica() {
     if (id) carregarTudo()
   }, [id, carregarTudo])
 
-  // --- LÓGICA AO VIVO (Não mudou) ---
+  // --- LÓGICA AO VIVO ---
   function recalcularTabelaComJogos(jogosLive: any[]) {
-    // ... (A lógica de recalcular tabela ao vivo permanece a mesma, pois 
-    // ela reordena a partir do zero usando os critérios principais)
     let novaTabela = JSON.parse(JSON.stringify(tabelaOriginal))
 
     jogosLive.forEach(jogo => {
-      // ... (cálculo de pontos) ...
       if (jogo.placar_casa === null || jogo.placar_visitante === null) return
 
       const timeCasa = novaTabela.find((t: any) => t.time_id === jogo.time_casa)
@@ -199,31 +171,39 @@ export default function PaginaPublica() {
       }
     })
 
-    // Reordenar a nova tabela com os critérios principais
     novaTabela.sort((a: any, b: any) => b.pts - a.pts || b.v - a.v || b.sp - a.sp || b.pp - a.pp)
-    
-    // NOTA: Para o "Modo Ao Vivo", o H2H não é re-calculado em tempo real, 
-    // pois exigiria um novo fetch de H2H a cada atualização. O comportamento 
-    // padrão dos apps é usar os critérios principais no modo parcial.
     
     novaTabela = novaTabela.map((t: any, index: number) => ({
       ...t,
       variacao: t.pos_original - (index + 1)
     }))
-
     setTabela(novaTabela)
   }
 
   async function ativarModoAoVivo() {
     if (modoAoVivo) {
       setModoAoVivo(false)
-      // Volta para a tabela original com H2H
-      setTabela(tabelaOriginal)
+      // Volta ao estado original
+      if (liga.tipo === 'pontos_corridos') {
+         setTabela(tabelaOriginal)
+      }
+      // Recarrega jogos do banco para garantir
+      const dadosJogos = await listarPartidas(campeonatoId)
+      setPartidas(dadosJogos)
       return
     }
 
     setLoadingAoVivo(true)
-    const jogosParaCalcular = partidas.filter(j => Number(j.rodada) === rodadaView)
+    
+    // Se for Mata-Mata, busca todos os jogos não finalizados/bye. 
+    // Se for Pontos Corridos, busca só da rodada atual.
+    let jogosParaCalcular = [];
+    if (liga.tipo === 'mata_mata') {
+         jogosParaCalcular = partidas.filter(j => j.status !== 'finalizado' && j.status !== 'bye');
+    } else {
+         jogosParaCalcular = partidas.filter(j => Number(j.rodada) === rodadaView);
+    }
+
     const res = await buscarParciaisAoVivo(jogosParaCalcular)
     
     if (res.success) {
@@ -233,8 +213,11 @@ export default function PaginaPublica() {
       })
       setPartidas(novasPartidas)
       
-      const jogosDaRodadaLive = novasPartidas.filter(j => Number(j.rodada) === rodadaView)
-      recalcularTabelaComJogos(jogosDaRodadaLive)
+      // Se for pontos corridos, recalcula a tabela
+      if (liga.tipo === 'pontos_corridos') {
+          const jogosDaRodadaLive = novasPartidas.filter(j => Number(j.rodada) === rodadaView)
+          recalcularTabelaComJogos(jogosDaRodadaLive)
+      }
       
       setModoAoVivo(true)
     }
@@ -244,7 +227,7 @@ export default function PaginaPublica() {
   const jogosDaRodada = partidas.filter(jogo => Number(jogo.rodada) === rodadaView)
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-cartola-gold selection:text-black">
+    <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-cartola-gold selection:text-black pb-20">
       
       {/* --- CABEÇALHO --- */}
       <div className="relative border-b border-gray-800/60 pt-10 pb-8 px-6 bg-gradient-to-b from-gray-900/50 to-black">
@@ -257,7 +240,7 @@ export default function PaginaPublica() {
             <div>
               <div className="flex items-center gap-3 mb-1">
                 <span className="text-cartola-gold font-bold tracking-[0.2em] text-[10px] uppercase">
-                  Campeonato Oficial
+                   {liga?.tipo === 'mata_mata' ? 'Torneio Mata-Mata' : 'Pontos Corridos'}
                 </span>
               </div>
               <h1 className="text-5xl md:text-7xl font-black text-white tracking-tighter">
@@ -266,14 +249,20 @@ export default function PaginaPublica() {
             </div>
             
             <div className="flex items-center gap-4 text-right">
+                {/* Botão Ao Vivo no Header para Mata-Mata (ou visível sempre) */}
+                {liga?.tipo === 'mata_mata' && (
+                    <button 
+                        onClick={ativarModoAoVivo}
+                        disabled={loadingAoVivo}
+                        className={`px-6 py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition flex items-center justify-center gap-2 border ${modoAoVivo ? 'bg-red-900/50 text-red-300 hover:bg-red-900 hover:text-white border-red-800' : 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white border-transparent shadow-lg shadow-green-900/20'}`}
+                    >
+                        {loadingAoVivo ? '...' : modoAoVivo ? 'Sair do Ao Vivo' : '⚡ Ver Ao Vivo'}
+                    </button>
+                )}
+
               <div>
                 <p className="text-gray-600 text-[10px] font-bold uppercase tracking-wider">Temporada</p>
                 <p className="text-xl font-bold text-white">{liga?.ano}</p>
-              </div>
-              <div className="h-8 w-px bg-gray-800"></div>
-              <div>
-                <p className="text-gray-600 text-[10px] font-bold uppercase tracking-wider">Rodada Atual</p>
-                <p className="text-xl font-bold text-cartola-gold">#{rodadaReal}</p>
               </div>
             </div>
           </div>
@@ -281,6 +270,21 @@ export default function PaginaPublica() {
       </div>
 
       <main className="max-w-7xl mx-auto p-4 md:p-8 relative z-20">
+        
+        {/* ================= VISUALIZAÇÃO MATA-MATA ================= */}
+        {liga?.tipo === 'mata_mata' ? (
+             <div className="mt-8">
+                {partidas.length === 0 ? (
+                    <div className="text-center py-20 bg-[#111] border border-gray-800 border-dashed rounded-xl">
+                        <p className="text-gray-500">O chaveamento ainda não foi definido pelo administrador.</p>
+                    </div>
+                ) : (
+                    <MataMataBracket partidas={partidas} />
+                )}
+             </div>
+        ) : (
+        
+        /* ================= VISUALIZAÇÃO PONTOS CORRIDOS ================= */
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
           {/* === COLUNA ESQUERDA: TABELA === */}
@@ -391,7 +395,7 @@ export default function PaginaPublica() {
                 </div>
               </div>
 
-              {/* BOTÃO AO VIVO */}
+              {/* BOTÃO AO VIVO (PONTOS CORRIDOS) */}
               <button 
                 onClick={ativarModoAoVivo}
                 disabled={loadingAoVivo}
@@ -426,6 +430,7 @@ export default function PaginaPublica() {
           </div>
 
         </div>
+        )}
       </main>
     </div>
   )

@@ -279,7 +279,7 @@ export default function PaginaPublica() {
                         <p className="text-gray-500">O chaveamento ainda não foi definido pelo administrador.</p>
                     </div>
                 ) : (
-                    <MataMataBracket partidas={partidas} />
+                    <MataMataBracket partidas={partidas} modoAoVivo={modoAoVivo} />
                 )}
              </div>
         ) : (

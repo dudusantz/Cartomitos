@@ -214,7 +214,7 @@ export async function buscarParciaisAoVivo(jogos: any[]) {
   return { success: true, jogos: jogosComParcial }
 }
 
-// Buscar Histórico Confronto Direto (Necessário para desempate)
+// Buscar Histórico Confronto Direto
 export async function buscarHistoricoConfrontoDireto(campeonatoId: number, timeIds: number[]) {
   const { data: jogos } = await supabase.from('partidas')
     .select('time_casa, time_visitante, placar_casa, placar_visitante')
@@ -395,7 +395,7 @@ export async function atualizarRodadaMataMata(campeonatoId: number, fase: number
     .eq('campeonato_id', campeonatoId)
     .eq('rodada', fase)
     .neq('status', 'bye')
-    .order('id', { ascending: true }); // <--- CORREÇÃO DE ORDEM
+    .order('id', { ascending: true });
 
   if (!partidas) return { success: false, msg: "Sem jogos." };
 
@@ -408,8 +408,7 @@ export async function atualizarRodadaMataMata(campeonatoId: number, fase: number
   });
 
   for (const [key, jogos] of confrontos) {
-      const jogoIda = jogos[0];
-      const jogoVolta = jogos[1];
+      const jogoIda = jogos[0]; const jogoVolta = jogos[1];
       if (jogoIda) await atualizarJogoIndividual(jogoIda, rodadaIda, headersGlobo);
       if (jogoVolta) await atualizarJogoIndividual(jogoVolta, rodadaVolta, headersGlobo);
   }
@@ -426,7 +425,6 @@ export async function atualizarRodadaMataMata(campeonatoId: number, fase: number
   return { success: true, msg: `Pontos atualizados!${msgExtra}` };
 }
 
-// Auxiliar
 async function atualizarJogoIndividual(jogo: any, rodadaCartola: number, headers: any) {
     if (!rodadaCartola || rodadaCartola <= 0) return;
     try {
@@ -441,4 +439,67 @@ async function atualizarJogoIndividual(jogo: any, rodadaCartola: number, headers
             pontos_reais_visitante: ptsVis, placar_visitante: Math.floor(ptsVis), status: 'finalizado'
         }).eq('id', jogo.id);
     } catch (e) { console.error("Erro ao atualizar jogo", e); }
+}
+
+// ==============================================================================
+// 4. LÓGICA DE COPA (GRUPOS + MATA-MATA)
+// ==============================================================================
+
+// 1. SORTEIO DE GRUPOS
+export async function gerarFaseGrupos(campeonatoId: number, numGrupos: number, potes: number[][]) {
+  if (potes.length === 0 || potes[0].length === 0) return { success: false, msg: "Potes vazios." };
+  
+  await zerarJogos(campeonatoId);
+  await supabase.from('classificacao').update({ grupo: null, fase_atual: 'fase_grupos' }).eq('campeonato_id', campeonatoId);
+
+  const letrasGrupos = ['A','B','C','D','E','F','G','H'];
+  const partidasParaSalvar = [];
+
+  // Sorteio
+  for (let i = 0; i < potes.length; i++) {
+    const poteAtual = potes[i].sort(() => Math.random() - 0.5);
+    for (let g = 0; g < numGrupos; g++) {
+      const timeId = poteAtual[g];
+      if (timeId) {
+        await supabase.from('classificacao').update({ grupo: letrasGrupos[g] }).eq('campeonato_id', campeonatoId).eq('time_id', timeId);
+      }
+    }
+  }
+
+  // Gerar Jogos (Round Robin)
+  const timesClassificados = await listarTimesDoCampeonato(campeonatoId);
+  
+  for (let g = 0; g < numGrupos; g++) {
+    const grupoLetra = letrasGrupos[g];
+    const timesDoGrupo = timesClassificados.filter((t:any) => t.grupo === grupoLetra);
+    const idsNoGrupo = timesDoGrupo.map((t:any) => t.time_id);
+    const numTimesGrupo = idsNoGrupo.length;
+
+    if (numTimesGrupo < 2) continue;
+
+    for (let i = 0; i < numTimesGrupo; i++) {
+      for (let j = i + 1; j < numTimesGrupo; j++) {
+        partidasParaSalvar.push({ campeonato_id: campeonatoId, rodada: 1, time_casa: idsNoGrupo[i], time_visitante: idsNoGrupo[j], status: 'agendado' });
+        partidasParaSalvar.push({ campeonato_id: campeonatoId, rodada: 2, time_casa: idsNoGrupo[j], time_visitante: idsNoGrupo[i], status: 'agendado' });
+      }
+    }
+  }
+
+  const { error } = await supabase.from('partidas').insert(partidasParaSalvar);
+  if (error) return { success: false, msg: error.message };
+  return { success: true, msg: "Grupos sorteados e jogos gerados!" };
+}
+
+// 2. BUSCAR TABELA POR GRUPO (Recuperada)
+export async function buscarTabelaGrupos(campeonatoId: number) {
+  const { data } = await supabase.from('classificacao').select('*, times(*)')
+    .eq('campeonato_id', campeonatoId).not('grupo', 'is', null)
+    .order('grupo', { ascending: true }).order('pts', { ascending: false }).order('v', { ascending: false }).order('sp', { ascending: false });
+
+  const grupos: any = {};
+  data?.forEach((time: any) => {
+    if (!grupos[time.grupo]) grupos[time.grupo] = [];
+    grupos[time.grupo].push(time);
+  });
+  return grupos;
 }

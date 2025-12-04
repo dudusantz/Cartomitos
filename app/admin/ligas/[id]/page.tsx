@@ -228,67 +228,67 @@ export default function GerenciarLiga() {
         </div>
       </div>
 
-      {/* Visualização dos Grupos (Tabela Detalhada) */}
+      {/* ABA 1: FASE DE GRUPOS (COPA) */}
+      {tabAtiva === 'grupos' && (
+        <div className="animate-fadeIn space-y-8">
+            <div className="bg-gray-900 p-6 rounded-xl border border-gray-800 flex flex-wrap gap-6 items-end">
+                <div>
+                    <label className="block text-xs text-gray-500 mb-2 uppercase font-bold">Nº de Grupos</label>
+                    <select className="bg-black p-3 rounded w-40 border border-gray-700 text-white font-bold" value={numGrupos} onChange={e => setNumGrupos(Number(e.target.value))}>
+                        <option value={2}>2 Grupos (A-B)</option>
+                        <option value={4}>4 Grupos (A-D)</option>
+                        <option value={8}>8 Grupos (A-H)</option>
+                    </select>
+                </div>
+                <div className="flex-1">
+                    <p className="text-xs text-gray-500 mb-2 uppercase font-bold">Info do Sorteio</p>
+                    <div className="text-sm text-gray-400 bg-black/50 p-3 rounded border border-gray-800">
+                        {timesLiga.length > 0 ? (
+                            <>Serão <strong>{timesLiga.length / numGrupos} times</strong> por grupo. Distribuição baseada nos Potes (Ranking).</>
+                        ) : "Adicione times primeiro."}
+                    </div>
+                </div>
+                <div className="flex gap-3">
+                    <div className="flex gap-2">
+                        <input type="number" placeholder="Ida" className="bg-black p-3 rounded w-20 border border-gray-700 text-center" value={rodadaIda} onChange={e => setRodadaIda(e.target.value)} />
+                        <input type="number" placeholder="Volta" className="bg-black p-3 rounded w-20 border border-gray-700 text-center" value={rodadaVolta} onChange={e => setRodadaVolta(e.target.value)} />
+                    </div>
+                    <button onClick={handleAtualizarRodada} className="bg-blue-600 hover:bg-blue-500 px-4 py-3 rounded font-bold text-sm shadow-lg">Atualizar Pontos</button>
+                </div>
+                <button onClick={handleSortearGrupos} className="bg-yellow-600 hover:bg-yellow-500 text-black font-bold py-3 px-6 rounded shadow-lg flex items-center gap-2">🎲 Realizar Sorteio</button>
+            </div>
+            
+            {/* Lista dos Grupos */}
             {Object.keys(grupos).length === 0 ? (
                 <div className="text-center py-20 border border-gray-800 border-dashed rounded-2xl bg-[#111]">
                     <p className="text-gray-500">Nenhum grupo sorteado. Configure acima e clique em Sorteio.</p>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                     {Object.keys(grupos).sort().map(letra => (
                         <div key={letra} className="bg-[#111] border border-gray-800 rounded-xl overflow-hidden shadow-xl">
-                            {/* Cabeçalho do Grupo */}
-                            <div className="bg-gradient-to-r from-gray-800 to-gray-900 px-4 py-3 font-black text-center border-b border-gray-700 flex justify-between items-center">
-                                <span className="text-cartola-gold tracking-widest">GRUPO {letra}</span>
-                            </div>
-                            
-                            {/* Tabela do Grupo */}
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-left text-[10px] md:text-xs">
-                                    <thead className="bg-black/40 text-gray-500 uppercase font-bold tracking-wider border-b border-gray-800">
-                                        <tr>
-                                            <th className="p-3 w-8 text-center">#</th>
-                                            <th className="p-3">Time</th>
-                                            <th className="p-3 text-center text-white">PTS</th>
-                                            <th className="p-3 text-center">J</th>
-                                            <th className="p-3 text-center">V</th>
-                                            <th className="p-3 text-center hidden sm:table-cell">E</th>
-                                            <th className="p-3 text-center hidden sm:table-cell">D</th>
-                                            <th className="p-3 text-center hidden md:table-cell">PP</th>
-                                            <th className="p-3 text-center hidden md:table-cell">PC</th>
-                                            <th className="p-3 text-center font-bold">SP</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-800">
-                                        {grupos[letra].map((time: any, idx: number) => (
-                                            <tr key={time.id} className="hover:bg-white/5 transition group">
-                                                <td className={`p-3 text-center font-black ${idx < 2 ? 'text-green-500' : 'text-gray-600'}`}>
-                                                    {idx + 1}
-                                                </td>
-                                                <td className="p-3 flex items-center gap-2 min-w-[140px]">
-                                                    <img src={time.times.escudo} className="w-6 h-6 object-contain" />
-                                                    <div className="flex flex-col">
-                                                        <span className="font-bold text-gray-200 truncate w-24 md:w-32">{time.times.nome}</span>
-                                                        <span className="text-[8px] text-gray-600 uppercase">{time.times.nome_cartola}</span>
-                                                    </div>
-                                                </td>
-                                                <td className="p-3 text-center font-black text-white bg-white/5">{time.pts}</td>
-                                                <td className="p-3 text-center text-gray-400">{time.pj}</td>
-                                                <td className="p-3 text-center text-gray-400">{time.v}</td>
-                                                <td className="p-3 text-center text-gray-500 hidden sm:table-cell">{time.e}</td>
-                                                <td className="p-3 text-center text-gray-500 hidden sm:table-cell">{time.d}</td>
-                                                <td className="p-3 text-center text-gray-500 font-mono hidden md:table-cell">{time.pp}</td>
-                                                <td className="p-3 text-center text-gray-500 font-mono hidden md:table-cell">{time.pc}</td>
-                                                <td className="p-3 text-center font-bold text-gray-300">{time.sp}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                            <div className="bg-gray-800/50 px-4 py-3 font-black text-center border-b border-gray-800">GRUPO {letra}</div>
+                            <div className="divide-y divide-gray-800">
+                                {grupos[letra].map((time: any, idx: number) => (
+                                    <div key={time.id} className="p-3 flex items-center justify-between hover:bg-white/5">
+                                        <div className="flex items-center gap-2">
+                                            <span className={`font-mono font-bold text-sm w-5 text-center ${idx < 2 ? 'text-green-400' : 'text-gray-600'}`}>{idx + 1}º</span>
+                                            <img src={time.times.escudo} className="w-6 h-6 object-contain" />
+                                            <span className="text-xs font-bold text-gray-200 truncate w-24">{time.times.nome}</span>
+                                        </div>
+                                        <div className="text-right font-mono text-xs text-gray-400">
+                                            <span className="font-bold text-white mr-2">{time.pts}p</span>
+                                            <span>{time.sp}S</span>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
                         </div>
                     ))}
                 </div>
             )}
+        </div>
+      )}
 
       {/* ABA 2: MATA-MATA (BRACKET) */}
       {tabAtiva === 'jogos' && (

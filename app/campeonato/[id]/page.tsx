@@ -1,437 +1,460 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { supabase } from "@/lib/supabase"
-// Importamos a nova função aqui:
-import { buscarTabela, listarPartidas, buscarParciaisAoVivo, buscarHistoricoConfrontoDireto } from "../../actions" 
-// Importamos o componente visual do Bracket
+import { useState, useEffect } from 'react'
+import { useParams } from 'next/navigation'
+import toast from 'react-hot-toast'
+import { 
+  adicionarTimeAoCampeonato, listarTimesDoCampeonato, listarTodosTimes, listarPartidas,
+  zerarJogos, removerTimeDaLiga, 
+  gerarMataMataInteligente, avancarFaseMataMata, atualizarRodadaMataMata, atualizarPlacarManual,
+  sortearGrupos, gerarJogosFaseGrupos, buscarTabelaGrupos, atualizarRodadaGrupos, gerarMataMataCopa,
+  excluirMataMata
+} from '../../../actions' 
+import { supabase } from '@/lib/supabase'
 import MataMataBracket from '@/app/components/MataMataBracket'
+import ModalConfirmacao from '@/app/components/ModalConfirmacao'
 
-// Definição de Tipo para o Time na Tabela
-type TimeClassificacao = {
-  id: number;
-  time_id: number;
-  pts: number;
-  v: number;
-  e: number;
-  d: number;
-  pp: number;
-  pc: number;
-  sp: number;
-  pj: number;
-  aproveitamento: number;
-  pos_original: number;
-  variacao: number;
-  times: {
-    escudo: string;
-    nome: string;
-    nome_cartola: string;
-  };
-};
-
-export default function PaginaPublica() {
+export default function GerenciarLiga() {
   const { id } = useParams()
   const campeonatoId = Number(id)
   
-  // Dados
+  // DADOS
   const [liga, setLiga] = useState<any>(null)
-  const [tabela, setTabela] = useState<TimeClassificacao[]>([])
-  const [tabelaOriginal, setTabelaOriginal] = useState<TimeClassificacao[]>([]) 
+  const [timesLiga, setTimesLiga] = useState<any[]>([]) 
+  const [todosTimes, setTodosTimes] = useState<any[]>([])
   const [partidas, setPartidas] = useState<any[]>([])
+  const [grupos, setGrupos] = useState<any>({}) 
   
-  // Controle de Rodadas (Pontos Corridos)
-  const [rodadaReal, setRodadaReal] = useState(1) 
-  const [rodadaView, setRodadaView] = useState(1) 
-  const [totalRodadas, setTotalRodadas] = useState(38)
+  // UI
+  const [tabAtiva, setTabAtiva] = useState<'jogos' | 'times' | 'sorteio' | 'grupos'>('jogos')
+  const [selecionadoId, setSelecionadoId] = useState('')
+  const [menuAberto, setMenuAberto] = useState(false)
+  const [loading, setLoading] = useState(false)
 
-  // Ao Vivo
-  const [loadingAoVivo, setLoadingAoVivo] = useState(false)
-  const [modoAoVivo, setModoAoVivo] = useState(false)
+  // MODALS
+  const [modalOpen, setModalOpen] = useState(false)
+  const [modalConfig, setModalConfig] = useState({ titulo: '', mensagem: '', tipo: 'info' as any, onConfirm: () => {} })
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [tempCasa, setTempCasa] = useState('')
+  const [tempVisitante, setTempVisitante] = useState('')
 
-  // --- LÓGICA PONTOS CORRIDOS (CONFRONTO DIRETO) ---
-  const aplicarConfrontoDireto = useCallback(async (tabelaInicial: TimeClassificacao[]) => {
-    if (!campeonatoId) return tabelaInicial;
+  // RODADAS
+  const [faseAtual, setFaseAtual] = useState('1')
+  const [rodadaCartolaInput, setRodadaCartolaInput] = useState('')
+  const [rodadaView, setRodadaView] = useState(1)
+  const [rodadaIda, setRodadaIda] = useState('')
+  const [rodadaVolta, setRodadaVolta] = useState('')
 
-    let tabelaFinal: TimeClassificacao[] = [];
-    let i = 0;
+  function abrirConfirmacao(titulo: string, msg: string, acao: () => void, tipo: 'info'|'perigo'|'sucesso' = 'info') {
+    setModalConfig({ titulo, mensagem: msg, onConfirm: () => { acao(); setModalOpen(false); }, tipo })
+    setModalOpen(true)
+  }
 
-    while (i < tabelaInicial.length) {
-      const timeAtual = tabelaInicial[i];
-      let grupoEmpatado: TimeClassificacao[] = [timeAtual];
-      let j = i + 1;
+  useEffect(() => { if (id) carregarDados() }, [id])
 
-      while (j < tabelaInicial.length) {
-        const proximoTime = tabelaInicial[j];
-        const empatado = (
-          timeAtual.pts === proximoTime.pts &&
-          timeAtual.v === proximoTime.v &&
-          timeAtual.sp === proximoTime.sp &&
-          timeAtual.pp === proximoTime.pp
-        );
-        if (empatado) grupoEmpatado.push(proximoTime);
-        else break; 
-        j++;
-      }
-
-      if (grupoEmpatado.length >= 2) {
-        const timeIds = grupoEmpatado.map(t => t.time_id);
-        const jogosH2H = await buscarHistoricoConfrontoDireto(campeonatoId, timeIds);
-        const pontosH2H: { [key: number]: number } = {};
-        timeIds.forEach(id => pontosH2H[id] = 0);
-
-        jogosH2H.forEach(jogo => {
-          if (jogo.placar_casa > jogo.placar_visitante) pontosH2H[jogo.time_casa] += 3;
-          else if (jogo.placar_visitante > jogo.placar_casa) pontosH2H[jogo.time_visitante] += 3;
-          else if (jogo.placar_casa === jogo.placar_visitante && jogo.placar_casa !== null) {
-            pontosH2H[jogo.time_casa] += 1;
-            pontosH2H[jogo.time_visitante] += 1;
-          }
-        });
-
-        grupoEmpatado.sort((a, b) => {
-          const h2ha = pontosH2H[a.time_id] || 0;
-          const h2hb = pontosH2H[b.time_id] || 0;
-          if (h2hb !== h2ha) return h2hb - h2ha;
-          return 0; 
-        });
-        tabelaFinal.push(...grupoEmpatado);
-      } else {
-        tabelaFinal.push(timeAtual);
-      }
-      i = j; 
-    }
-    return tabelaFinal;
-  }, [campeonatoId]); 
-
-  const carregarTudo = useCallback(async () => {
-    // 1. Liga
+  async function carregarDados() {
     const { data: dadosLiga } = await supabase.from('campeonatos').select('*').eq('id', campeonatoId).single()
     setLiga(dadosLiga)
-
-    // 2. Jogos (Comuns a ambos)
-    const dadosJogos = await listarPartidas(campeonatoId)
-    setPartidas(dadosJogos)
-
-    // 3. Se for Pontos Corridos, carrega a tabela
-    if (dadosLiga?.tipo === 'pontos_corridos') {
-        const dadosTabela = await buscarTabela(campeonatoId) as TimeClassificacao[]
-        const tabelaFormatada = dadosTabela.map((t: any, index: number) => ({ ...t, pos_original: index + 1, variacao: 0 }))
-        
-        const tabelaComH2H = await aplicarConfrontoDireto(tabelaFormatada);
-        
-        const tabelaFinal = tabelaComH2H.map((t, index) => ({
-          ...t,
-          pos_original: index + 1 
-        }))
-
-        setTabela(tabelaFinal)
-        setTabelaOriginal(tabelaFinal) 
-
-        if (dadosJogos.length > 0) {
-          const maxRodada = Math.max(...dadosJogos.map((j: any) => j.rodada))
-          setTotalRodadas(maxRodada)
-          const proximoJogo = dadosJogos.find((j: any) => j.status !== 'finalizado')
-          let rodadaParaExibir = proximoJogo ? proximoJogo.rodada : maxRodada
-          setRodadaReal(rodadaParaExibir)
-          setRodadaView(rodadaParaExibir)
-        }
-    }
-  }, [campeonatoId, aplicarConfrontoDireto])
-
-  useEffect(() => {
-    if (id) carregarTudo()
-  }, [id, carregarTudo])
-
-  // --- LÓGICA AO VIVO ---
-  function recalcularTabelaComJogos(jogosLive: any[]) {
-    let novaTabela = JSON.parse(JSON.stringify(tabelaOriginal))
-
-    jogosLive.forEach(jogo => {
-      if (jogo.placar_casa === null || jogo.placar_visitante === null) return
-
-      const timeCasa = novaTabela.find((t: any) => t.time_id === jogo.time_casa)
-      const timeVisitante = novaTabela.find((t: any) => t.time_id === jogo.time_visitante)
-
-      if (timeCasa && timeVisitante) {
-        timeCasa.pj++; timeVisitante.pj++
-        timeCasa.pp += jogo.placar_casa; timeVisitante.pp += jogo.placar_visitante
-        timeCasa.pc += jogo.placar_visitante; timeVisitante.pc += jogo.placar_casa
-        timeCasa.sp += (jogo.placar_casa - jogo.placar_visitante)
-        timeVisitante.sp += (jogo.placar_visitante - jogo.placar_casa)
-
-        if (jogo.placar_casa > jogo.placar_visitante) {
-          timeCasa.pts += 3; timeCasa.v++; timeVisitante.d++
-        } else if (jogo.placar_visitante > jogo.placar_casa) {
-          timeVisitante.pts += 3; timeVisitante.v++; timeCasa.d++
-        } else {
-          timeCasa.pts += 1; timeCasa.e++; timeVisitante.pts += 1; timeVisitante.e++
-        }
-      }
-    })
-
-    novaTabela.sort((a: any, b: any) => b.pts - a.pts || b.v - a.v || b.sp - a.sp || b.pp - a.pp)
     
-    novaTabela = novaTabela.map((t: any, index: number) => ({
-      ...t,
-      variacao: t.pos_original - (index + 1)
-    }))
-    setTabela(novaTabela)
+    const _times = await listarTimesDoCampeonato(campeonatoId)
+    setTimesLiga(_times) 
+    
+    if (dadosLiga?.tipo === 'copa') {
+        const _grupos = await buscarTabelaGrupos(campeonatoId)
+        setGrupos(_grupos)
+        if (Object.keys(_grupos).length > 0 && tabAtiva === 'jogos') {
+             const temMataMata = await listarPartidas(campeonatoId).then(p => p.some((j:any) => j.rodada > 6));
+             if(!temMataMata) setTabAtiva('grupos');
+        }
+        else if (_times.length === 0) setTabAtiva('times')
+    }
+
+    setTodosTimes(await listarTodosTimes())
+    const jogos = await listarPartidas(campeonatoId)
+    setPartidas(jogos)
   }
 
-  async function ativarModoAoVivo() {
-    if (modoAoVivo) {
-      setModoAoVivo(false)
-      // Volta ao estado original
-      if (liga.tipo === 'pontos_corridos') {
-         setTabela(tabelaOriginal)
-      }
-      // Recarrega jogos do banco para garantir
-      const dadosJogos = await listarPartidas(campeonatoId)
-      setPartidas(dadosJogos)
-      return
-    }
+  const timesDisponiveis = todosTimes.filter(t => !timesLiga.some(p => p.time_id === t.id))
+  const timeSelecionadoObjeto = todosTimes.find(t => t.id.toString() === selecionadoId)
 
-    setLoadingAoVivo(true)
-    
-    // Se for Mata-Mata, busca todos os jogos não finalizados/bye. 
-    // Se for Pontos Corridos, busca só da rodada atual.
-    let jogosParaCalcular = [];
-    if (liga.tipo === 'mata_mata') {
-         jogosParaCalcular = partidas.filter(j => j.status !== 'finalizado' && j.status !== 'bye');
-    } else {
-         jogosParaCalcular = partidas.filter(j => Number(j.rodada) === rodadaView);
-    }
+  // CONFIGURAÇÃO DE RODADAS
+  const timesPorGrupo = Object.values(grupos)[0] ? (grupos[Object.keys(grupos)[0]] as any[]).length : 4; 
+  const maxRodadaGrupos = (timesPorGrupo - 1) * 2; 
+  const RODADAS_CORTE = maxRodadaGrupos > 0 ? maxRodadaGrupos : 6;
 
-    const res = await buscarParciaisAoVivo(jogosParaCalcular)
-    
-    if (res.success) {
-      const novasPartidas = partidas.map(p => {
-        const jogoAtualizado = res.jogos?.find((j: any) => j.id === p.id)
-        return jogoAtualizado || p
-      })
-      setPartidas(novasPartidas)
-      
-      // Se for pontos corridos, recalcula a tabela
-      if (liga.tipo === 'pontos_corridos') {
-          const jogosDaRodadaLive = novasPartidas.filter(j => Number(j.rodada) === rodadaView)
-          recalcularTabelaComJogos(jogosDaRodadaLive)
-      }
-      
-      setModoAoVivo(true)
-    }
-    setLoadingAoVivo(false)
+  const jogosDaRodadaView = partidas.filter(j => j.rodada === rodadaView);
+  const totalRodadasGrupos = partidas.length > 0 ? Math.max(...partidas.filter(p => p.rodada <= RODADAS_CORTE).map(p => p.rodada)) : 1;
+
+  const jogosMataMata = partidas
+    .filter(p => p.rodada > RODADAS_CORTE)
+    .map(p => ({
+      ...p,
+      rodada: p.rodada - RODADAS_CORTE 
+    }));
+  
+  const fasesDisponiveisMataMata = [...new Set(jogosMataMata.map(p => p.rodada))].sort((a, b) => a - b);
+
+  function getGrupoDoJogo(timeId: number) {
+    const time = timesLiga.find(t => t.time_id === timeId);
+    return time?.grupo || '?';
   }
 
-  const jogosDaRodada = partidas.filter(jogo => Number(jogo.rodada) === rodadaView)
+  // ACTIONS (Mantidas)
+  function moverTime(index: number, direcao: number) {
+    const novaLista = [...timesLiga]; const itemMovido = novaLista[index];
+    novaLista.splice(index, 1); novaLista.splice(index + direcao, 0, itemMovido);
+    setTimesLiga(novaLista);
+  }
+  async function handleAdicionarTime() {
+    if (!selecionadoId) return
+    const res = await adicionarTimeAoCampeonato(campeonatoId, Number(selecionadoId))
+    if (res.success) { setSelecionadoId(''); carregarDados(); toast.success("Adicionado!"); }
+  }
+  async function handleRemoverTime(timeId: number) {
+    abrirConfirmacao("Remover", "Confirma?", async () => {
+        const res = await removerTimeDaLiga(campeonatoId, timeId); if (res.success) { carregarDados(); toast.success("Removido") }
+    }, 'perigo')
+  }
+  async function handleZerarTudo() {
+    abrirConfirmacao("Resetar", "Apagar tudo?", async () => {
+        await zerarJogos(campeonatoId); carregarDados(); setGrupos({}); toast.success("Liga resetada.")
+    }, 'perigo')
+  }
+  async function salvarEdicao(jogoId: number) {
+    const res = await atualizarPlacarManual(jogoId, Number(tempCasa), Number(tempVisitante))
+    if (res.success) { setEditingId(null); carregarDados(); toast.success("Salvo!") }
+  }
+  function abrirEdicao(jogo: any) {
+    setEditingId(jogo.id); setTempCasa(String(jogo.placar_casa ?? 0)); setTempVisitante(String(jogo.placar_visitante ?? 0))
+  }
+  async function handleGerarComSeeds(aleatorio = false) {
+    abrirConfirmacao("Gerar Chave", "Gerar?", async () => {
+        const idsOrdenados = aleatorio ? [] : timesLiga.map(t => t.time_id); 
+        const res = await gerarMataMataInteligente(campeonatoId, idsOrdenados, aleatorio);
+        if (res.success) { toast.success(res.msg); carregarDados(); setTabAtiva('jogos'); } else { toast.error(res.msg); }
+    }, 'perigo')
+  }
+  async function handleAtualizarRodada() {
+    toast.loading("Atualizando..."); const res = await atualizarRodadaMataMata(campeonatoId, Number(faseAtual), Number(rodadaIda), Number(rodadaVolta));
+    toast.dismiss(); if (res.success) { toast.success(res.msg); carregarDados(); } else { toast.error(res.msg); }
+  }
+  async function handleSortearGrupos() {
+    if (timesLiga.length === 0) return toast.error("Adicione times!");
+    const numPotes = 4; const timesPorPote = Math.ceil(timesLiga.length / numPotes);
+    const potes = []; for (let i = 0; i < numPotes; i++) { const slice = timesLiga.slice(i * timesPorPote, (i + 1) * timesPorPote); potes.push(slice.map(t => t.time_id)); }
+    abrirConfirmacao("Sortear", "Distribuir?", async () => {
+        const res = await sortearGrupos(campeonatoId, numPotes, potes); if (res.success) { toast.success(res.msg); carregarDados(); setTabAtiva('grupos'); } else { toast.error(res.msg); }
+    }, 'info')
+  }
+  async function handleGerarRodadas() {
+     abrirConfirmacao("Gerar Rodadas", "Criar jogos?", async () => {
+        const res = await gerarJogosFaseGrupos(campeonatoId); if (res.success) { toast.success(res.msg); carregarDados(); setRodadaView(1); } else { toast.error(res.msg); }
+     }, 'sucesso')
+  }
+  async function handleAtualizarPontuacoesGrupos() {
+    if (!rodadaCartolaInput) return toast.error("Informe a rodada."); setLoading(true);
+    const res = await atualizarRodadaGrupos(campeonatoId, rodadaView, Number(rodadaCartolaInput));
+    if (res.success) { toast.success(res.msg); carregarDados(); } else { toast.error(res.msg); } setLoading(false);
+  }
+  async function handleGerarMataMataCopa() {
+      if (Object.keys(grupos).length === 0) return toast.error("Sem grupos.");
+      abrirConfirmacao("Gerar Mata-Mata", "Cruzar 1º vs 2º?", async () => {
+          const res = await gerarMataMataCopa(campeonatoId); if(res.success) { toast.success(res.msg); carregarDados(); } else { toast.error(res.msg); }
+      }, 'sucesso')
+  }
+  async function handleExcluirMataMata() {
+      abrirConfirmacao("Limpar Mata-Mata", "Apagar fase final?", async () => {
+          const rodadaInicio = RODADAS_CORTE + 1; const res = await excluirMataMata(campeonatoId, rodadaInicio);
+          if(res.success) { toast.success(res.msg); carregarDados(); } else { toast.error(res.msg); }
+      }, 'perigo')
+  }
+  async function handleAtualizarPontuacoesMataMata() {
+    if (!rodadaCartolaInput) return toast.error("Informe a rodada."); setLoading(true);
+    const rodadaReal = Number(faseAtual) + RODADAS_CORTE;
+    const res = await atualizarRodadaGrupos(campeonatoId, rodadaReal, Number(rodadaCartolaInput)); 
+    if (res.success) { toast.success(res.msg); carregarDados(); } else { toast.error(res.msg); } setLoading(false);
+  }
+  async function handleAvancarFase() {
+      const rodadaReal = Number(faseAtual) + RODADAS_CORTE;
+      abrirConfirmacao("Fechar Confronto", "Próxima fase?", async () => {
+          const res = await avancarFaseMataMata(campeonatoId, rodadaReal); if (res.success) { toast.success(res.msg); carregarDados(); } else { toast.error(res.msg); }
+      }, 'sucesso')
+  }
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-cartola-gold selection:text-black pb-20">
-      
-      {/* --- CABEÇALHO --- */}
-      <div className="relative border-b border-gray-800/60 pt-10 pb-8 px-6 bg-gradient-to-b from-gray-900/50 to-black">
-        <div className="max-w-7xl mx-auto relative z-10">
-          <Link href="/" className="inline-flex items-center gap-2 text-gray-500 hover:text-white text-xs font-bold uppercase tracking-widest transition mb-6">
-            <span>←</span> Voltar ao Início
-          </Link>
-          
-          <div className="flex flex-col md:flex-row justify-between items-end gap-4">
+    <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-yellow-500/30">
+      <ModalConfirmacao isOpen={modalOpen} titulo={modalConfig.titulo} mensagem={modalConfig.mensagem} onConfirm={modalConfig.onConfirm} onCancel={() => setModalOpen(false)} tipo={modalConfig.tipo} />
+
+      {editingId && (
+        <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 backdrop-blur-md animate-fadeIn">
+            <div className="bg-[#121212] p-8 rounded-2xl border border-gray-800 w-96 shadow-2xl shadow-black">
+                <h3 className="text-center font-bold text-white mb-6 text-xl uppercase tracking-widest">Editar Placar</h3>
+                <div className="flex justify-center items-center gap-4 mb-8">
+                    <input type="number" className="w-20 h-20 bg-black border border-gray-700 focus:border-yellow-600 text-4xl font-bold text-center rounded-xl outline-none transition text-white" value={tempCasa} onChange={e => setTempCasa(e.target.value)} />
+                    <span className="text-2xl text-gray-600 font-bold">X</span>
+                    <input type="number" className="w-20 h-20 bg-black border border-gray-700 focus:border-yellow-600 text-4xl font-bold text-center rounded-xl outline-none transition text-white" value={tempVisitante} onChange={e => setTempVisitante(e.target.value)} />
+                </div>
+                <div className="flex gap-3">
+                    <button onClick={() => setEditingId(null)} className="flex-1 bg-gray-800 hover:bg-gray-700 py-3 rounded-lg font-bold text-gray-400 transition">CANCELAR</button>
+                    <button onClick={() => salvarEdicao(editingId)} className="flex-1 bg-yellow-600 hover:bg-yellow-500 py-3 rounded-lg font-bold text-black shadow-lg shadow-yellow-900/20 transition">SALVAR</button>
+                </div>
+            </div>
+        </div>
+      )}
+
+      {/* HEADER */}
+      <div className="p-6 md:p-10 border-b border-gray-800 bg-[#080808]">
+          <div className="max-w-[1600px] mx-auto flex flex-col md:flex-row justify-between items-end gap-6">
             <div>
-              <div className="flex items-center gap-3 mb-1">
-                <span className="text-cartola-gold font-bold tracking-[0.2em] text-[10px] uppercase">
-                   {liga?.tipo === 'mata_mata' ? 'Torneio Mata-Mata' : 'Pontos Corridos'}
-                </span>
-              </div>
-              <h1 className="text-5xl md:text-7xl font-black text-white tracking-tighter">
-                {liga?.nome || '...'}
-              </h1>
+                <Link href="/admin/ligas" className="text-gray-500 text-xs font-bold hover:text-white transition mb-2 block uppercase tracking-wider">← Voltar</Link>
+                <h1 className="text-5xl font-black tracking-tighter text-white mb-2">{liga?.nome}</h1>
+                <span className="text-[10px] bg-gray-800 text-gray-300 border border-gray-700 px-3 py-1 rounded-full uppercase font-bold tracking-widest">{liga?.tipo?.replace('_', ' ')}</span>
             </div>
             
-            <div className="flex items-center gap-4 text-right">
-                {/* Botão Ao Vivo no Header para Mata-Mata (ou visível sempre) */}
-                {liga?.tipo === 'mata_mata' && (
-                    <button 
-                        onClick={ativarModoAoVivo}
-                        disabled={loadingAoVivo}
-                        className={`px-6 py-3 rounded-xl font-bold text-xs uppercase tracking-widest transition flex items-center justify-center gap-2 border ${modoAoVivo ? 'bg-red-900/50 text-red-300 hover:bg-red-900 hover:text-white border-red-800' : 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white border-transparent shadow-lg shadow-green-900/20'}`}
-                    >
-                        {loadingAoVivo ? '...' : modoAoVivo ? 'Sair do Ao Vivo' : '⚡ Ver Ao Vivo'}
-                    </button>
+            <div className="flex gap-2 bg-[#121212] p-1.5 rounded-xl border border-gray-800">
+                {liga?.tipo === 'copa' && (
+                    <button onClick={() => setTabAtiva('grupos')} className={`px-5 py-2.5 rounded-lg font-bold text-xs uppercase tracking-wider transition ${tabAtiva === 'grupos' ? 'bg-yellow-600 text-black shadow-lg' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}>Fase de Grupos</button>
                 )}
-
-              <div>
-                <p className="text-gray-600 text-[10px] font-bold uppercase tracking-wider">Temporada</p>
-                <p className="text-xl font-bold text-white">{liga?.ano}</p>
-              </div>
+                <button onClick={() => setTabAtiva('jogos')} className={`px-5 py-2.5 rounded-lg font-bold text-xs uppercase tracking-wider transition ${tabAtiva === 'jogos' ? 'bg-yellow-600 text-black shadow-lg' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}>{liga?.tipo === 'copa' ? 'Mata-Mata' : 'Chaveamento'}</button>
+                <button onClick={() => setTabAtiva('sorteio')} className={`px-5 py-2.5 rounded-lg font-bold text-xs uppercase tracking-wider transition ${tabAtiva === 'sorteio' ? 'bg-yellow-600 text-black shadow-lg' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}>Config</button>
+                <button onClick={() => setTabAtiva('times')} className={`px-5 py-2.5 rounded-lg font-bold text-xs uppercase tracking-wider transition ${tabAtiva === 'times' ? 'bg-yellow-600 text-black shadow-lg' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}>Times</button>
             </div>
           </div>
-        </div>
       </div>
 
-      <main className="max-w-7xl mx-auto p-4 md:p-8 relative z-20">
+      <div className="p-6 md:p-10 max-w-[1600px] mx-auto">
         
-        {/* ================= VISUALIZAÇÃO MATA-MATA ================= */}
-        {liga?.tipo === 'mata_mata' ? (
-             <div className="mt-8">
-                {partidas.length === 0 ? (
-                    <div className="text-center py-20 bg-[#111] border border-gray-800 border-dashed rounded-xl">
-                        <p className="text-gray-500">O chaveamento ainda não foi definido pelo administrador.</p>
+        {/* ABA 1: FASE DE GRUPOS (VISUAL AJUSTADO) */}
+        {tabAtiva === 'grupos' && (
+            <div className="animate-fadeIn">
+                {Object.keys(grupos).length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-32 border border-gray-800 border-dashed rounded-3xl bg-[#080808]">
+                        <span className="text-6xl mb-4 opacity-20">🎲</span>
+                        <h3 className="text-xl font-bold text-gray-300 mb-2">Sorteio Pendente</h3>
+                        <p className="text-gray-500 text-sm mb-6">Configure os potes na aba "Config" e realize o sorteio.</p>
+                        <button onClick={() => setTabAtiva('sorteio')} className="bg-gray-800 hover:bg-gray-700 text-white px-6 py-3 rounded-lg font-bold transition">Ir para Configuração</button>
                     </div>
                 ) : (
-                    <MataMataBracket partidas={partidas} modoAoVivo={modoAoVivo} />
-                )}
-             </div>
-        ) : (
-        
-        /* ================= VISUALIZAÇÃO PONTOS CORRIDOS ================= */
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          
-          {/* === COLUNA ESQUERDA: TABELA === */}
-          <div className="lg:col-span-2">
-            <div className="mb-4 flex items-center justify-between px-2">
-              <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                Classificação
-                {modoAoVivo && <span className="text-[10px] bg-red-600 px-2 py-0.5 rounded animate-pulse">EM TEMPO REAL</span>}
-              </h2>
-              <div className="flex gap-4 text-[10px] font-bold uppercase text-gray-500">
-                <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span> G4</span>
-                <span className="flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-red-500"></span> Z4</span>
-              </div>
-            </div>
-
-            <div className="bg-[#0f0f0f] rounded-2xl border border-gray-800/60 overflow-hidden mb-4">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead>
-                    <tr className="bg-black/20 text-gray-500 text-[10px] uppercase tracking-wider border-b border-gray-800/60">
-                      <th className="p-4 pl-6 w-14 text-center">#</th>
-                      <th className="p-4">Clube</th>
-                      <th className="p-4 text-center text-white font-bold">PTS</th>
-                      <th className="p-4 text-center">J</th>
-                      <th className="p-4 text-center">V</th>
-                      <th className="p-4 text-center hidden md:table-cell">E</th>
-                      <th className="p-4 text-center hidden md:table-cell">D</th>
-                      <th className="p-4 text-center hidden md:table-cell">PP</th>
-                      <th className="p-4 text-center">SP</th>
-                      <th className="p-4 text-center hidden sm:table-cell">%</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-800/40">
-                    {tabela.map((time, index) => {
-                      let posColor = "text-gray-500";
-                      if (index < 4) posColor = "text-blue-500"; 
-                      else if (index >= tabela.length - 4 && tabela.length > 8) posColor = "text-red-500"; 
-
-                      let variacaoIcon = null
-                      if (modoAoVivo && time.variacao !== 0) {
-                         if (time.variacao > 0) variacaoIcon = <span className="text-green-500 text-[10px] ml-1 block">▲{Math.abs(time.variacao)}</span>
-                         else variacaoIcon = <span className="text-red-500 text-[10px] ml-1 block">▼{Math.abs(time.variacao)}</span>
-                      }
-
-                      return (
-                        <tr key={time.id} className="hover:bg-white/[0.02] transition duration-200 group">
-                          <td className={`p-4 text-center font-black text-lg ${posColor}`}>
-                            {index + 1}
-                            {variacaoIcon}
-                          </td>
-                          <td className="p-4">
-                            <div className="flex items-center gap-4">
-                              <img src={time.times.escudo} className="w-9 h-9 object-contain opacity-90 group-hover:opacity-100 transition" alt="Escudo" />
-                              <div className="flex flex-col">
-                                <span className="font-bold text-gray-200 text-sm leading-tight group-hover:text-white transition">{time.times.nome}</span>
-                                <span className="text-[10px] text-gray-600 uppercase font-bold tracking-wider">{time.times.nome_cartola}</span>
-                              </div>
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+                        
+                        {/* COLUNA ESQUERDA: TABELAS */}
+                        <div className="lg:col-span-2 space-y-8">
+                            
+                            <div className="flex justify-between items-center bg-[#121212] p-5 rounded-2xl border border-gray-800 shadow-sm">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                                    <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Status: Em Andamento</span>
+                                </div>
+                                <div className="flex gap-3">
+                                    <button onClick={handleSortearGrupos} className="bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 px-4 py-2 rounded-lg font-bold text-xs uppercase tracking-wider transition">Re-sortear</button>
+                                    <button onClick={handleGerarRodadas} className="bg-green-600 hover:bg-green-500 text-white px-6 py-2 rounded-lg font-bold text-xs uppercase tracking-wider transition shadow-lg shadow-green-900/20 flex items-center gap-2">Gerar Jogos</button>
+                                </div>
                             </div>
-                          </td>
-                          <td className={`p-4 text-center font-black text-lg ${modoAoVivo ? 'text-green-400 bg-green-900/10 rounded' : 'text-cartola-gold bg-yellow-900/5 rounded'}`}>
-                            {time.pts}
-                          </td>
-                          <td className="p-4 text-center text-gray-400 font-mono">{time.pj}</td>
-                          <td className="p-4 text-center text-gray-400">{time.v}</td>
-                          <td className="p-4 text-center text-gray-600 hidden md:table-cell">{time.e}</td>
-                          <td className="p-4 text-center text-gray-600 hidden md:table-cell">{time.d}</td>
-                          <td className="p-4 text-center text-gray-600 font-mono hidden md:table-cell">{time.pp}</td>
-                          <td className="p-4 text-center font-bold text-gray-400">{time.sp}</td>
-                          <td className="p-4 text-center text-xs text-gray-600 hidden sm:table-cell">{time.aproveitamento}%</td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
 
-            {/* LEGENDA */}
-            <div className="bg-[#0f0f0f] border border-gray-800 rounded-lg p-4 grid grid-cols-2 md:grid-cols-5 gap-3 text-[10px] text-gray-500 uppercase font-bold tracking-wider">
-               <span>PTS: Pontos</span><span>J: Jogos</span><span>V: Vitórias</span><span>E: Empates</span>
-               <span>D: Derrotas</span><span>PP: Pontos Pró</span><span>SP: Saldo</span><span>%: Aproveitamento</span>
-            </div>
-          </div>
+                            {/* GRIDS DE GRUPOS */}
+                            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                                {Object.keys(grupos).sort().map(letra => (
+                                    <div key={letra} className="bg-[#121212] border border-gray-800 rounded-2xl overflow-hidden shadow-lg hover:border-gray-700 transition h-fit">
+                                        <div className="bg-gradient-to-r from-gray-900 to-[#121212] px-4 py-3 border-b border-gray-800 flex justify-between items-center">
+                                            <span className="text-yellow-500 font-black tracking-widest text-sm">GRUPO {letra}</span>
+                                        </div>
+                                        
+                                        {/* AQUI ESTÁ A CORREÇÃO: table-fixed e larguras absolutas para caber sem scroll */}
+                                        <div className="w-full">
+                                            <table className="w-full text-left text-[10px] table-fixed">
+                                                <thead className="bg-[#0a0a0a] text-gray-500 uppercase font-bold tracking-wider border-b border-gray-800/50">
+                                                    <tr>
+                                                        <th className="py-2 pl-3 w-8 text-center">#</th>
+                                                        <th className="py-2 w-auto">Clube</th> 
+                                                        <th className="py-2 w-8 text-center text-white font-bold bg-[#1a1a1a]">PTS</th>
+                                                        <th className="py-2 w-6 text-center text-gray-600">J</th>
+                                                        <th className="py-2 w-6 text-center text-gray-600">V</th>
+                                                        <th className="py-2 w-6 text-center text-gray-600">D</th>
+                                                        <th className="py-2 pr-3 w-8 text-center text-gray-600">SG</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-gray-800/50">
+                                                    {grupos[letra].map((time: any, idx: number) => (
+                                                        <tr key={time.id} className="group hover:bg-white/[0.02] transition">
+                                                            <td className={`py-2 pl-3 text-center font-bold ${idx < 2 ? 'text-green-500 border-l-2 border-green-500' : 'text-gray-600 border-l-2 border-transparent'}`}>{idx + 1}</td>
+                                                            <td className="py-2">
+                                                                <div className="flex items-center gap-2 overflow-hidden pr-2">
+                                                                    <img src={time.times.escudo} className="w-4 h-4 object-contain opacity-80 group-hover:opacity-100 transition shrink-0" />
+                                                                    <span className="font-bold text-gray-300 group-hover:text-white truncate block">{time.times.nome}</span>
+                                                                </div>
+                                                            </td>
+                                                            <td className="py-2 text-center font-black text-white bg-[#1a1a1a]">{time.pts}</td>
+                                                            <td className="py-2 text-center text-gray-500 font-mono">{time.pj}</td>
+                                                            <td className="py-2 text-center text-gray-500 font-mono">{time.v}</td>
+                                                            <td className="py-2 text-center text-gray-500 font-mono">{time.d}</td>
+                                                            <td className="py-2 pr-3 text-center font-bold text-gray-400">{time.sp}</td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
 
-          {/* === SIDEBAR JOGOS === */}
-          <div className="lg:col-span-1">
-            <div className="sticky top-10">
-              <div className="mb-4 flex items-center justify-between px-2">
-                <h2 className="text-lg font-bold text-white">Jogos</h2>
-                
-                {/* MENU DE RODADAS */}
-                <div className="flex items-center gap-1 bg-[#0f0f0f] rounded-lg p-1 border border-gray-800">
-                   <button onClick={() => setRodadaView(r => r > 1 ? r - 1 : r)} className="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-white disabled:opacity-30 hover:bg-white/10 rounded transition" disabled={rodadaView <= 1}>‹</button>
-                   
-                   <div className="relative">
-                     <select 
-                       className="appearance-none bg-transparent text-xs font-bold text-cartola-gold uppercase tracking-wider px-2 text-center w-20 cursor-pointer focus:outline-none"
-                       value={rodadaView}
-                       onChange={(e) => setRodadaView(Number(e.target.value))}
-                     >
-                       {Array.from({ length: totalRodadas }, (_, i) => i + 1).map(r => (
-                         <option key={r} value={r} className="bg-gray-900 text-white">R{r}</option>
-                       ))}
-                     </select>
-                   </div>
+                        <div className="lg:col-span-1">
+                            {partidas.length > 0 ? (
+                                <div className="bg-[#121212] border border-gray-800 rounded-2xl p-5 sticky top-6 shadow-xl">
+                                    <div className="flex justify-between items-center mb-6 pb-4 border-b border-gray-800">
+                                        <h3 className="text-sm font-bold text-white uppercase tracking-widest flex items-center gap-2">
+                                            <span className="w-1.5 h-1.5 bg-yellow-500 rounded-full"></span> Jogos
+                                        </h3>
+                                        
+                                        <div className="flex items-center gap-1 bg-black p-1 rounded-lg border border-gray-800">
+                                            <button onClick={() => setRodadaView(r => Math.max(1, r - 1))} disabled={rodadaView === 1} className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800 rounded transition disabled:opacity-30">‹</button>
+                                            <span className="text-[10px] font-bold px-3 text-yellow-500 uppercase tracking-wider">R{rodadaView}</span>
+                                            <button onClick={() => setRodadaView(r => Math.min(totalRodadasGrupos, r + 1))} disabled={rodadaView === totalRodadasGrupos} className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800 rounded transition disabled:opacity-30">›</button>
+                                        </div>
+                                    </div>
 
-                   <button onClick={() => setRodadaView(r => r < totalRodadas ? r + 1 : r)} className="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-white disabled:opacity-30 hover:bg-white/10 rounded transition" disabled={rodadaView >= totalRodadas}>›</button>
+                                    <div className="mb-4 bg-black border border-gray-800 p-3 rounded-xl flex items-center justify-between gap-2">
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Cartola:</span>
+                                            <input type="number" placeholder="#" className="w-12 bg-[#121212] border border-gray-700 rounded text-center text-xs font-bold text-white p-1.5 focus:border-yellow-600 outline-none transition" value={rodadaCartolaInput} onChange={e => setRodadaCartolaInput(e.target.value)} />
+                                        </div>
+                                        <button onClick={handleAtualizarPontuacoesGrupos} disabled={loading} className="bg-blue-600 hover:bg-blue-500 text-white text-[10px] uppercase font-bold px-4 py-2 rounded-lg transition disabled:opacity-50 shadow-lg shadow-blue-900/20">
+                                            {loading ? '...' : 'Atualizar'}
+                                        </button>
+                                    </div>
+
+                                    <div className="space-y-2 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
+                                        {jogosDaRodadaView.length === 0 && <p className="text-center text-gray-600 py-10 text-xs">Sem jogos nesta rodada.</p>}
+                                        
+                                        {jogosDaRodadaView.map((jogo: any) => (
+                                            <div key={jogo.id} onClick={() => abrirEdicao(jogo)} className="bg-black border border-gray-800 p-3 rounded-xl flex flex-col gap-3 hover:border-yellow-600/50 cursor-pointer transition group relative overflow-hidden">
+                                                <div className="flex justify-between items-center border-b border-gray-800/50 pb-2">
+                                                    <span className="text-[9px] font-bold text-gray-500 bg-[#121212] px-2 py-0.5 rounded border border-gray-800">GRUPO {getGrupoDoJogo(jogo.time_casa)}</span>
+                                                    <span className={`text-[8px] uppercase font-bold tracking-wider ${jogo.status === 'finalizado' ? 'text-green-500' : 'text-gray-600'}`}>{jogo.status === 'finalizado' ? 'FINALIZADO' : 'EDITAR'}</span>
+                                                </div>
+                                                
+                                                <div className="flex items-center justify-between px-1">
+                                                    <div className="flex flex-col items-center gap-1 w-[35%]">
+                                                        <img src={jogo.casa.escudo} className="w-8 h-8 object-contain" />
+                                                        <span className="text-[9px] font-bold text-gray-400 truncate w-full text-center">{jogo.casa.nome}</span>
+                                                    </div>
+                                                    
+                                                    <div className="bg-[#121212] border border-gray-800 px-3 py-1 rounded-lg text-sm font-black font-mono text-white group-hover:text-yellow-500 transition whitespace-nowrap shadow-inner">
+                                                        {jogo.placar_casa ?? '-'} <span className="text-gray-600 mx-1">:</span> {jogo.placar_visitante ?? '-'}
+                                                    </div>
+
+                                                    <div className="flex flex-col items-center gap-1 w-[35%]">
+                                                        <img src={jogo.visitante.escudo} className="w-8 h-8 object-contain" />
+                                                        <span className="text-[9px] font-bold text-gray-400 truncate w-full text-center">{jogo.visitante.nome}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="text-center p-10 border border-gray-800 rounded-2xl bg-[#121212] text-gray-500 text-sm">Gere as rodadas para ver os jogos aqui.</div>
+                            )}
+                        </div>
+                    </div>
                 </div>
-              </div>
+            )}
+        }
 
-              {/* BOTÃO AO VIVO (PONTOS CORRIDOS) */}
-              <button 
-                onClick={ativarModoAoVivo}
-                disabled={loadingAoVivo}
-                className={`w-full mb-4 py-3 rounded-xl font-bold text-sm uppercase tracking-widest transition flex items-center justify-center gap-2 ${modoAoVivo ? 'bg-red-900/50 text-red-300 hover:bg-red-900 hover:text-white border border-red-800' : 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white shadow-lg shadow-green-900/20'}`}
-              >
-                {loadingAoVivo ? 'Calculando...' : modoAoVivo ? '❌ Sair do Ao Vivo' : '⚡ Ver Parciais Ao Vivo'}
-              </button>
-
-              <div className="space-y-2">
-                {jogosDaRodada.length === 0 && <div className="text-center py-10 text-gray-600 bg-[#0f0f0f] rounded-xl border border-gray-800 border-dashed"><p className="text-sm">Sem jogos.</p></div>}
-
-                {jogosDaRodada.map((jogo) => (
-                  <div key={jogo.id} className={`bg-[#111] rounded-2xl p-5 border transition relative overflow-hidden group ${jogo.is_parcial ? 'border-green-500/30 shadow-[0_0_15px_rgba(34,197,94,0.1)]' : 'border-gray-800 hover:border-gray-600'}`}>
-                    <div className="flex justify-between items-center mb-6 border-b border-gray-800 pb-2">
-                       <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest">{liga?.nome}</span>
-                       {jogo.is_parcial ? <span className="text-[9px] font-black uppercase text-green-400 tracking-wider animate-pulse">● Em Andamento</span> : <span className={`text-[9px] font-black uppercase tracking-widest ${jogo.status === 'finalizado' ? 'text-blue-500' : 'text-gray-500'}`}>{jogo.status === 'finalizado' ? 'Encerrado' : 'Agendado'}</span>}
+        {/* ... (RESTO DO CÓDIGO DAS OUTRAS ABAS IGUAL AO ANTERIOR) ... */}
+        {tabAtiva === 'jogos' && (
+        <div className="animate-fadeIn space-y-8">
+            {jogosMataMata.length === 0 ? (
+                <div className="text-center py-32 border border-gray-800 border-dashed rounded-3xl bg-[#080808]">
+                    <p className="text-gray-500 mb-6 text-lg">A fase de grupos ainda está rolando.</p>
+                    <button onClick={handleGerarMataMataCopa} className="bg-yellow-600 hover:bg-yellow-500 text-black px-8 py-4 rounded-xl font-bold transition text-sm uppercase tracking-widest shadow-lg shadow-yellow-900/20">⚡ Gerar Fase Final (Mata-Mata)</button>
+                </div>
+            ) : (
+                <>
+                    <div className="bg-[#121212] rounded-2xl border border-gray-800 p-6 flex flex-wrap gap-6 items-end shadow-xl">
+                        <div className="flex-1">
+                            <label className="text-[10px] text-gray-500 font-bold uppercase block mb-2 tracking-widest">Fase Atual</label>
+                            <select className="bg-black p-4 rounded-xl w-full border border-gray-700 font-bold text-white focus:border-yellow-600 outline-none transition" value={faseAtual} onChange={e => setFaseAtual(e.target.value)}>
+                                {fasesDisponiveisMataMata.map(f => (
+                                    <option key={f} value={f}>{f % 2 !== 0 ? `Rodada ${f} (Ida)` : `Rodada ${f} (Volta)`}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="flex items-center gap-3 bg-black p-2 rounded-xl border border-gray-800">
+                            <span className="text-[10px] text-gray-500 font-bold uppercase pl-2">Cartola:</span>
+                            <input type="number" className="w-14 bg-[#121212] border border-gray-700 rounded-lg text-center font-bold text-white p-2 focus:border-yellow-600 outline-none" value={rodadaCartolaInput} onChange={e => setRodadaCartolaInput(e.target.value)} />
+                            <button onClick={handleAtualizarPontuacoesMataMata} disabled={loading} className="bg-blue-600 hover:bg-blue-500 px-6 py-2 rounded-lg font-bold text-xs text-white uppercase tracking-wider transition">Atualizar</button>
+                        </div>
+                        <button onClick={handleAvancarFase} className="bg-green-600 px-8 py-3.5 rounded-xl font-bold hover:bg-green-500 transition text-xs uppercase tracking-widest text-white shadow-lg shadow-green-900/20">Fechar & Avançar ➜</button>
+                        <button onClick={handleExcluirMataMata} className="text-red-500 hover:text-red-400 border border-red-900/30 hover:bg-red-900/10 px-4 py-3.5 rounded-xl transition text-xs font-bold uppercase tracking-widest">Limpar</button>
                     </div>
-                    <div className="flex items-center justify-between">
-                       <div className="flex flex-col items-center w-1/3 group-hover:-translate-y-1 transition duration-300"><img src={jogo.casa?.escudo} className="w-14 h-14 mb-3 drop-shadow-2xl" /><span className="text-[10px] text-gray-300 font-bold text-center leading-tight uppercase tracking-wider">{jogo.casa?.nome}</span></div>
-                       <div className="flex flex-col items-center justify-center w-1/3">
-                         <div className="text-3xl font-black tracking-widest text-white flex gap-2 items-center">
-                           {(jogo.status === 'finalizado' || jogo.is_parcial) ? <><span className={jogo.placar_casa > jogo.placar_visitante ? 'text-green-400' : 'text-white'}>{String(jogo.placar_casa ?? '0')}</span><span className="text-gray-700 text-xl">:</span><span className={jogo.placar_visitante > jogo.placar_casa ? 'text-green-400' : 'text-white'}>{String(jogo.placar_visitante ?? '0')}</span></> : <span className="text-gray-700 text-xl">VS</span>}
-                         </div>
-                         {jogo.is_parcial && <span className="text-[8px] text-green-500 uppercase font-bold mt-1 animate-pulse">Parcial</span>}
-                       </div>
-                       <div className="flex flex-col items-center w-1/3 group-hover:-translate-y-1 transition duration-300"><img src={jogo.visitante?.escudo} className="w-14 h-14 mb-3 drop-shadow-2xl" /><span className="text-[10px] text-gray-300 font-bold text-center leading-tight uppercase tracking-wider">{jogo.visitante?.nome}</span></div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
+                    <div className="mt-10 overflow-x-auto pb-10"><MataMataBracket partidas={jogosMataMata} /></div>
+                </>
+            )}
         </div>
-        )}
-      </main>
+      )}
+
+      {tabAtiva === 'sorteio' && (
+        <div className="bg-[#121212] p-10 rounded-3xl border border-gray-800 animate-fadeIn shadow-2xl">
+            <div className="flex justify-between items-center mb-8">
+                <div>
+                    <h2 className="text-3xl font-black text-white mb-2">Configuração de Potes</h2>
+                    <p className="text-gray-500 text-sm">Defina a ordem de força (ranking) para o sorteio dos grupos.</p>
+                </div>
+                {liga?.tipo !== 'copa' && (
+                    <button onClick={() => handleGerarComSeeds(false)} className="bg-green-600 px-6 py-3 rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-green-500 transition text-white">Gerar Chave</button>
+                )}
+            </div>
+            <div className="bg-black/50 rounded-2xl border border-gray-800 divide-y divide-gray-800 max-h-[600px] overflow-y-auto custom-scrollbar">
+                {timesLiga.map((item, index) => (
+                    <div key={item.times.id} className="grid grid-cols-12 items-center p-4 hover:bg-white/[0.02] transition">
+                        <div className="col-span-1 text-center font-mono font-bold text-yellow-500">#{index + 1}</div>
+                        <div className="col-span-1 flex justify-center"><img src={item.times.escudo} className="w-10 h-10 object-contain" /></div>
+                        <div className="col-span-8 font-bold text-gray-200">{item.times.nome}</div>
+                        <div className="col-span-2 flex gap-2 justify-end">
+                            <button onClick={() => moverTime(index, -1)} disabled={index === 0} className="w-8 h-8 flex items-center justify-center bg-gray-800 rounded hover:bg-gray-700 text-gray-400 disabled:opacity-30 transition">▲</button>
+                            <button onClick={() => moverTime(index, 1)} disabled={index === timesLiga.length - 1} className="w-8 h-8 flex items-center justify-center bg-gray-800 rounded hover:bg-gray-700 text-gray-400 disabled:opacity-30 transition">▼</button>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+      )}
+
+      {tabAtiva === 'times' && (
+        <div className="bg-[#121212] border border-gray-800 p-10 rounded-3xl animate-fadeIn shadow-2xl">
+            <div className="flex gap-4 mb-10">
+                <div className="relative flex-1">
+                    <button onClick={() => setMenuAberto(!menuAberto)} className="w-full bg-black border border-gray-700 p-4 rounded-xl text-left flex justify-between items-center focus:border-yellow-600 outline-none transition text-gray-300">
+                        {timeSelecionadoObjeto ? (<div className="flex items-center gap-3"><img src={timeSelecionadoObjeto.escudo} className="w-6 h-6" /> <span className="font-bold">{timeSelecionadoObjeto.nome}</span></div>) : "Selecionar time para adicionar..."} 
+                        <span className="text-gray-500">▼</span>
+                    </button>
+                    {menuAberto && (
+                        <div className="absolute top-full left-0 w-full mt-2 bg-[#1a1a1a] border border-gray-700 rounded-xl max-h-80 overflow-y-auto z-50 shadow-2xl">
+                            {timesDisponiveis.map(t => (
+                                <button key={t.id} onClick={() => { setSelecionadoId(String(t.id)); setMenuAberto(false); }} className="w-full p-4 hover:bg-black text-left flex gap-3 items-center border-b border-gray-800 last:border-0 transition text-gray-300">
+                                    <img src={t.escudo} className="w-6 h-6" /> {t.nome}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+                <button onClick={handleAdicionarTime} disabled={!selecionadoId} className="bg-green-600 px-8 rounded-xl font-bold hover:bg-green-500 disabled:opacity-50 disabled:cursor-not-allowed transition text-white uppercase tracking-widest text-xs">Adicionar</button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {timesLiga.map((item) => (
+                    <div key={item.id} className="flex justify-between items-center p-4 bg-black rounded-xl border border-gray-800 hover:border-gray-600 transition group">
+                        <div className="flex items-center gap-4">
+                            <img src={item.times.escudo} className="w-10 h-10 object-contain grayscale group-hover:grayscale-0 transition" />
+                            <span className="font-bold text-gray-400 group-hover:text-white transition">{item.times.nome}</span>
+                        </div>
+                        <button onClick={() => handleRemoverTime(item.times.id)} className="text-gray-600 hover:text-red-500 p-2 transition">🗑️</button>
+                    </div>
+                ))}
+            </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -205,15 +205,15 @@ export default function GerenciarLiga() {
       )}
 
       {/* HEADER */}
-      <div className="p-6 md:p-10 border-b border-gray-800 bg-[#080808]">
-          <div className="max-w-[1600px] mx-auto flex flex-col md:flex-row justify-between items-end gap-6">
+      <div className="p-6 md:p-10 border-b border-white/10 bg-[#080808]">
+          <div className="max-w-[1920px] mx-auto flex flex-col md:flex-row justify-between items-end gap-6">
             <div>
                 <Link href="/admin/ligas" className="text-gray-500 text-xs font-bold hover:text-white transition mb-2 block uppercase tracking-wider">← Voltar</Link>
                 <h1 className="text-5xl font-black tracking-tighter text-white mb-2">{liga?.nome}</h1>
-                <span className="text-[10px] bg-gray-800 text-gray-300 border border-gray-700 px-3 py-1 rounded-full uppercase font-bold tracking-widest">{liga?.tipo?.replace('_', ' ')}</span>
+                <span className="text-[10px] bg-white/5 text-gray-300 border border-white/10 px-3 py-1 rounded-full uppercase font-bold tracking-widest">{liga?.tipo?.replace('_', ' ')}</span>
             </div>
             
-            <div className="flex gap-2 bg-[#121212] p-1.5 rounded-xl border border-gray-800">
+            <div className="flex gap-2 bg-[#121212] p-1.5 rounded-xl border border-white/10">
                 {liga?.tipo === 'copa' && (
                     <button onClick={() => setTabAtiva('grupos')} className={`px-5 py-2.5 rounded-lg font-bold text-xs uppercase tracking-wider transition ${tabAtiva === 'grupos' ? 'bg-yellow-600 text-black shadow-lg' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}>Fase de Grupos</button>
                 )}
@@ -224,77 +224,83 @@ export default function GerenciarLiga() {
           </div>
       </div>
 
-      <div className="p-6 md:p-10 max-w-[1600px] mx-auto">
+      <div className="p-6 md:p-10 max-w-[1920px] mx-auto">
         
         {/* ABA GRUPOS */}
         {tabAtiva === 'grupos' && (
             <div className="animate-fadeIn">
                 {Object.keys(grupos).length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-32 border border-gray-800 border-dashed rounded-3xl bg-[#080808]">
+                    <div className="flex flex-col items-center justify-center py-32 border border-white/10 border-dashed rounded-3xl bg-[#080808]">
                         <span className="text-6xl mb-4 opacity-20">🎲</span>
                         <h3 className="text-xl font-bold text-gray-300 mb-2">Sorteio Pendente</h3>
                         <p className="text-gray-500 text-sm mb-6">Configure os potes na aba "Config" e realize o sorteio.</p>
-                        <button onClick={() => setTabAtiva('sorteio')} className="bg-gray-800 hover:bg-gray-700 text-white px-6 py-3 rounded-lg font-bold transition">Ir para Configuração</button>
+                        <button onClick={() => setTabAtiva('sorteio')} className="bg-white/10 hover:bg-white/20 text-white px-6 py-3 rounded-lg font-bold transition">Ir para Configuração</button>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+                    <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 items-start">
                         
-                        <div className="lg:col-span-2 space-y-8">
-                            <div className="flex justify-between items-center bg-[#121212] p-5 rounded-2xl border border-gray-800 shadow-sm">
+                        {/* COLUNA ESQUERDA: TABELAS (Agora ocupa 3 colunas para ser maior) */}
+                        <div className="lg:col-span-3 space-y-8">
+                            
+                            <div className="flex justify-between items-center bg-[#121212] p-6 rounded-2xl border border-white/10 shadow-lg">
                                 <div className="flex items-center gap-3">
-                                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                                    <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Status: Em Andamento</span>
+                                    <div className="relative">
+                                        <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse relative z-10"></div>
+                                        <div className="w-3 h-3 bg-green-500 rounded-full absolute top-0 left-0 blur-sm"></div>
+                                    </div>
+                                    <span className="text-sm font-bold text-gray-300 uppercase tracking-widest">Status: Fase de Grupos</span>
                                 </div>
                                 <div className="flex gap-3">
-                                    <button onClick={handleSortearGrupos} className="bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 px-4 py-2 rounded-lg font-bold text-xs uppercase tracking-wider transition">Re-sortear</button>
-                                    <button onClick={handleGerarRodadas} className="bg-green-600 hover:bg-green-500 text-white px-6 py-2 rounded-lg font-bold text-xs uppercase tracking-wider transition shadow-lg shadow-green-900/20 flex items-center gap-2">Gerar Jogos</button>
+                                    <button onClick={handleSortearGrupos} className="bg-black hover:bg-gray-900 text-gray-400 border border-white/10 px-5 py-2.5 rounded-lg font-bold text-xs uppercase tracking-wider transition hover:text-white hover:border-white/30">Re-sortear</button>
+                                    <button onClick={handleGerarRodadas} className="bg-gradient-to-r from-green-700 to-green-600 hover:from-green-600 hover:to-green-500 text-white px-6 py-2.5 rounded-lg font-bold text-xs uppercase tracking-wider transition shadow-lg shadow-green-900/20 flex items-center gap-2">
+                                        <span className="text-lg">📅</span> Gerar Jogos
+                                    </button>
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                            {/* GRIDS DE GRUPOS - Aumentado o visual */}
+                            <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
                                 {Object.keys(grupos).sort().map(letra => (
-                                    <div key={letra} className="bg-[#111] border border-gray-800 rounded-xl overflow-hidden shadow-xl">
-                                        <div className="bg-gradient-to-r from-gray-800 to-gray-900 px-4 py-3 font-black text-center border-b border-gray-700">
-                                            <span className="text-cartola-gold tracking-[0.2em] text-sm">GRUPO {letra}</span>
+                                    <div key={letra} className="bg-[#0e0e0e] border border-white/10 rounded-xl overflow-hidden shadow-2xl hover:border-white/20 transition-colors">
+                                        <div className="bg-gradient-to-r from-[#1a1a1a] to-[#0e0e0e] px-6 py-4 border-b border-white/5 flex justify-between items-center relative overflow-hidden">
+                                            <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-yellow-500 to-yellow-600"></div>
+                                            <span className="text-white font-black tracking-[0.2em] text-lg flex items-center gap-2">
+                                                GRUPO <span className="text-yellow-500 text-xl">{letra}</span>
+                                            </span>
                                         </div>
                                         
-                                        <div className="w-full overflow-hidden">
-                                            <table className="w-full text-left text-[10px] table-fixed">
-                                                <thead className="bg-black/40 text-gray-500 uppercase font-bold tracking-wider border-b border-gray-800">
+                                        <div className="w-full">
+                                            <table className="w-full text-left text-xs table-fixed">
+                                                <thead className="bg-black text-gray-500 uppercase font-bold tracking-wider border-b border-white/5">
                                                     <tr>
-                                                        {/* COLUNAS REAJUSTADAS PARA CABER TUDO */}
-                                                        <th className="py-2 text-center w-[5%]">#</th>
-                                                        <th className="py-2 px-1 w-[22%]">Time</th> 
-                                                        <th className="py-2 text-center text-white font-extrabold w-[8%]" title="Pontos">PTS</th>
-                                                        <th className="py-2 text-center w-[6%]" title="Jogos">J</th>
-                                                        <th className="py-2 text-center w-[6%]" title="Vitórias">V</th>
-                                                        <th className="py-2 text-center w-[6%]" title="Empates">E</th>
-                                                        <th className="py-2 text-center w-[6%]" title="Derrotas">D</th>
-                                                        <th className="py-2 text-center w-[8%]" title="Pró">PP</th>
-                                                        <th className="py-2 text-center w-[8%]" title="Contra">PC</th>
-                                                        <th className="py-2 text-center font-bold w-[10%] text-gray-300" title="Saldo">SP</th>
+                                                        <th className="py-4 pl-4 w-[8%] text-center">#</th>
+                                                        <th className="py-4 px-2 w-[30%]">Clube</th> 
+                                                        <th className="py-4 text-center text-white font-black w-[10%] bg-white/[0.02]">PTS</th>
+                                                        <th className="py-4 text-center w-[8%]">J</th>
+                                                        <th className="py-4 text-center w-[8%]">V</th>
+                                                        <th className="py-4 text-center w-[8%]">D</th>
+                                                        <th className="py-4 text-center w-[10%]">GP</th>
+                                                        <th className="py-4 pr-4 text-center font-bold w-[10%] text-gray-300">SG</th>
                                                     </tr>
                                                 </thead>
-                                                <tbody className="divide-y divide-gray-800">
+                                                <tbody className="divide-y divide-white/5">
                                                     {grupos[letra].map((time: any, idx: number) => (
-                                                        <tr key={time.id} className="hover:bg-white/5 transition group">
-                                                            <td className={`py-2 text-center font-black ${idx < 2 ? 'text-green-500' : 'text-gray-600'}`}>
+                                                        <tr key={time.id} className="group hover:bg-white/[0.03] transition duration-200">
+                                                            <td className={`py-3 pl-4 text-center font-black text-sm ${idx < 2 ? 'text-green-500' : 'text-gray-600'}`}>
                                                                 {idx + 1}
                                                             </td>
-                                                            <td className="py-2 px-1">
-                                                                <div className="flex items-center gap-1 overflow-hidden">
-                                                                    <img src={time.times.escudo} className="w-5 h-5 object-contain shrink-0" />
-                                                                    <span className="font-bold text-gray-200 truncate block">{time.times.nome}</span>
+                                                            <td className="py-3 px-2">
+                                                                <div className="flex items-center gap-3 overflow-hidden">
+                                                                    <img src={time.times.escudo} className="w-8 h-8 object-contain drop-shadow-md group-hover:scale-110 transition-transform" />
+                                                                    <span className="font-bold text-gray-200 group-hover:text-white truncate block text-sm">{time.times.nome}</span>
                                                                 </div>
                                                             </td>
-                                                            <td className="py-2 text-center font-black text-white bg-white/5">{time.pts}</td>
-                                                            <td className="py-2 text-center text-gray-400">{time.pj}</td>
-                                                            <td className="py-2 text-center text-gray-400">{time.v}</td>
-                                                            <td className="py-2 text-center text-gray-500">{time.e}</td>
-                                                            <td className="py-2 text-center text-gray-500">{time.d}</td>
-                                                            <td className="py-2 text-center text-gray-500 font-mono">{time.pp}</td>
-                                                            <td className="py-2 text-center text-gray-500 font-mono">{time.pc}</td>
-                                                            <td className="py-2 text-center font-bold text-gray-300">{time.sp}</td>
+                                                            <td className="py-3 text-center font-black text-white bg-white/[0.02] text-sm">{time.pts}</td>
+                                                            <td className="py-3 text-center text-gray-400 font-mono">{time.pj}</td>
+                                                            <td className="py-3 text-center text-gray-400 font-mono">{time.v}</td>
+                                                            <td className="py-3 text-center text-gray-500 font-mono">{time.d}</td>
+                                                            <td className="py-3 text-center text-gray-500 font-mono">{time.pp}</td>
+                                                            <td className="py-3 pr-4 text-center font-bold text-gray-300">{time.sp}</td>
                                                         </tr>
                                                     ))}
                                                 </tbody>
@@ -305,50 +311,56 @@ export default function GerenciarLiga() {
                             </div>
                         </div>
 
+                        {/* COLUNA DIREITA: JOGOS (Fixo com scroll invisível) */}
                         <div className="lg:col-span-1">
                             {partidas.length > 0 ? (
-                                <div className="bg-[#121212] border border-gray-800 rounded-2xl p-5 sticky top-6 shadow-xl">
-                                    <div className="flex justify-between items-center mb-6 pb-4 border-b border-gray-800">
+                                <div className="bg-[#121212] border border-white/10 rounded-2xl p-6 sticky top-6 shadow-2xl h-fit max-h-[calc(100vh-100px)] flex flex-col">
+                                    <div className="flex justify-between items-center mb-6 pb-4 border-b border-white/10 shrink-0">
                                         <h3 className="text-sm font-bold text-white uppercase tracking-widest flex items-center gap-2">
-                                            <span className="w-1.5 h-1.5 bg-yellow-500 rounded-full"></span> Jogos
+                                            <span className="w-2 h-2 bg-yellow-500 rounded-full shadow-[0_0_10px_rgba(234,179,8,0.5)]"></span> Jogos
                                         </h3>
-                                        <div className="flex items-center gap-1 bg-black p-1 rounded-lg border border-gray-800">
-                                            <button onClick={() => setRodadaView(r => Math.max(1, r - 1))} disabled={rodadaView === 1} className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800 rounded transition disabled:opacity-30">‹</button>
-                                            <span className="text-[10px] font-bold px-3 text-yellow-500 uppercase tracking-wider">R{rodadaView}</span>
-                                            <button onClick={() => setRodadaView(r => Math.min(totalRodadasGrupos, r + 1))} disabled={rodadaView === totalRodadasGrupos} className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800 rounded transition disabled:opacity-30">›</button>
+                                        
+                                        <div className="flex items-center gap-1 bg-black p-1.5 rounded-lg border border-white/10">
+                                            <button onClick={() => setRodadaView(r => Math.max(1, r - 1))} disabled={rodadaView === 1} className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 rounded transition disabled:opacity-30">‹</button>
+                                            <span className="text-xs font-black px-3 text-yellow-500 uppercase tracking-wider">R{rodadaView}</span>
+                                            <button onClick={() => setRodadaView(r => Math.min(totalRodadasGrupos, r + 1))} disabled={rodadaView === totalRodadasGrupos} className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 rounded transition disabled:opacity-30">›</button>
                                         </div>
                                     </div>
 
-                                    <div className="mb-4 bg-black border border-gray-800 p-3 rounded-xl flex items-center justify-between gap-2">
+                                    <div className="mb-4 bg-black/50 border border-white/10 p-3 rounded-xl flex items-center justify-between gap-2 shrink-0">
                                         <div className="flex items-center gap-3">
                                             <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Cartola:</span>
-                                            <input type="number" placeholder="#" className="w-12 bg-[#121212] border border-gray-700 rounded text-center text-xs font-bold text-white p-1.5 focus:border-yellow-600 outline-none transition" value={rodadaCartolaInput} onChange={e => setRodadaCartolaInput(e.target.value)} />
+                                            <input type="number" placeholder="#" className="w-12 bg-[#121212] border border-white/20 rounded text-center text-xs font-bold text-white p-2 focus:border-yellow-600 outline-none transition" value={rodadaCartolaInput} onChange={e => setRodadaCartolaInput(e.target.value)} />
                                         </div>
                                         <button onClick={handleAtualizarPontuacoesGrupos} disabled={loading} className="bg-blue-600 hover:bg-blue-500 text-white text-[10px] uppercase font-bold px-4 py-2 rounded-lg transition disabled:opacity-50 shadow-lg shadow-blue-900/20">
                                             {loading ? '...' : 'Atualizar'}
                                         </button>
                                     </div>
 
-                                    <div className="space-y-2 max-h-[600px] overflow-y-auto pr-2 custom-scrollbar">
+                                    {/* LISTA DE JOGOS COM SCROLLBAR OCULTA */}
+                                    <div className="space-y-3 overflow-y-auto pr-1 flex-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:'none'] [scrollbar-width:'none']">
                                         {jogosDaRodadaView.length === 0 && <p className="text-center text-gray-600 py-10 text-xs">Sem jogos nesta rodada.</p>}
                                         
                                         {jogosDaRodadaView.map((jogo: any) => (
-                                            <div key={jogo.id} onClick={() => abrirEdicao(jogo)} className="bg-black border border-gray-800 p-3 rounded-xl flex flex-col gap-3 hover:border-yellow-600/50 cursor-pointer transition group relative overflow-hidden">
-                                                <div className="flex justify-between items-center border-b border-gray-800/50 pb-2">
-                                                    <span className="text-[9px] font-bold text-gray-500 bg-[#121212] px-2 py-0.5 rounded border border-gray-800">GRUPO {getGrupoDoJogo(jogo.time_casa)}</span>
-                                                    <span className={`text-[8px] uppercase font-bold tracking-wider ${jogo.status === 'finalizado' ? 'text-green-500' : 'text-gray-600'}`}>{jogo.status === 'finalizado' ? 'FINALIZADO' : 'EDITAR'}</span>
+                                            <div key={jogo.id} onClick={() => abrirEdicao(jogo)} className="bg-black/40 border border-white/5 p-4 rounded-xl flex flex-col gap-3 hover:border-yellow-500/50 hover:bg-white/[0.02] cursor-pointer transition group relative overflow-hidden">
+                                                <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                                                    <span className="text-[9px] font-bold text-gray-500 bg-white/5 px-2 py-0.5 rounded border border-white/5">GRUPO {getGrupoDoJogo(jogo.time_casa)}</span>
+                                                    <span className={`text-[9px] uppercase font-black tracking-wider ${jogo.status === 'finalizado' ? 'text-green-500' : 'text-gray-600'}`}>{jogo.status === 'finalizado' ? 'FINALIZADO' : 'EDITAR'}</span>
                                                 </div>
-                                                <div className="flex items-center justify-between px-1">
-                                                    <div className="flex flex-col items-center gap-1 w-[35%]">
-                                                        <img src={jogo.casa.escudo} className="w-8 h-8 object-contain" />
-                                                        <span className="text-[9px] font-bold text-gray-400 truncate w-full text-center">{jogo.casa.nome}</span>
+                                                
+                                                <div className="flex items-center justify-between px-1 mt-1">
+                                                    <div className="flex flex-col items-center gap-2 w-[35%]">
+                                                        <img src={jogo.casa.escudo} className="w-10 h-10 object-contain drop-shadow-lg" />
+                                                        <span className="text-[10px] font-bold text-gray-300 truncate w-full text-center leading-tight">{jogo.casa.nome}</span>
                                                     </div>
-                                                    <div className="bg-[#121212] border border-gray-800 px-3 py-1 rounded-lg text-sm font-black font-mono text-white group-hover:text-yellow-500 transition whitespace-nowrap shadow-inner">
+                                                    
+                                                    <div className="bg-[#0a0a0a] border border-white/10 px-3 py-1.5 rounded-lg text-lg font-black font-mono text-white group-hover:text-yellow-500 group-hover:border-yellow-500/30 transition whitespace-nowrap shadow-inner">
                                                         {jogo.placar_casa ?? '-'} <span className="text-gray-600 mx-1">:</span> {jogo.placar_visitante ?? '-'}
                                                     </div>
-                                                    <div className="flex flex-col items-center gap-1 w-[35%]">
-                                                        <img src={jogo.visitante.escudo} className="w-8 h-8 object-contain" />
-                                                        <span className="text-[9px] font-bold text-gray-400 truncate w-full text-center">{jogo.visitante.nome}</span>
+
+                                                    <div className="flex flex-col items-center gap-2 w-[35%]">
+                                                        <img src={jogo.visitante.escudo} className="w-10 h-10 object-contain drop-shadow-lg" />
+                                                        <span className="text-[10px] font-bold text-gray-300 truncate w-full text-center leading-tight">{jogo.visitante.nome}</span>
                                                     </div>
                                                 </div>
                                             </div>
@@ -356,7 +368,7 @@ export default function GerenciarLiga() {
                                     </div>
                                 </div>
                             ) : (
-                                <div className="text-center p-10 border border-gray-800 rounded-2xl bg-[#121212] text-gray-500 text-sm">Gere as rodadas para ver os jogos aqui.</div>
+                                <div className="text-center p-10 border border-white/10 rounded-2xl bg-[#121212] text-gray-500 text-sm">Gere as rodadas para ver os jogos aqui.</div>
                             )}
                         </div>
                     </div>
@@ -364,17 +376,17 @@ export default function GerenciarLiga() {
             </div>
         )}
 
-        {/* ABA JOGOS */}
+        {/* ABA JOGOS (MATA-MATA) */}
         {tabAtiva === 'jogos' && (
         <div className="animate-fadeIn space-y-8">
             {jogosMataMata.length === 0 ? (
-                <div className="text-center py-32 border border-gray-800 border-dashed rounded-3xl bg-[#080808]">
+                <div className="text-center py-32 border border-white/10 border-dashed rounded-3xl bg-[#080808]">
                     <p className="text-gray-500 mb-6 text-lg">A fase de grupos ainda está rolando.</p>
                     <button onClick={handleGerarMataMataCopa} className="bg-yellow-600 hover:bg-yellow-500 text-black px-8 py-4 rounded-xl font-bold transition text-sm uppercase tracking-widest shadow-lg shadow-yellow-900/20">⚡ Gerar Fase Final (Mata-Mata)</button>
                 </div>
             ) : (
                 <>
-                    <div className="bg-[#121212] rounded-2xl border border-gray-800 p-6 flex flex-wrap gap-6 items-end shadow-xl">
+                    <div className="bg-[#121212] rounded-2xl border border-white/10 p-6 flex flex-wrap gap-6 items-end shadow-xl">
                         <div className="flex-1">
                             <label className="text-[10px] text-gray-500 font-bold uppercase block mb-2 tracking-widest">Fase Atual</label>
                             <select className="bg-black p-4 rounded-xl w-full border border-gray-700 font-bold text-white focus:border-yellow-600 outline-none transition" value={faseAtual} onChange={e => setFaseAtual(e.target.value)}>
@@ -397,8 +409,9 @@ export default function GerenciarLiga() {
         </div>
       )}
 
+      {/* ABA SORTEIO */}
       {tabAtiva === 'sorteio' && (
-        <div className="bg-[#121212] p-10 rounded-3xl border border-gray-800 animate-fadeIn shadow-2xl">
+        <div className="bg-[#121212] p-10 rounded-3xl border border-white/10 animate-fadeIn shadow-2xl">
             <div className="flex justify-between items-center mb-8">
                 <div>
                     <h2 className="text-3xl font-black text-white mb-2">Configuração de Potes</h2>
@@ -408,7 +421,7 @@ export default function GerenciarLiga() {
                     <button onClick={() => handleGerarComSeeds(false)} className="bg-green-600 px-6 py-3 rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-green-500 transition text-white">Gerar Chave</button>
                 )}
             </div>
-            <div className="bg-black/50 rounded-2xl border border-gray-800 divide-y divide-gray-800 max-h-[600px] overflow-y-auto custom-scrollbar">
+            <div className="bg-black/50 rounded-2xl border border-white/10 divide-y divide-white/5 max-h-[600px] overflow-y-auto custom-scrollbar">
                 {timesLiga.map((item, index) => (
                     <div key={item.times.id} className="grid grid-cols-12 items-center p-4 hover:bg-white/[0.02] transition">
                         <div className="col-span-1 text-center font-mono font-bold text-yellow-500">#{index + 1}</div>
@@ -424,18 +437,19 @@ export default function GerenciarLiga() {
         </div>
       )}
 
+      {/* ABA TIMES */}
       {tabAtiva === 'times' && (
-        <div className="bg-[#121212] border border-gray-800 p-10 rounded-3xl animate-fadeIn shadow-2xl">
+        <div className="bg-[#121212] border border-white/10 p-10 rounded-3xl animate-fadeIn shadow-2xl">
             <div className="flex gap-4 mb-10">
                 <div className="relative flex-1">
-                    <button onClick={() => setMenuAberto(!menuAberto)} className="w-full bg-black border border-gray-700 p-4 rounded-xl text-left flex justify-between items-center focus:border-yellow-600 outline-none transition text-gray-300">
+                    <button onClick={() => setMenuAberto(!menuAberto)} className="w-full bg-black border border-white/20 p-4 rounded-xl text-left flex justify-between items-center focus:border-yellow-600 outline-none transition text-gray-300">
                         {timeSelecionadoObjeto ? (<div className="flex items-center gap-3"><img src={timeSelecionadoObjeto.escudo} className="w-6 h-6" /> <span className="font-bold">{timeSelecionadoObjeto.nome}</span></div>) : "Selecionar time para adicionar..."} 
                         <span className="text-gray-500">▼</span>
                     </button>
                     {menuAberto && (
-                        <div className="absolute top-full left-0 w-full mt-2 bg-[#1a1a1a] border border-gray-700 rounded-xl max-h-80 overflow-y-auto z-50 shadow-2xl">
+                        <div className="absolute top-full left-0 w-full mt-2 bg-[#1a1a1a] border border-white/20 rounded-xl max-h-80 overflow-y-auto z-50 shadow-2xl">
                             {timesDisponiveis.map(t => (
-                                <button key={t.id} onClick={() => { setSelecionadoId(String(t.id)); setMenuAberto(false); }} className="w-full p-4 hover:bg-black text-left flex gap-3 items-center border-b border-gray-800 last:border-0 transition text-gray-300">
+                                <button key={t.id} onClick={() => { setSelecionadoId(String(t.id)); setMenuAberto(false); }} className="w-full p-4 hover:bg-black text-left flex gap-3 items-center border-b border-white/5 last:border-0 transition text-gray-300">
                                     <img src={t.escudo} className="w-6 h-6" /> {t.nome}
                                 </button>
                             ))}
@@ -446,7 +460,7 @@ export default function GerenciarLiga() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {timesLiga.map((item) => (
-                    <div key={item.id} className="flex justify-between items-center p-4 bg-black rounded-xl border border-gray-800 hover:border-gray-600 transition group">
+                    <div key={item.id} className="flex justify-between items-center p-4 bg-black rounded-xl border border-white/10 hover:border-white/30 transition group">
                         <div className="flex items-center gap-4">
                             <img src={item.times.escudo} className="w-10 h-10 object-contain grayscale group-hover:grayscale-0 transition" />
                             <span className="font-bold text-gray-400 group-hover:text-white transition">{item.times.nome}</span>
@@ -457,6 +471,7 @@ export default function GerenciarLiga() {
             </div>
         </div>
       )}
+      </div>
     </div>
-)
+  )
 }

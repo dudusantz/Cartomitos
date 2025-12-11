@@ -31,7 +31,6 @@ export default function PainelFaseGrupos({ campeonatoId, times }: Props) {
 
   async function carregarDados() {
     const dadosGrupos = await buscarTabelaGrupos(campeonatoId)
-    // Se o objeto de grupos vier vazio ou undefined, setamos como objeto vazio
     setGrupos(dadosGrupos || {})
     
     const dadosJogos = await listarPartidas(campeonatoId)
@@ -136,18 +135,11 @@ export default function PainelFaseGrupos({ campeonatoId, times }: Props) {
 
   if (!grupos || Object.keys(grupos).length === 0) {
       return (
-        <div className="flex flex-col items-center animate-fadeIn py-10">
+        <div className="flex flex-col items-center animate-fadeIn py-4">
             <ModalConfirmacao isOpen={modalOpen} {...modalConfig} onCancel={() => setModalOpen(false)} />
 
-            <div className="text-center mb-8">
-                <span className="text-6xl mb-4 block opacity-20">🎲</span>
-                <h3 className="text-xl font-bold text-gray-300 mb-2">Definição dos Grupos</h3>
-                <p className="text-gray-500 text-sm">
-                    Verifique os potes abaixo.<br/>
-                    <span className="text-yellow-600">Vá na aba <strong>CONFIG</strong> para reordenar os seeds se necessário.</span>
-                </p>
-            </div>
-
+            {/* AQUI: Removi o cabeçalho 'Definição dos Grupos' para ficar mais limpo */}
+            
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full mb-8">
                 {previewPotes.map(pote => (
                     <div key={pote.numero} className="bg-[#121212] border border-gray-800 rounded-xl p-4">

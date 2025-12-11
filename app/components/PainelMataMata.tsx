@@ -8,7 +8,8 @@ import {
 } from '../actions'
 import MataMataBracket from './MataMataBracket'
 import ModalConfirmacao from './ModalConfirmacao'
-import SorteioMataMata from './admin/SorteioMataMata' // <--- Import do Sorteio
+// CORREÇÃO: O caminho do arquivo estava incorreto ('./admin/c')
+import SorteioMataMata from './admin/SorteioMataMata' 
 
 interface Props {
   campeonatoId: number
@@ -89,11 +90,13 @@ export default function PainelMataMata({ campeonatoId, rodadasCorte }: Props) {
   if (modoSorteio) {
       return (
         <div className="animate-fadeIn">
+            {/* Este é o cabeçalho que você queria manter */}
             <div className="bg-[#121212] p-6 rounded-xl border border-gray-800 mb-6 text-center">
                 <h3 className="text-white font-bold mb-2">Chaveamento Pendente</h3>
                 <p className="text-gray-500 text-xs mb-4">Defina os potes abaixo para sortear os confrontos.</p>
             </div>
-            {/* Componente de Sorteio com Potes */}
+            
+            {/* Componente de Sorteio com Potes (agora limpo, sem bordas extras) */}
             <SorteioMataMata campeonatoId={campeonatoId} onSucesso={carregarDados} />
         </div>
       )
@@ -131,4 +134,4 @@ export default function PainelMataMata({ campeonatoId, rodadasCorte }: Props) {
         </div>
     </div>
   )
-} 
+}

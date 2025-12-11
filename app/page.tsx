@@ -1,189 +1,162 @@
 import Link from 'next/link'
-import Image from 'next/image' // Importante para o Logo
-import { listarCampeonatos, buscarMaioresPontuadores, buscarLigaOficial } from './actions'
+import { buscarMaioresPontuadores, buscarLigaOficial } from './actions'
+
+export const revalidate = 60
 
 export default async function Home() {
-  const ligas = await listarCampeonatos()
   const recordes = await buscarMaioresPontuadores()
   const tabelaOficial = await buscarLigaOficial()
 
   return (
-    <div className="min-h-screen font-sans">
-      
-      {/* --- NAVBAR (Cabeçalho) --- */}
-      <nav className="border-b border-gray-800 bg-cartola-card/90 backdrop-blur sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 h-24 flex items-center justify-between">
-          
-          {/* LOGO DO GRUPO */}
-          <div className="flex items-center">
-            <Image 
-              src="/logo.png" 
-              alt="Logo CartoMitos" 
-              width={200} 
-              height={200}
-              className="w-auto h-20 md:h-24 drop-shadow-[0_0_10px_rgba(255,193,7,0.3)]"
-            />
-          </div>
-
-          {/* MENU (Links Dourados) */}
-          <div className="hidden md:flex gap-8 text-sm font-bold text-gray-300">
-            <Link href="/" className="hover:text-cartola-gold transition tracking-widest">INÍCIO</Link>
-            <Link href="#campeonatos" className="hover:text-cartola-gold transition tracking-widest">CAMPEONATOS</Link>
-            <Link href="#recordes" className="hover:text-cartola-gold transition tracking-widest">RECORDES</Link>
-          </div>
-
-          {/* BOTÃO ADMIN (Dourado e Preto) */}
-          <Link 
-            href="/admin" 
-            className="bg-cartola-gold hover:bg-yellow-400 text-cartola-dark px-6 py-2 rounded-full text-xs font-black uppercase tracking-wider shadow-lg shadow-yellow-500/20 transition-transform transform hover:scale-105"
-          >
-            Área Admin
-          </Link>
-        </div>
-      </nav>
-
-      <main className="max-w-7xl mx-auto p-4 md:p-8">
+    <div className="max-w-7xl mx-auto p-6 md:p-10 animate-fadeIn">
         
+        {/* Cabeçalho do Painel */}
+        <div className="flex items-center justify-between mb-10 pb-6 border-b border-white/5">
+            <div className="flex items-center gap-4">
+                <div className="w-1.5 h-10 bg-gradient-to-b from-yellow-500 to-yellow-700 rounded-full shadow-[0_0_20px_rgba(234,179,8,0.4)]"></div>
+                <div>
+                    <h1 className="text-3xl font-black text-white uppercase tracking-tighter">
+                        Painel Geral
+                    </h1>
+                    <p className="text-xs text-gray-500 font-bold tracking-[0.2em] mt-1 uppercase">
+                        Temporada 2025
+                    </p>
+                </div>
+            </div>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
 
-          {/* === COLUNA DA ESQUERDA === */}
+          {/* === ESQUERDA: RANKING GERAL (CORRIGIDO) === */}
           <div className="lg:col-span-2 space-y-8">
-            
-            {/* Tabela Oficial */}
-           <section className="bg-cartola-card rounded-xl border border-gray-700 overflow-hidden shadow-2xl flex flex-col">
-              <div className="bg-gradient-to-r from-cartola-blue to-cartola-card p-4 border-b border-gray-700 flex justify-between items-center">
-                <h2 className="text-xl font-bold flex items-center gap-2 text-white">
-                  🎩 Ranking de pontos
+            <section className="bg-[#121212] border border-white/5 rounded-3xl overflow-hidden shadow-2xl relative group">
+              
+              {/* Header Clean */}
+              <div className="bg-[#151515] p-6 flex justify-between items-center border-b border-white/5">
+                <h2 className="text-sm font-black flex items-center gap-3 text-white uppercase tracking-widest">
+                  <span className="text-lg text-yellow-500">🏆</span> Ranking da Temporada
                 </h2>
-                <span className="text-[10px] font-bold bg-cartola-gold text-cartola-dark px-2 py-1 rounded uppercase">
-                  Top 5 Atual
+                <span className="text-[9px] font-bold text-yellow-500/80 border border-yellow-500/20 px-3 py-1 rounded-full uppercase tracking-widest bg-yellow-500/5">
+                  Top 5
                 </span>
               </div>
               
-              <table className="w-full text-left">
-                <thead className="bg-gray-900/50 text-gray-400 text-xs uppercase">
-                  <tr>
-                    <th className="p-4">Pos</th>
-                    <th className="p-4">Time</th>
-                    <th className="p-4 text-right">Total</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-800">
-                  {tabelaOficial.map((time: any) => (
-                    <tr key={time.pos} className="hover:bg-gray-800/50 transition">
-                      <td className={`p-4 font-bold ${time.pos === 1 ? 'text-cartola-gold text-xl' : 'text-gray-500'}`}>
-                        {time.pos}º
-                      </td>
-                      <td className="p-4 flex items-center gap-3">
-                        <img src={time.escudo} alt={time.time} className="w-10 h-10 object-contain" />
-                        <div>
-                          <div className="font-bold text-white">{time.time}</div>
-                          <div className="text-xs text-gray-400">{time.cartoleiro}</div>
-                        </div>
-                      </td>
-                      <td className="p-4 text-right font-mono text-cartola-gold font-bold text-lg">
-                        {time.pontos.toFixed(1)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div className="w-full overflow-x-auto">
+                  <table className="w-full text-left border-collapse">
+                    <thead className="bg-[#0a0a0a] text-gray-500 text-[10px] uppercase font-bold tracking-widest">
+                      <tr>
+                        <th className="p-5 w-[15%] text-center">Posição</th>
+                        <th className="p-5 w-[55%]">Clube</th>
+                        <th className="p-5 text-right">Pontuação</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/[0.03]">
+                      {tabelaOficial.map((time: any) => {
+                        const isLeader = time.pos === 1;
+                        
+                        return (
+                            <tr key={time.pos} className={`group transition-all duration-300 ${isLeader ? 'bg-gradient-to-r from-yellow-500/10 to-transparent' : 'hover:bg-white/[0.02]'}`}>
+                              
+                              <td className={`p-5 text-center relative ${isLeader ? 'border-l-2 border-yellow-500' : 'border-l-2 border-transparent'}`}>
+                                <div className="flex flex-col items-center justify-center">
+                                    <span className={`font-black text-2xl leading-none ${isLeader ? 'text-yellow-500 drop-shadow-md scale-110' : time.pos <= 3 ? 'text-white' : 'text-gray-600'}`}>
+                                        {time.pos}º
+                                    </span>
+                                </div>
+                              </td>
+                              
+                              <td className="p-5">
+                                <div className="flex items-center gap-5">
+                                    {/* Escudo */}
+                                    <div className={`relative transition-all duration-500 ${isLeader ? 'scale-110 drop-shadow-[0_0_10px_rgba(234,179,8,0.4)]' : 'grayscale opacity-60 group-hover:grayscale-0 group-hover:opacity-100'}`}>
+                                        <img src={time.escudo} className="w-12 h-12 object-contain" />
+                                    </div>
+                                    
+                                    <div className="flex flex-col gap-0.5">
+                                        <div className={`font-bold text-sm ${isLeader ? 'text-white' : 'text-gray-300'}`}>{time.time}</div>
+                                        <div className={`text-[10px] uppercase tracking-wider font-bold transition-colors ${isLeader ? 'text-yellow-500/70' : 'text-gray-600 group-hover:text-gray-400'}`}>
+                                            {time.cartoleiro}
+                                        </div>
+                                    </div>
+                                </div>
+                              </td>
+                              
+                              <td className="p-5 text-right">
+                                 <div className="flex flex-col items-end">
+                                     <span className={`font-mono font-black text-lg ${isLeader ? 'text-yellow-400 drop-shadow-sm' : 'text-white'}`}>
+                                        {time.pontos.toFixed(2)}
+                                     </span>
+                                     <span className="text-[9px] text-gray-600 font-bold uppercase tracking-widest">Pts</span>
+                                 </div>
+                              </td>
+                            </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+              </div>
 
-              {/* BOTÃO VER COMPLETO */}
-              <div className="p-4 border-t border-gray-700 bg-black/20 text-center">
-                <Link 
-                  href="/ranking" 
-                  className="inline-block text-sm font-bold text-gray-400 hover:text-white hover:underline transition"
-                >
-                  Ver Ranking Completo →
+              <div className="p-4 border-t border-white/5 bg-[#0a0a0a] text-center">
+                <Link href="/ranking" className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-gray-500 hover:text-white transition duration-300 group">
+                  Ver Classificação Completa <span className="text-yellow-500 transition-transform group-hover:translate-x-1">→</span>
                 </Link>
               </div>
             </section>
-
-             {/* Campeonatos Ativos */}
-             <section id="campeonatos">
-              <h2 className="text-xl font-bold mb-4 border-l-4 border-cartola-green pl-3 text-white">
-                Nossos Campeonatos
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {ligas.length === 0 && <p className="text-gray-500 col-span-2">Nenhum campeonato criado ainda.</p>}
-                
-                {ligas.map(liga => (
-                  <Link key={liga.id} href={`/campeonato/${liga.id}`} className="group">
-                    <div className="bg-cartola-card p-6 rounded-lg border border-gray-700 hover:border-cartola-green transition-all h-full shadow-lg relative overflow-hidden">
-                      <div className="absolute top-0 right-0 w-20 h-20 bg-cartola-green/10 rounded-full -mr-10 -mt-10 blur-xl"></div>
-                      
-                      <div className="flex justify-between items-start mb-3">
-                        <span className="bg-cartola-blue text-white text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wider">
-                          {liga.tipo.replace('_', ' ')}
-                        </span>
-                        <span className="text-gray-500 text-xs font-mono">{liga.ano}</span>
-                      </div>
-                      <h3 className="text-xl font-bold text-white group-hover:text-cartola-green transition-colors">
-                        {liga.nome}
-                      </h3>
-                      <p className="text-sm text-gray-400 mt-2">Clique para ver a tabela e jogos</p>
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </section>
-
           </div>
 
-          {/* === COLUNA DA DIREITA === */}
+          {/* === DIREITA: RECORDES === */}
           <div className="space-y-8" id="recordes">
-            
-            {/* Recordes */}
-            <div className="bg-cartola-card rounded-xl border border-gray-700 overflow-hidden shadow-2xl">
-              <div className="bg-gradient-to-r from-cartola-gold/20 to-cartola-card p-4 border-b border-gray-700 flex justify-between items-center">
-                <h3 className="font-bold text-cartola-gold flex items-center gap-2 uppercase tracking-wide text-sm">
-                  🏆 Recordes da Temporada
+            <div className="bg-[#121212] border border-white/5 rounded-3xl overflow-hidden shadow-2xl relative">
+              
+              <div className="p-6 border-b border-white/5 flex justify-between items-center bg-[#151515]">
+                <h3 className="font-black text-blue-400 flex items-center gap-2 uppercase tracking-widest text-xs">
+                  ⚡ Recordes
                 </h3>
               </div>
               
-              <div className="divide-y divide-gray-800">
+              <div className="divide-y divide-white/[0.03]">
                 {recordes.length === 0 && (
-                   <div className="p-6 text-center text-gray-500 text-sm">Nenhum jogo finalizado.</div>
+                   <div className="p-10 text-center text-gray-600 text-[10px] font-bold uppercase border-dashed">Aguardando jogos.</div>
                 )}
 
                 {recordes.map((recorde, index) => (
-                  <div key={index} className="flex items-center p-4 hover:bg-gray-800/50 transition">
-                    <div className={`font-black text-2xl w-8 text-center ${index === 0 ? 'text-cartola-gold' : 'text-gray-600'}`}>
+                  <div key={index} className="flex items-center p-5 hover:bg-white/[0.02] transition group">
+                    <div className={`font-black text-xl w-8 text-center ${index === 0 ? 'text-blue-500' : 'text-gray-700'}`}>
                       {index + 1}
                     </div>
                     
-                    <img src={recorde.escudo} className="w-10 h-10 mx-3" />
+                    <img src={recorde.escudo} className="w-10 h-10 object-contain mx-4 opacity-70 group-hover:opacity-100 transition-opacity" />
+                    
                     <div className="flex-1 min-w-0">
-                      <div className="font-bold text-white truncate">{recorde.time}</div>
-                      <div className="text-xs text-gray-400">
-                        {recorde.liga} • Rodada {recorde.rodada}
+                      <div className="font-bold text-gray-200 text-xs truncate transition-colors">{recorde.time}</div>
+                      <div className="text-[9px] text-gray-600 font-bold uppercase tracking-wide truncate">
+                        {recorde.liga} • R{recorde.rodada}
                       </div>
                     </div>
 
-                    <div className="text-right">
-                      <div className="font-mono font-bold text-cartola-green text-lg">
-                        {recorde.pontos.toFixed(2)}
+                    <div className="text-right pl-3">
+                      <div className="font-mono font-black text-green-500 text-sm">
+                        {recorde.pontos.toFixed(1)}
                       </div>
-                      <div className="text-[9px] text-gray-500 uppercase tracking-widest">Pontos</div>
+                      <div className="text-[7px] text-gray-700 font-bold uppercase tracking-widest">Pts</div>
                     </div>
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* Aviso */}
-             <div className="bg-cartola-blue/20 border border-cartola-blue p-4 rounded-lg flex gap-3 items-start">
-                <span className="text-xl">⚽</span>
-                <p className="text-blue-200 text-xs leading-relaxed">
-                  <strong>Dica:</strong> Para aparecer nos recordes, a rodada precisa estar finalizada no sistema.
-                </p>
+             <div className="bg-blue-900/5 border border-blue-900/20 p-6 rounded-2xl flex gap-4 items-start opacity-60 hover:opacity-100 transition-opacity cursor-help">
+                <span className="text-xl">💡</span>
+                <div>
+                    <h4 className="text-blue-400 font-black text-xs uppercase tracking-widest mb-1">Info</h4>
+                    <p className="text-blue-200/50 text-[10px] leading-relaxed font-medium">
+                      Recordes são atualizados automaticamente ao fim de cada rodada oficial.
+                    </p>
+                </div>
              </div>
-
           </div>
 
         </div>
-      </main>
     </div>
   )
 }

@@ -20,6 +20,9 @@ export default function PainelPontosCorridos({ campeonatoId, times }: Props) {
   const [rodadaCartola, setRodadaCartola] = useState('')
   const [loading, setLoading] = useState(false)
   
+  // Controle para ajuste automático da rodada (apenas na 1ª carga)
+  const [viewAdjusted, setViewAdjusted] = useState(false)
+  
   // Modal e Edição
   const [modalOpen, setModalOpen] = useState(false)
   const [modalConfig, setModalConfig] = useState<any>({})
@@ -37,6 +40,28 @@ export default function PainelPontosCorridos({ campeonatoId, times }: Props) {
     
     const dadosJogos = await listarPartidas(campeonatoId)
     setJogos(dadosJogos)
+
+    // --- LÓGICA DE SELEÇÃO AUTOMÁTICA DA RODADA ATUAL ---
+    if (!viewAdjusted && dadosJogos.length > 0) {
+        // Procura rodadas que tenham jogos NÃO finalizados
+        const rodadasPendentes = dadosJogos
+            .filter((j: any) => j.status !== 'finalizado')
+            .map((j: any) => j.rodada);
+        
+        let rodadaInicial = 1;
+
+        if (rodadasPendentes.length > 0) {
+            // Se houver pendências, vai para a menor rodada pendente
+            rodadaInicial = Math.min(...rodadasPendentes);
+        } else {
+            // Se tudo finalizado, vai para a última
+            const todasRodadas = dadosJogos.map((j: any) => j.rodada);
+            rodadaInicial = Math.max(...todasRodadas);
+        }
+
+        setRodadaView(rodadaInicial);
+        setViewAdjusted(true); // Trava para não mudar mais sozinho
+    }
   }
 
   const jogosDaRodada = jogos.filter(j => j.rodada === rodadaView)
@@ -201,7 +226,7 @@ export default function PainelPontosCorridos({ campeonatoId, times }: Props) {
         </div>
       </div>
 
-      {/* COLUNA 2: JOGOS (Cards Melhorados) */}
+      {/* COLUNA 2: JOGOS (Cards Melhorados com Destaque Verde) */}
       <div className="lg:col-span-1 space-y-6">
          <div className="bg-[#121212] border border-gray-800 rounded-2xl p-6 sticky top-6 shadow-xl h-fit">
             <div className="flex justify-between items-center mb-6 pb-4 border-b border-gray-800 shrink-0">

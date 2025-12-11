@@ -8,15 +8,15 @@ import {
 } from '../actions'
 import MataMataBracket from './MataMataBracket'
 import ModalConfirmacao from './ModalConfirmacao'
-// CORREÇÃO: O caminho do arquivo estava incorreto ('./admin/c')
-import SorteioMataMata from './admin/SorteioMataMata' 
+import SorteioMataMata from './admin/SorteioMataMata'
 
 interface Props {
   campeonatoId: number
-  rodadasCorte: number 
+  rodadasCorte: number
+  bloquearGerador?: boolean 
 }
 
-export default function PainelMataMata({ campeonatoId, rodadasCorte }: Props) {
+export default function PainelMataMata({ campeonatoId, rodadasCorte, bloquearGerador = false }: Props) {
   const [partidas, setPartidas] = useState<any[]>([])
   const [faseAtual, setFaseAtual] = useState('1')
   const [rodadaIda, setRodadaIda] = useState('')
@@ -25,25 +25,27 @@ export default function PainelMataMata({ campeonatoId, rodadasCorte }: Props) {
   const [modalOpen, setModalOpen] = useState(false)
   const [modalConfig, setModalConfig] = useState<any>({})
   
-  // Estado para controlar se mostra o sorteio ou as chaves
   const [modoSorteio, setModoSorteio] = useState(false)
 
   useEffect(() => { carregarDados() }, [campeonatoId])
 
   async function carregarDados() {
+    setLoading(true)
     const todosJogos = await listarPartidas(campeonatoId)
+    
+    // Filtra e normaliza as rodadas (R21 vira R1 para o bracket)
     const jogosMataMata = todosJogos
       .filter((p: any) => p.rodada > rodadasCorte)
       .map((p: any) => ({ ...p, rodada: p.rodada - rodadasCorte }))
     
     setPartidas(jogosMataMata)
     
-    // Se não tem jogos, ativa o modo sorteio
     if (jogosMataMata.length === 0) {
-        setModoSorteio(true)
+        setModoSorteio(!bloquearGerador)
     } else {
         setModoSorteio(false)
     }
+    setLoading(false)
   }
 
   const fasesDisponiveis = [...new Set(partidas.map(p => p.rodada))].sort((a, b) => a - b)
@@ -79,30 +81,41 @@ export default function PainelMataMata({ campeonatoId, rodadasCorte }: Props) {
         const res = await excluirMataMata(campeonatoId, rodadasCorte + 1)
         if(res.success) { 
             toast.success(res.msg); 
-            carregarDados(); // Isso vai ativar o modoSorteio automaticamente
+            carregarDados(); 
         }
         setModalOpen(false)
     }, tipo: 'perigo' })
     setModalOpen(true)
   }
 
-  // --- SE ESTIVER NO MODO SORTEIO ---
+  if (loading && partidas.length === 0) return <div className="text-center py-10 text-gray-500 animate-pulse">Carregando chaveamento...</div>
+
+  // --- CASOS DE EXIBIÇÃO ---
+  
+  if (partidas.length === 0 && bloquearGerador) {
+      return (
+        <div className="flex flex-col items-center justify-center py-12 border border-dashed border-gray-800 rounded-2xl bg-white/5 animate-fadeIn">
+            <div className="text-4xl mb-4">⏳</div>
+            <h3 className="text-white font-bold text-lg">Aguardando Fase de Grupos</h3>
+            <p className="text-gray-500 text-sm mt-2 max-w-md text-center">
+                O chaveamento aparecerá aqui automaticamente após você clicar em "Gerar Chave Final" no painel acima.
+            </p>
+        </div>
+      )
+  }
+
   if (modoSorteio) {
       return (
         <div className="animate-fadeIn">
-            {/* Este é o cabeçalho que você queria manter */}
             <div className="bg-[#121212] p-6 rounded-xl border border-gray-800 mb-6 text-center">
                 <h3 className="text-white font-bold mb-2">Chaveamento Pendente</h3>
                 <p className="text-gray-500 text-xs mb-4">Defina os potes abaixo para sortear os confrontos.</p>
             </div>
-            
-            {/* Componente de Sorteio com Potes (agora limpo, sem bordas extras) */}
             <SorteioMataMata campeonatoId={campeonatoId} onSucesso={carregarDados} />
         </div>
       )
   }
 
-  // --- SE JÁ TIVER JOGOS (PAINEL DE CONTROLE) ---
   return (
     <div className="animate-fadeIn space-y-8">
         <ModalConfirmacao isOpen={modalOpen} {...modalConfig} onCancel={() => setModalOpen(false)} />
@@ -130,7 +143,8 @@ export default function PainelMataMata({ campeonatoId, rodadasCorte }: Props) {
         </div>
 
         <div className="overflow-x-auto pb-10">
-            <MataMataBracket partidas={partidas} />
+            {/* CORREÇÃO AQUI: Passando 'partidas' em vez de 'jogos' */}
+            <MataMataBracket partidas={partidas} rodadaInicial={rodadasCorte} />
         </div>
     </div>
   )

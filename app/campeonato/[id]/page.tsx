@@ -5,10 +5,9 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 
-// Import components
 import TabelaPublica from '@/app/components/public/TabelaPublica'
 import MataMataPublico from '@/app/components/public/MataMataPublico'
-import FaseGruposPublica from '@/app/components/public/FaseGruposPublica' // <--- IMPORT NOVO
+import FaseGruposPublica from '@/app/components/public/FaseGruposPublica'
 
 export default function PaginaCampeonato() {
   const params = useParams()
@@ -31,7 +30,7 @@ export default function PaginaCampeonato() {
             setLiga(data)
             if (data.tipo === 'mata_mata') {
                 setTab('chave')
-            } else if (data.tipo === 'copa') {
+            } else {
                 setTab('tabela')
             }
         }
@@ -51,17 +50,21 @@ export default function PaginaCampeonato() {
     <div className="min-h-screen bg-[#050505] text-white font-sans flex flex-col">
         
         {/* HEADER */}
-        <div className="border-b border-gray-800 bg-[#0a0a0a] py-8 px-6">
-            <div className="max-w-[1800px] mx-auto">
-                <Link href="/" className="text-[10px] font-bold uppercase tracking-widest text-gray-500 hover:text-white mb-6 block">
-                    ← Voltar
+        <div className="border-b border-gray-800 bg-[#1F2937] py-8 px-6 relative overflow-hidden">
+            {/* Background Glow */}
+            <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-[#009B3A]/5 rounded-full blur-[100px] pointer-events-none -mr-20 -mt-20"></div>
+
+            <div className="max-w-[1800px] mx-auto relative z-10">
+                {/* CORREÇÃO: Voltar para a lista de campeonatos */}
+                <Link href="/campeonatos" className="text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:text-[#FFC107] mb-6 inline-flex items-center gap-2 transition-colors">
+                    ← Voltar para Lista
                 </Link>
                 <div className="text-center">
-                    <span className="px-3 py-1 border border-gray-800 rounded-full text-[9px] font-bold uppercase text-gray-400 bg-[#151515]">
+                    <span className="px-3 py-1 border border-gray-700 rounded-full text-[9px] font-bold uppercase text-[#FFC107] bg-[#111827]">
                         {liga.tipo?.replace('_', ' ')}
                     </span>
                     <h1 className="text-4xl md:text-6xl font-black mt-4 mb-2 tracking-tighter">{liga.nome}</h1>
-                    <p className="text-gray-600 text-xs font-bold tracking-[0.2em] uppercase">Temporada {liga.ano}</p>
+                    <p className="text-gray-500 text-xs font-bold tracking-[0.2em] uppercase">Temporada {liga.ano}</p>
                 </div>
             </div>
         </div>
@@ -72,29 +75,29 @@ export default function PaginaCampeonato() {
                 {liga.tipo !== 'mata_mata' && (
                     <button 
                         onClick={() => setTab('tabela')} 
-                        className={`px-6 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition ${tab === 'tabela' ? 'bg-white text-black' : 'text-gray-500 hover:text-white'}`}
+                        className={`px-6 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition ${tab === 'tabela' ? 'bg-[#FFC107] text-[#111827] shadow-lg shadow-yellow-500/20' : 'text-gray-500 hover:text-white'}`}
                     >
-                        Classificação
+                        {liga.tipo === 'copa' ? 'Fase de Grupos' : 'Classificação'}
                     </button>
                 )}
                 
                 {liga.tipo !== 'pontos_corridos' && (
                     <button 
                         onClick={() => setTab('chave')} 
-                        className={`px-6 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition ${tab === 'chave' ? 'bg-white text-black' : 'text-gray-500 hover:text-white'}`}
+                        className={`px-6 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition ${tab === 'chave' ? 'bg-[#FFC107] text-[#111827] shadow-lg shadow-yellow-500/20' : 'text-gray-500 hover:text-white'}`}
                     >
-                        Mata-Mata
+                        {liga.tipo === 'copa' ? 'Fase Final' : 'Chaveamento'}
                     </button>
                 )}
             </div>
         </div>
 
         {/* CONTEUDO */}
-        <div className="flex-1 w-full max-w-[1800px] mx-auto p-6">
+        <div className="flex-1 w-full max-w-[1800px] mx-auto p-6 animate-fadeIn">
             
             {tab === 'tabela' && (
                 liga.tipo === 'copa' 
-                ? <FaseGruposPublica campeonatoId={campeonatoId} /> // <--- SUBSTITUÍDO AQUI
+                ? <FaseGruposPublica campeonatoId={campeonatoId} />
                 : <TabelaPublica campeonatoId={campeonatoId} />
             )}
 
@@ -109,7 +112,7 @@ export default function PaginaCampeonato() {
 
         </div>
 
-        <footer className="py-8 text-center border-t border-gray-900 text-[9px] font-bold uppercase text-gray-700">
+        <footer className="py-8 text-center border-t border-gray-900 text-[9px] font-bold uppercase text-gray-700 bg-[#0a0a0a]">
             Cartola League System
         </footer>
     </div>

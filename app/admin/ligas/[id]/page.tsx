@@ -6,8 +6,7 @@ import { useParams } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { 
   listarTimesDoCampeonato, listarTodosTimes, 
-  atualizarConfiguracaoLiga, gerarMataMataInteligente, 
-  gerarMataMataCopa, buscarTabelaGrupos 
+  atualizarConfiguracaoLiga, gerarMataMataCopa, buscarTabelaGrupos 
 } from '../../../actions'
 import { supabase } from '@/lib/supabase'
 import ModalConfirmacao from '@/app/components/ModalConfirmacao'
@@ -37,6 +36,13 @@ export default function GerenciarLiga() {
 
   useEffect(() => { if (id) carregarDados() }, [id])
 
+  // Recarrega os potes sempre que entrar na aba 'jogos' em Copas
+  useEffect(() => {
+    if (tabAtiva === 'jogos' && liga?.tipo === 'copa') {
+        atualizarPotes()
+    }
+  }, [tabAtiva, liga])
+
   async function carregarDados() {
     const { data } = await supabase.from('campeonatos').select('*').eq('id', campeonatoId).single()
     setLiga(data)
@@ -46,10 +52,9 @@ export default function GerenciarLiga() {
     setTimesLiga(_times)
     setTodosTimes(await listarTodosTimes())
 
-    // Se for Copa, calcula os classificados para preview
+    // Redirecionamento inicial de abas
     if (data?.tipo === 'copa') {
-        const grupos = await buscarTabelaGrupos(campeonatoId);
-        processarClassificados(grupos);
+        await atualizarPotes();
         if (tabAtiva === 'times') setTabAtiva('grupos');
     } else if (data?.tipo === 'pontos_corridos' && tabAtiva === 'times') {
         setTabAtiva('classificacao');
@@ -58,17 +63,24 @@ export default function GerenciarLiga() {
     }
   }
 
+  async function atualizarPotes() {
+      const grupos = await buscarTabelaGrupos(campeonatoId);
+      processarClassificados(grupos);
+  }
+
   function processarClassificados(grupos: any) {
     const p1: any[] = [];
     const p2: any[] = [];
     
-    Object.keys(grupos).forEach(letra => {
-        const time1 = grupos[letra][0]; // 1º Colocado
-        const time2 = grupos[letra][1]; // 2º Colocado
-        
-        if (time1) p1.push({ ...time1, gp_origem: letra });
-        if (time2) p2.push({ ...time2, gp_origem: letra });
-    });
+    if (grupos) {
+        Object.keys(grupos).forEach(letra => {
+            const time1 = grupos[letra][0]; // 1º Colocado
+            const time2 = grupos[letra][1]; // 2º Colocado
+            
+            if (time1) p1.push({ ...time1, gp_origem: letra });
+            if (time2) p2.push({ ...time2, gp_origem: letra });
+        });
+    }
 
     // Ordenar Pote 1 (Melhores Campanhas)
     p1.sort((a, b) => b.pts - a.pts || b.v - a.v || b.sp - a.sp || b.pp - a.pp);
@@ -139,22 +151,21 @@ export default function GerenciarLiga() {
                 <PainelPontosCorridos campeonatoId={campeonatoId} times={timesLiga} />
             )}
 
+            {/* MATA-MATA PURO */}
             {tabAtiva === 'jogos' && liga?.tipo === 'mata_mata' && (
-                <PainelMataMata campeonatoId={campeonatoId} rodadasCorte={0} />
+                <PainelMataMata campeonatoId={campeonatoId} rodadasCorte={0} bloquearGerador={false} />
             )}
 
-            {/* VISUALIZAÇÃO ESPECIAL DA COPA (SORTEIO DIRIGIDO) */}
+            {/* VISUALIZAÇÃO ESPECIAL DA COPA */}
             {tabAtiva === 'jogos' && liga?.tipo === 'copa' && (
-                <div>
-                    {/* Painel de Controle do Sorteio */}
+                <div className="animate-fadeIn">
                     <div className="mb-8 bg-[#121212] p-6 rounded-3xl border border-gray-800">
                          <div className="flex justify-between items-start mb-6">
                             <div>
                                 <h3 className="text-xl font-bold text-white uppercase tracking-wider mb-2">Fase Final (Mata-Mata)</h3>
                                 <p className="text-gray-400 text-xs max-w-2xl">
                                     O sistema utilizará a classificação da Fase de Grupos. <br/>
-                                    <span className="text-yellow-500">Regras:</span> 1º vs 2º Colocado. Times do mesmo grupo não se enfrentam agora. 
-                                    A Melhor e a Segunda melhor campanha ficam em chaves opostas.
+                                    <span className="text-yellow-500">Regras:</span> 1º vs 2º Colocado. Times do mesmo grupo não se enfrentam agora.
                                 </p>
                             </div>
                             <button onClick={handleGerarCopa} className="bg-gradient-to-r from-yellow-600 to-yellow-500 hover:from-yellow-500 hover:to-yellow-400 text-black px-6 py-4 rounded-xl text-xs font-black uppercase transition shadow-lg shadow-yellow-900/20 tracking-widest flex items-center gap-2">
@@ -162,15 +173,13 @@ export default function GerenciarLiga() {
                             </button>
                         </div>
 
-                        {/* Visualização dos Potes (Classificados) */}
-                        {pote1.length > 0 && (
+                        {/* Potes */}
+                        {pote1.length > 0 ? (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-gray-800">
-                                
-                                {/* POTE 1 */}
                                 <div className="bg-black/40 rounded-xl p-4 border border-gray-800/50">
                                     <div className="flex items-center gap-2 mb-4">
                                         <span className="bg-green-600 text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase">Pote 1</span>
-                                        <h4 className="text-xs font-bold text-gray-300 uppercase">Líderes (Decidem em Casa)</h4>
+                                        <h4 className="text-xs font-bold text-gray-300 uppercase">Líderes</h4>
                                     </div>
                                     <div className="space-y-1">
                                         {pote1.map((t, idx) => (
@@ -181,23 +190,21 @@ export default function GerenciarLiga() {
                                                     <span className="text-xs font-bold text-gray-300">{t.times?.nome}</span>
                                                 </div>
                                                 <div className="flex gap-3 text-[10px] font-mono text-gray-500">
-                                                    <span title="Grupo Origem">Gr.{t.gp_origem}</span>
+                                                    <span>Gr.{t.gp_origem}</span>
                                                     <span className="text-white font-bold">{t.pts}pts</span>
                                                 </div>
                                             </div>
                                         ))}
                                     </div>
-                                    <p className="text-[10px] text-gray-600 mt-2 text-center">Ordenados por melhor campanha geral.</p>
                                 </div>
 
-                                {/* POTE 2 */}
                                 <div className="bg-black/40 rounded-xl p-4 border border-gray-800/50">
                                     <div className="flex items-center gap-2 mb-4">
                                         <span className="bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase">Pote 2</span>
-                                        <h4 className="text-xs font-bold text-gray-300 uppercase">Desafiantes (Mandam Ida)</h4>
+                                        <h4 className="text-xs font-bold text-gray-300 uppercase">Desafiantes</h4>
                                     </div>
                                     <div className="space-y-1">
-                                        {pote2.map((t, idx) => (
+                                        {pote2.map((t) => (
                                             <div key={t.time_id} className="flex justify-between items-center p-2 rounded bg-white/5">
                                                 <div className="flex items-center gap-3">
                                                     <span className="font-mono font-bold text-[10px] w-4 text-gray-500">-</span>
@@ -205,20 +212,23 @@ export default function GerenciarLiga() {
                                                     <span className="text-xs font-bold text-gray-300">{t.times?.nome}</span>
                                                 </div>
                                                 <div className="flex gap-3 text-[10px] font-mono text-gray-500">
-                                                    <span title="Grupo Origem">Gr.{t.gp_origem}</span>
+                                                    <span>Gr.{t.gp_origem}</span>
                                                     <span className="text-white font-bold">{t.pts}pts</span>
                                                 </div>
                                             </div>
                                         ))}
                                     </div>
-                                    <p className="text-[10px] text-gray-600 mt-2 text-center">Sorteados contra o Pote 1 (Exceto mesmo grupo).</p>
                                 </div>
+                            </div>
+                        ) : (
+                            <div className="text-center py-10 text-gray-500 text-xs">
+                                Nenhuma classificação definida. Atualize os jogos na aba "Grupos".
                             </div>
                         )}
                     </div>
                     
-                    {/* Componente que exibe a chave */}
-                    <PainelMataMata campeonatoId={campeonatoId} rodadasCorte={6} />
+                    {/* Passamos bloquearGerador=true aqui */}
+                    <PainelMataMata campeonatoId={campeonatoId} rodadasCorte={6} bloquearGerador={true} />
                 </div>
             )}
 
@@ -228,11 +238,9 @@ export default function GerenciarLiga() {
                 <PainelTimes campeonatoId={campeonatoId} timesLiga={timesLiga} todosTimes={todosTimes} aoAtualizar={carregarDados} />
             )}
 
-            {/* ABA CONFIG - AGORA LIMPA */}
             {tabAtiva === 'config' && (
                 <div className="bg-[#121212] p-8 rounded-3xl border border-gray-800 max-w-4xl mx-auto animate-fadeIn">
                     <h3 className="text-xl font-bold text-white mb-6 uppercase tracking-wider">Configurações</h3>
-                    
                     <div className="flex justify-between items-center p-4 bg-black rounded-xl border border-gray-800">
                         <div>
                             <span className="font-bold block text-white text-sm">Final em Jogo Único</span>
@@ -240,8 +248,6 @@ export default function GerenciarLiga() {
                         </div>
                         <input type="checkbox" checked={finalUnica} onChange={e => { setFinalUnica(e.target.checked); atualizarConfiguracaoLiga(campeonatoId, e.target.checked); }} className="w-6 h-6 accent-green-500 cursor-pointer" />
                     </div>
-                    
-                    {/* A lista de ordenação manual foi removida daqui */}
                 </div>
             )}
         </div>

@@ -33,7 +33,6 @@ export default function PainelFaseGrupos({ campeonatoId, times }: Props) {
     const dadosGrupos = await buscarTabelaGrupos(campeonatoId)
     setGrupos(dadosGrupos)
     const dadosJogos = await listarPartidas(campeonatoId)
-    // Filtra apenas jogos da fase de grupos (assumindo rodadas <= 20 como padrão de grupos)
     const jogosGrupos = dadosJogos.filter((j: any) => j.rodada <= 20) 
     setJogos(jogosGrupos)
   }
@@ -46,26 +45,48 @@ export default function PainelFaseGrupos({ campeonatoId, times }: Props) {
     setModalOpen(true)
   }
 
+  // --- AQUI ESTAVA O PROBLEMA ---
   async function handleSortear() {
-    if (times.length < 4) return toast.error("Mínimo 4 times para grupos.")
+    if (!times || times.length < 4) {
+        return toast.error("Mínimo 4 times para sortear.")
+    }
+
     const numPotes = 4
     const timesPorPote = Math.ceil(times.length / numPotes)
-    const potes = []
+    
+    // CORREÇÃO: Definindo o tipo para o TypeScript não bloquear
+    const potes: number[][] = []
+    
     for (let i = 0; i < numPotes; i++) {
         const slice = times.slice(i * timesPorPote, (i + 1) * timesPorPote)
-        potes.push(slice.map(t => t.time_id))
+        // Pega só os IDs
+        const ids = slice.map((t: any) => t.time_id)
+        if (ids.length > 0) {
+            potes.push(ids)
+        }
     }
     
-    confirm("Sortear Grupos", "Isso irá redefinir os grupos atuais. Confirmar?", async () => {
+    confirm("Sortear Grupos", "Isso vai apagar tudo e criar novos grupos. Confirmar?", async () => {
         const res = await sortearGrupos(campeonatoId, numPotes, potes)
-        if(res.success) { toast.success(res.msg); carregarDados(); } else toast.error(res.msg)
+        if(res.success) { 
+            toast.success(res.msg)
+            carregarDados() 
+        } else { 
+            toast.error(res.msg)
+        }
     })
   }
 
   async function handleGerarJogos() {
-    confirm("Gerar Jogos", "Criar confrontos de ida e volta para os grupos?", async () => {
+    confirm("Gerar Jogos", "Criar confrontos de ida e volta?", async () => {
         const res = await gerarJogosFaseGrupos(campeonatoId)
-        if(res.success) { toast.success(res.msg); carregarDados(); setRodadaView(1); } else toast.error(res.msg)
+        if(res.success) { 
+            toast.success(res.msg)
+            carregarDados()
+            setRodadaView(1)
+        } else { 
+            toast.error(res.msg)
+        }
     })
   }
 
@@ -85,14 +106,21 @@ export default function PainelFaseGrupos({ campeonatoId, times }: Props) {
     toast.success("Salvo!")
   }
 
-  // Se não tem grupos sorteados
+  // TELA DE SORTEIO PENDENTE
   if (Object.keys(grupos).length === 0) {
       return (
         <div className="flex flex-col items-center justify-center py-32 border border-gray-800 border-dashed rounded-3xl bg-[#080808]">
             <span className="text-6xl mb-4 opacity-20">🎲</span>
             <h3 className="text-xl font-bold text-gray-300 mb-2">Sorteio Pendente</h3>
             <p className="text-gray-500 text-sm mb-6">A fase de grupos ainda não foi definida.</p>
-            <button onClick={handleSortear} className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-lg font-bold transition shadow-lg shadow-blue-900/20">Sortear Grupos Agora</button>
+            
+            {/* O BOTÃO QUE NÃO FUNCIONAVA */}
+            <button 
+                onClick={handleSortear} 
+                className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-lg font-bold transition shadow-lg shadow-blue-900/20 uppercase tracking-widest text-xs"
+            >
+                Sortear Grupos Agora
+            </button>
         </div>
       )
   }
@@ -122,7 +150,6 @@ export default function PainelFaseGrupos({ campeonatoId, times }: Props) {
       {/* COLUNA 1: TABELAS DOS GRUPOS */}
       <div className="lg:col-span-2 space-y-8">
         
-        {/* Header de Ações */}
         <div className="flex justify-between items-center bg-[#121212] p-6 rounded-3xl border border-gray-800 shadow-lg">
             <div className="flex items-center gap-3">
                 <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.5)]"></div>
@@ -134,7 +161,6 @@ export default function PainelFaseGrupos({ campeonatoId, times }: Props) {
             </div>
         </div>
 
-        {/* Grid de Grupos */}
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
             {Object.keys(grupos).sort().map(letra => (
                 <div key={letra} className="bg-[#0f0f0f] border border-gray-800 rounded-3xl overflow-hidden shadow-2xl flex flex-col">
@@ -159,10 +185,6 @@ export default function PainelFaseGrupos({ campeonatoId, times }: Props) {
                                     const timeDados = Array.isArray(t.times) ? t.times[0] : t.times;
                                     const escudo = timeDados?.escudo || '/shield-placeholder.png';
                                     const nome = timeDados?.nome || 'Time';
-
-                                    // LÓGICA DE CORES (CLASSIFICAÇÃO)
-                                    // 1º e 2º: Classificados (Verde/Azul)
-                                    // 3º: Sul-Americana (Amarelo)
                                     const isClassificado = idx < 2;
                                     const isSulamericana = idx === 2;
 
@@ -191,43 +213,29 @@ export default function PainelFaseGrupos({ campeonatoId, times }: Props) {
                 </div>
             ))}
         </div>
-
-        {/* LEGENDA FIXA NA PARTE INFERIOR */}
-        <div className="flex flex-wrap gap-6 px-6 py-4 bg-[#121212] rounded-2xl border border-gray-800 text-[10px] uppercase font-bold tracking-widest text-gray-500 shadow-lg">
-            <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 bg-green-500 rounded-sm shadow-green-500/50 shadow-sm"></div> Classificados (Mata-Mata)</div>
-            <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 bg-yellow-500 rounded-sm shadow-yellow-500/50 shadow-sm"></div> Sul-Americana</div>
-            <div className="flex items-center gap-2"><div className="w-2.5 h-2.5 bg-gray-700 rounded-sm"></div> Eliminados</div>
-        </div>
-
       </div>
 
-      {/* COLUNA 2: JOGOS (Cards Modernos) */}
+      {/* COLUNA 2: JOGOS */}
       <div className="lg:col-span-1 space-y-6">
          <div className="bg-[#121212] border border-gray-800 rounded-3xl p-6 sticky top-6 shadow-xl h-fit">
             
-            {/* --- AQUI É ONDE O CÓDIGO ENTRA (CABEÇALHO DOS JOGOS) --- */}
             <div className="flex justify-between items-center mb-6 pb-4 border-b border-gray-800 shrink-0">
                 <h3 className="text-sm font-black text-white uppercase tracking-widest flex items-center gap-2">
                     <span className="w-1.5 h-1.5 bg-yellow-500 rounded-full"></span> Jogos
                 </h3>
                 
-                {/* NAVEGADOR DE RODADAS */}
                 <div className="flex items-center gap-1 bg-black p-1.5 rounded-lg border border-gray-800">
                     <button 
                         onClick={() => setRodadaView(r => Math.max(1, r - 1))} 
-                        disabled={rodadaView === 1} // Desabilita se for rodada 1
+                        disabled={rodadaView === 1} 
                         className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800 rounded transition disabled:opacity-30 disabled:cursor-not-allowed"
                     >
                         ‹
                     </button>
-                    
-                    <span className="text-[10px] font-black px-3 text-yellow-500 uppercase tracking-widest">
-                        R{rodadaView}
-                    </span>
-                    
+                    <span className="text-[10px] font-black px-3 text-yellow-500 uppercase tracking-widest">R{rodadaView}</span>
                     <button 
                         onClick={() => setRodadaView(r => Math.min(totalRodadas, r + 1))} 
-                        disabled={rodadaView === totalRodadas} // Desabilita se for a última
+                        disabled={rodadaView === totalRodadas} 
                         className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800 rounded transition disabled:opacity-30 disabled:cursor-not-allowed"
                     >
                         ›
@@ -260,13 +268,11 @@ export default function PainelFaseGrupos({ campeonatoId, times }: Props) {
                         )}
 
                         <div className="flex justify-between items-center text-xs mt-1">
-                            {/* Mandante */}
                             <div className="flex items-center justify-end gap-3 w-[35%]">
                                 <span className={`font-bold text-[10px] truncate w-full text-right leading-tight ${jaFoi && j.placar_casa > j.placar_visitante ? 'text-white' : 'text-gray-400'}`}>{casa?.nome || 'Time'}</span>
                                 <img src={casa?.escudo || '/shield-placeholder.png'} className="w-8 h-8 object-contain drop-shadow-md" />
                             </div>
                             
-                            {/* Placar */}
                             <div className={`
                                 border px-3 py-1.5 rounded-lg text-sm font-black font-mono transition whitespace-nowrap shadow-inner flex items-center justify-center min-w-[60px]
                                 ${jaFoi ? 'bg-[#151515] border-gray-800 text-white' : 'bg-[#0a0a0a] border-gray-800 text-gray-600'}
@@ -274,7 +280,6 @@ export default function PainelFaseGrupos({ campeonatoId, times }: Props) {
                                 {j.placar_casa ?? '-'} <span className="text-gray-700 mx-1">:</span> {j.placar_visitante ?? '-'}
                             </div>
                             
-                            {/* Visitante */}
                             <div className="flex items-center justify-start gap-3 w-[35%]">
                                 <img src={visitante?.escudo || '/shield-placeholder.png'} className="w-8 h-8 object-contain drop-shadow-md" />
                                 <span className={`font-bold text-[10px] truncate w-full text-left leading-tight ${jaFoi && j.placar_visitante > j.placar_casa ? 'text-white' : 'text-gray-400'}`}>{visitante?.nome || 'Time'}</span>

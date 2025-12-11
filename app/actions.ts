@@ -3,12 +3,43 @@
 import { supabase } from "@/lib/supabase"
 
 // ==============================================================================
+// HELPER: FETCH SEGURO COM TIMEOUT E HEADERS (EVITA BLOQUEIO DA GLOBO)
+// ==============================================================================
+async function fetchCartola(url: string, timeout = 5000) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+  try {
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/json',
+        'Referer': 'https://ge.globo.com/'
+      },
+      next: { revalidate: 0 } // Sem cache para dados reais
+    });
+    
+    clearTimeout(timeoutId);
+
+    if (!res.ok) {
+        // Log discreto para não poluir se for apenas um erro 404
+        // console.warn(`[API Cartola] Erro ${res.status}: ${url}`);
+        return null;
+    }
+    return await res.json();
+  } catch (error) {
+    // console.error(`[API Cartola] Timeout ou Falha: ${url}`);
+    return null;
+  }
+}
+
+// ==============================================================================
 // 1. FUNÇÕES BÁSICAS (CRUD, API, CONFIG)
 // ==============================================================================
 
 export async function buscarTimeCartola(termo: string) {
-  const res = await fetch(`https://api.cartola.globo.com/times?q=${termo}`)
-  return await res.json()
+  return await fetchCartola(`https://api.cartola.globo.com/times?q=${termo}`) || []
 }
 
 export async function salvarTime(time: any) {
@@ -103,22 +134,23 @@ export async function zerarJogos(campeonatoId: number) {
   return { success: true }
 }
 
-async function atualizarJogoIndividual(jogo: any, rodadaCartola: number, headers: any) {
+async function atualizarJogoIndividual(jogo: any, rodadaCartola: number) {
     if (!rodadaCartola || rodadaCartola <= 0) return;
     try {
+        // Busca paralela segura
         const [resCasa, resVis] = await Promise.all([
-            fetch(`https://api.cartola.globo.com/time/id/${jogo.casa.time_id_cartola}/${rodadaCartola}`, { headers }).then(r => r.json()),
-            fetch(`https://api.cartola.globo.com/time/id/${jogo.visitante.time_id_cartola}/${rodadaCartola}`, { headers }).then(r => r.json())
+            fetchCartola(`https://api.cartola.globo.com/time/id/${jogo.casa.time_id_cartola}/${rodadaCartola}`),
+            fetchCartola(`https://api.cartola.globo.com/time/id/${jogo.visitante.time_id_cartola}/${rodadaCartola}`)
         ]);
 
-        const ptsCasa = resCasa.pontos || 0;
-        const ptsVis = resVis.pontos || 0;
+        const ptsCasa = resCasa?.pontos || 0;
+        const ptsVis = resVis?.pontos || 0;
 
         await supabase.from('partidas').update({
             pontos_reais_casa: ptsCasa, placar_casa: Math.floor(ptsCasa),
             pontos_reais_visitante: ptsVis, placar_visitante: Math.floor(ptsVis), status: 'finalizado'
         }).eq('id', jogo.id);
-    } catch (e) { console.error("Erro ao atualizar jogo", e); }
+    } catch (e) { console.error("Erro ao atualizar jogo individual", e); }
 }
 
 export async function atualizarPlacarManual(partidaId: number, casa: number, visitante: number) {
@@ -138,7 +170,7 @@ export async function atualizarPlacarManual(partidaId: number, casa: number, vis
 }
 
 // ==============================================================================
-// 4. MÓDULO: PONTOS CORRIDOS (Lógica de Tabela)
+// 4. MÓDULO: PONTOS CORRIDOS
 // ==============================================================================
 
 async function sincronizarTimesClassificacao(campeonatoId: number, timesIds: number[]) {
@@ -194,10 +226,9 @@ export async function atualizarRodadaPontosCorridos(campeonatoId: number, rodada
       .eq('campeonato_id', campeonatoId).eq('rodada', rodadaLiga).order('id');
 
     if (!partidas || partidas.length === 0) return { success: false, msg: "Sem jogos nesta rodada." };
-    const headers = { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' };
 
     for (const jogo of partidas) {
-        await atualizarJogoIndividual(jogo, rodadaCartola, headers);
+        await atualizarJogoIndividual(jogo, rodadaCartola);
     }
 
     await recalcularTabelaPontosCorridos(campeonatoId);
@@ -243,10 +274,9 @@ export async function buscarTabelaPontosCorridos(campeonatoId: number) {
 }
 
 // ==============================================================================
-// 5. MÓDULO: MATA-MATA (Lógica Matemática de Seeds e Byes)
+// 5. MÓDULO: MATA-MATA
 // ==============================================================================
 
-// Algoritmo recursivo para gerar chaveamento padrão (1x16, 2x15...)
 function getBracketOrder(n: number): number[] {
   if (n === 2) return [1, 2];
   const previous = getBracketOrder(n / 2);
@@ -275,41 +305,32 @@ export async function gerarMataMataInteligente(campeonatoId: number, idsOrdenado
   }
 
   const numTimes = rankingInicial.length;
-  // Encontra a potência de 2 superior (Ex: 5 times -> 8 slots)
   const tamanhoChave = Math.pow(2, Math.ceil(Math.log2(numTimes)));
   
-  // Array com times nos slots corretos (1..N) e o resto é NULL (Byes)
   const slots = new Array(tamanhoChave).fill(null);
   for (let i = 0; i < numTimes; i++) {
       slots[i] = rankingInicial[i];
   }
 
-  // Pega a ordem de confronto (ex: [1, 8, 4, 5, 2, 7, 3, 6]) e ajusta índice (0-based)
   const bracketOrder = getBracketOrder(tamanhoChave).map(x => x - 1);
   const partidasParaSalvar = [];
 
   await zerarJogos(campeonatoId);
 
-  // Cria a Rodada 1 (ou Byes)
   for (let i = 0; i < bracketOrder.length; i += 2) {
     const seedA = bracketOrder[i];
     const seedB = bracketOrder[i+1];
     
-    const timeA = slots[seedA]; // Melhor seed
-    const timeB = slots[seedB]; // Pior seed
+    const timeA = slots[seedA]; 
+    const timeB = slots[seedB]; 
 
     if (!timeA && !timeB) continue;
 
     if (timeA && !timeB) {
-      // Time A é o melhor seed e não tem adversário -> BYE (Passa para rodada 2 simulada)
-      // Gravamos como 'bye' na rodada 1 para a lógica de visualização entender
       partidasParaSalvar.push({ campeonato_id: campeonatoId, rodada: 1, time_casa: timeA, time_visitante: null, placar_casa: 1, placar_visitante: 0, status: 'bye' });
     } else if (!timeA && timeB) {
-      // Caso raro de inversão
       partidasParaSalvar.push({ campeonato_id: campeonatoId, rodada: 1, time_casa: timeB, time_visitante: null, placar_casa: 1, placar_visitante: 0, status: 'bye' });
     } else {
-      // Jogo Normal (Ida e Volta)
-      // Seed Pior manda a Ida, Seed Melhor manda a Volta
       partidasParaSalvar.push({ campeonato_id: campeonatoId, rodada: 1, time_casa: timeB, time_visitante: timeA, status: 'agendado' });
       partidasParaSalvar.push({ campeonato_id: campeonatoId, rodada: 2, time_casa: timeA, time_visitante: timeB, status: 'agendado' });
     }
@@ -329,14 +350,13 @@ export async function atualizarRodadaMataMata(campeonatoId: number, fase: number
     .order('id', { ascending: true });
 
   if (!partidas || partidas.length === 0) return { success: false, msg: "Sem jogos nesta fase." };
-  const headers = { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' };
   
   for (const jogo of partidas) {
       let r = 0;
       if (jogo.rodada === fase) r = rodadaIda;
       else if (jogo.rodada === fase + 1) r = rodadaVolta;
 
-      if (r > 0) await atualizarJogoIndividual(jogo, r, headers); 
+      if (r > 0) await atualizarJogoIndividual(jogo, r); 
   }
 
   await verificarEAvancarFase(campeonatoId, fase);
@@ -378,7 +398,7 @@ async function verificarEAvancarFase(campeonatoId: number, rodadaAtual: number) 
 
     if (pA > pB) classificados.push(jogo.time_casa);
     else if (pB > pA) classificados.push(jogo.time_visitante);
-    else classificados.push(jogo.time_casa); // Empate: Melhor campanha (Mandante Ida)
+    else classificados.push(jogo.time_casa); 
   }
 
   if (classificados.length < 2) return;
@@ -465,10 +485,9 @@ export async function atualizarRodadaGrupos(campeonatoId: number, rodadaLiga: nu
     .eq('campeonato_id', campeonatoId).eq('rodada', rodadaLiga).order('id');
 
   if (!partidas || partidas.length === 0) return { success: false, msg: "Sem jogos." };
-  const headers = { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' };
 
   for (const jogo of partidas) {
-      await atualizarJogoIndividual(jogo, rodadaCartola, headers);
+      await atualizarJogoIndividual(jogo, rodadaCartola);
   }
   return { success: true, msg: "Rodada atualizada!" };
 }
@@ -513,17 +532,13 @@ export async function excluirMataMata(campeonatoId: number, rodadaInicio: number
 }
 
 export async function gerarMataMataCopa(campeonatoId: number) {
-  // 1. Define onde começa o mata-mata
-  // Assumimos que a fase de grupos vai até a rodada 20 (margem de segurança) ou pega o max atual
   const { data: jogos } = await supabase.from('partidas').select('rodada').eq('campeonato_id', campeonatoId);
   const rodadas = jogos?.map(j => j.rodada).filter(r => r <= 20) || [];
   const maxRodadaGrupos = rodadas.length > 0 ? Math.max(...rodadas) : 6;
   const inicioMataMata = maxRodadaGrupos + 1;
 
-  // Limpa mata-mata anterior
   await excluirMataMata(campeonatoId, inicioMataMata);
 
-  // 2. Busca e Classifica os Times
   const grupos = await buscarTabelaGrupos(campeonatoId);
   const letras = Object.keys(grupos).sort();
   
@@ -532,7 +547,6 @@ export async function gerarMataMataCopa(campeonatoId: number) {
   const primeiros: any[] = [];
   const segundos: any[] = [];
 
-  // Separa Pote 1 (Primeiros) e Pote 2 (Segundos)
   letras.forEach(l => {
       if (grupos[l][0]) primeiros.push({ ...grupos[l][0], gp_origem: l });
       if (grupos[l][1]) segundos.push({ ...grupos[l][1], gp_origem: l });
@@ -540,59 +554,45 @@ export async function gerarMataMataCopa(campeonatoId: number) {
 
   if (primeiros.length < 2) return { success: false, msg: "Times insuficientes classificados." };
 
-  // 3. Regra: As 2 melhores campanhas só se enfrentam na final
-  // Ordena os primeiros colocados por desempenho (Pontos > Vitórias > Saldo)
   primeiros.sort((a, b) => b.pts - a.pts || b.v - a.v || b.sp - a.sp || b.pp - a.pp);
 
   const melhorCampanha = primeiros[0];
   const segundaMelhor = primeiros[1];
   const outrosPrimeiros = primeiros.slice(2);
 
-  // Embaralha os outros primeiros para dar aleatoriedade
   outrosPrimeiros.sort(() => Math.random() - 0.5);
 
-  // 4. Monta o Lado A e Lado B da chave (Mandantes/Primeiros Colocados)
-  // Estrutura padrão de 16 times (8 confrontos):
-  // Lado A: Jogos 1, 2, 3, 4
-  // Lado B: Jogos 5, 6, 7, 8
-  // Colocamos o Melhor no Jogo 1 (Lado A) e o Segundo Melhor no Jogo 5 (Lado B)
-  
   const mandantesConfrontos = [
-      melhorCampanha,      // Jogo 1 (Lado A - Topo)
-      outrosPrimeiros[0],  // Jogo 2 (Lado A)
-      outrosPrimeiros[1],  // Jogo 3 (Lado A)
-      outrosPrimeiros[2],  // Jogo 4 (Lado A)
-      segundaMelhor,       // Jogo 5 (Lado B - Topo)
-      outrosPrimeiros[3],  // Jogo 6 (Lado B)
-      outrosPrimeiros[4],  // Jogo 7 (Lado B)
-      outrosPrimeiros[5]   // Jogo 8 (Lado B)
-  ].filter(x => x !== undefined); // Filtra undefined caso tenha menos de 8 grupos
+      melhorCampanha,
+      outrosPrimeiros[0],
+      outrosPrimeiros[1],
+      outrosPrimeiros[2],
+      segundaMelhor,
+      outrosPrimeiros[3],
+      outrosPrimeiros[4],
+      outrosPrimeiros[5]
+  ].filter(x => x !== undefined);
 
-  // 5. Sorteio Dirigido: Encontrar adversários (Segundos colocados)
-  // Regra: Não pode ser do mesmo grupo.
-  
   let confrontosFinais: any[] = [];
   let sucesso = false;
   let tentativas = 0;
 
-  // Tenta sortear até conseguir uma combinação válida (máx 100 tentativas)
   while (!sucesso && tentativas < 100) {
       tentativas++;
-      const poolSegundos = [...segundos].sort(() => Math.random() - 0.5); // Embaralha pote 2
+      const poolSegundos = [...segundos].sort(() => Math.random() - 0.5);
       const tempConfrontos = [];
       let valido = true;
 
       for (const mandante of mandantesConfrontos) {
-          // Busca um oponente que não seja do mesmo grupo
           const indexOponente = poolSegundos.findIndex(seg => seg.gp_origem !== mandante.gp_origem);
           
           if (indexOponente === -1) {
-              valido = false; // Beco sem saída, tenta de novo
+              valido = false;
               break;
           }
           
           const oponente = poolSegundos[indexOponente];
-          poolSegundos.splice(indexOponente, 1); // Remove do pool
+          poolSegundos.splice(indexOponente, 1);
           
           tempConfrontos.push({ t1: mandante, t2: oponente });
       }
@@ -604,31 +604,23 @@ export async function gerarMataMataCopa(campeonatoId: number) {
   }
 
   if (!sucesso) {
-      // Fallback raro: se for impossível matematimente (ex: só 2 grupos), ignora a regra do grupo
-     // (Mas com 4+ grupos isso quase nunca acontece)
-     return { success: false, msg: "Erro ao gerar chaves: conflito de grupos insolúvel." };
+      return { success: false, msg: "Erro ao gerar chaves: conflito de grupos insolúvel." };
   }
 
-  // 6. Salvar no Banco
   const partidasNovas: any[] = [];
-  
-  // Verifica se é final única na configuração
   const { data: camp } = await supabase.from('campeonatos').select('final_unica').eq('id', campeonatoId).single();
-  // Nota: Isso é oitavas de final, geralmente é Ida e Volta, a final única é só a última.
   
   confrontosFinais.forEach((c, index) => {
-      // Ida: 2º Colocado manda
       partidasNovas.push({ 
           campeonato_id: campeonatoId, 
-          rodada: inicioMataMata, // Ex: Rodada 7
+          rodada: inicioMataMata, 
           time_casa: c.t2.time_id, 
           time_visitante: c.t1.time_id, 
           status: 'agendado' 
       });
-      // Volta: 1º Colocado manda
       partidasNovas.push({ 
           campeonato_id: campeonatoId, 
-          rodada: inicioMataMata + 1, // Ex: Rodada 8
+          rodada: inicioMataMata + 1, 
           time_casa: c.t1.time_id, 
           time_visitante: c.t2.time_id, 
           status: 'agendado' 
@@ -642,26 +634,35 @@ export async function gerarMataMataCopa(campeonatoId: number) {
 }
 
 // ==============================================================================
-// 7. FUNÇÕES PARA HOME E RANKING
+// 7. FUNÇÕES PARA HOME E RANKING (OTIMIZADO)
 // ==============================================================================
 
 export async function buscarRankingCompleto() {
   const { data: meusTimes } = await supabase.from('times').select('*')
   if (!meusTimes || meusTimes.length === 0) return []
 
-  const promessas = meusTimes.map(async (time) => {
-    try {
-      const res = await fetch(`https://api.cartola.globo.com/time/id/${time.time_id_cartola}`, { next: { revalidate: 60 } })
-      if (!res.ok) return null
-      const dados = await res.json()
-      return {
-        pos: 0, time: dados.time.nome, cartoleiro: dados.time.nome_cartola,
-        pontos: dados.pontos_campeonato || 0, escudo: dados.time.url_escudo_png
-      }
-    } catch { return null }
-  })
+  // Otimização: Busca em Lotes de 5 para não sobrecarregar
+  const resultados = [];
+  const chunkSize = 5;
+  
+  for (let i = 0; i < meusTimes.length; i += chunkSize) {
+      const chunk = meusTimes.slice(i, i + chunkSize);
+      const promessas = chunk.map(async (time) => {
+          try {
+              const dados = await fetchCartola(`https://api.cartola.globo.com/time/id/${time.time_id_cartola}`);
+              if (!dados) return null;
+              
+              return {
+                  pos: 0, time: dados.time.nome, cartoleiro: dados.time.nome_cartola,
+                  pontos: dados.pontos_campeonato || 0, escudo: dados.time.url_escudo_png
+              }
+          } catch { return null }
+      });
+      
+      const chunkRes = await Promise.all(promessas);
+      resultados.push(...chunkRes);
+  }
 
-  const resultados = await Promise.all(promessas)
   return resultados
     .filter(i => i !== null)
     .sort((a: any, b: any) => b.pontos - a.pontos)
@@ -691,33 +692,28 @@ export async function buscarMaioresPontuadores() {
 }
 
 export async function buscarParciaisAoVivo(jogos: any[]) {
-  const headers = { 'User-Agent': 'Mozilla/5.0', 'Accept': 'application/json' }
-  let atletasPontuados: any = {}
-  try {
-    const res = await fetch('https://api.cartola.globo.com/atletas/pontuados', { headers, next: { revalidate: 0 } })
-    if (res.ok) {
-      const data = await res.json()
-      atletasPontuados = data.atletas || {}
-    }
-  } catch (e) { console.error("Erro parciais:", e) }
+  const parciaisGerais = await fetchCartola('https://api.cartola.globo.com/atletas/pontuados');
+  const atletasPontuados = parciaisGerais?.atletas || {};
 
   const jogosComParcial = await Promise.all(jogos.map(async (jogo) => {
+    
     const calcularTime = async (timeId: number) => {
-      try {
-        const resTime = await fetch(`https://api.cartola.globo.com/time/id/${timeId}`, { headers, next: { revalidate: 0 } })
-        if (!resTime.ok) return 0
-        const dataTime = await resTime.json()
-        let soma = 0
-        if (dataTime.atletas) {
-            dataTime.atletas.forEach((atleta: any) => {
-                const pt = atletasPontuados[atleta.atleta_id]?.pontuacao || 0
-                soma += (atleta.atleta_id === dataTime.capitao_id) ? pt * 1.5 : pt
-            })
-        }
-        return Math.floor(soma)
-      } catch { return 0 }
+      const dataTime = await fetchCartola(`https://api.cartola.globo.com/time/id/${timeId}`);
+      if (!dataTime || !dataTime.atletas) return 0;
+
+      let soma = 0;
+      dataTime.atletas.forEach((atleta: any) => {
+          const pt = atletasPontuados[atleta.atleta_id]?.pontuacao || 0;
+          soma += (atleta.atleta_id === dataTime.capitao_id) ? pt * 1.5 : pt;
+      });
+      return Math.floor(soma);
     }
-    const [pc, pv] = await Promise.all([calcularTime(jogo.casa.time_id_cartola), calcularTime(jogo.visitante.time_id_cartola)])
+
+    const [pc, pv] = await Promise.all([
+        calcularTime(jogo.casa.time_id_cartola),
+        calcularTime(jogo.visitante.time_id_cartola)
+    ]);
+
     return { ...jogo, placar_casa: pc, placar_visitante: pv, is_parcial: true }
   }))
   

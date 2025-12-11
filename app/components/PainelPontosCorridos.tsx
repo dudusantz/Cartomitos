@@ -49,14 +49,14 @@ export default function PainelPontosCorridos({ campeonatoId, times }: Props) {
 
   async function handleGerar() {
     if (times.length < 2) return toast.error("Mínimo 2 times.")
-    confirm("Gerar Tabela", "Isso irá apagar os jogos atuais. Confirmar?", async () => {
+    confirm("Gerar Tabela", "Criar todos contra todos?", async () => {
        const res = await gerarJogosPontosCorridos(campeonatoId)
        if(res.success) { toast.success(res.msg); carregarDados(); } else toast.error(res.msg)
     })
   }
 
   async function handleReset() {
-    confirm("Resetar", "Apagar tudo?", async () => {
+    confirm("Resetar", "Apagar jogos e zerar pontos?", async () => {
        await zerarJogos(campeonatoId)
        carregarDados()
        toast.success("Resetado.")
@@ -119,8 +119,9 @@ export default function PainelPontosCorridos({ campeonatoId, times }: Props) {
       <div className="lg:col-span-2 space-y-6">
         <div className="flex justify-between items-center bg-[#121212] p-6 rounded-2xl border border-gray-800 shadow-lg">
             <div className="flex items-center gap-3">
-                <div className="w-3 h-3 bg-blue-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(59,130,246,0.5)]"></div>
-                <h3 className="text-lg font-black text-white uppercase tracking-widest">Classificação Oficial</h3>
+                <h3 className="text-lg font-black text-white uppercase tracking-widest flex items-center gap-2">
+                    <span className="text-2xl">🏆</span> Classificação Oficial
+                </h3>
             </div>
             <div className="flex gap-3">
                  <button onClick={handleRecalcular} className="bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition">
@@ -136,19 +137,19 @@ export default function PainelPontosCorridos({ campeonatoId, times }: Props) {
 
         <div className="bg-[#0f0f0f] border border-gray-800 rounded-2xl overflow-hidden shadow-2xl">
             <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs min-w-[700px]">
+                <table className="w-full text-left text-xs min-w-[750px]">
                     <thead className="bg-black text-gray-500 uppercase font-bold text-[10px] tracking-widest border-b border-gray-800">
                         <tr>
-                            <th className="py-4 pl-6 text-center w-[8%]">Pos</th>
-                            <th className="py-4 px-4 w-[28%]">Clube</th>
+                            <th className="py-4 pl-6 text-center w-[5%]">Pos</th>
+                            <th className="py-4 px-4 w-[35%]">Clube</th>
                             <th className="py-4 text-center text-white font-black w-[8%] bg-white/[0.03]">PTS</th>
                             <th className="py-4 text-center w-[6%]">J</th>
                             <th className="py-4 text-center w-[6%]">V</th>
                             <th className="py-4 text-center w-[6%]">E</th>
                             <th className="py-4 text-center w-[6%]">D</th>
-                            <th className="py-4 text-center w-[8%] text-gray-400">GP</th>
-                            <th className="py-4 text-center w-[8%] text-gray-400">GC</th>
-                            <th className="py-4 text-center w-[8%] font-bold text-gray-300">SG</th>
+                            <th className="py-4 text-center w-[7%] text-gray-400" title="Pró">PP</th>
+                            <th className="py-4 text-center w-[7%] text-gray-400" title="Contra">PC</th>
+                            <th className="py-4 text-center w-[8%] font-bold text-gray-300" title="Saldo">SP</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-800/50">
@@ -170,7 +171,7 @@ export default function PainelPontosCorridos({ campeonatoId, times }: Props) {
                                 <td className="py-4 px-4">
                                     <div className="flex items-center gap-3">
                                         <img src={escudo} className="w-8 h-8 object-contain drop-shadow-md group-hover:scale-110 transition-transform" alt={nome} />
-                                        <span className={`font-bold transition truncate ${isZ4 ? 'text-gray-400 group-hover:text-red-400' : 'text-gray-300 group-hover:text-white'}`}>{nome}</span>
+                                        <span className={`font-bold text-sm transition ${isZ4 ? 'text-gray-400 group-hover:text-red-400' : 'text-gray-300 group-hover:text-white'} whitespace-nowrap`}>{nome}</span>
                                     </div>
                                 </td>
                                 <td className="py-4 text-center font-black text-white bg-white/[0.03] text-sm shadow-inner">{t.pts}</td>
@@ -194,14 +195,13 @@ export default function PainelPontosCorridos({ campeonatoId, times }: Props) {
             )}
         </div>
         
-        {/* Legenda */}
         <div className="flex gap-6 px-4 text-[10px] uppercase font-bold tracking-widest text-gray-500">
             <div className="flex items-center gap-2"><div className="w-2 h-2 bg-blue-500 rounded-full"></div> Classificação (G4)</div>
             <div className="flex items-center gap-2"><div className="w-2 h-2 bg-red-600 rounded-full"></div> Rebaixamento (Z4)</div>
         </div>
       </div>
 
-      {/* COLUNA 2: JOGOS (SEM SCROLL INTERNO) */}
+      {/* COLUNA 2: JOGOS (Cards Melhorados) */}
       <div className="lg:col-span-1 space-y-6">
          <div className="bg-[#121212] border border-gray-800 rounded-2xl p-6 sticky top-6 shadow-xl h-fit">
             <div className="flex justify-between items-center mb-6 pb-4 border-b border-gray-800 shrink-0">
@@ -230,30 +230,47 @@ export default function PainelPontosCorridos({ campeonatoId, times }: Props) {
                 {jogosDaRodada.map(j => {
                     const casa = Array.isArray(j.casa) ? j.casa[0] : j.casa;
                     const visitante = Array.isArray(j.visitante) ? j.visitante[0] : j.visitante;
+                    
+                    const finalizado = j.status === 'finalizado';
+                    const placarC = j.placar_casa ?? 0;
+                    const placarV = j.placar_visitante ?? 0;
+                    
+                    // Lógica de Vencedor (Verde)
+                    const cVenceu = finalizado && placarC > placarV;
+                    const vVenceu = finalizado && placarV > placarC;
 
                     return (
                     <div key={j.id} onClick={() => { setEditingId(j.id); setTempCasa(j.placar_casa); setTempVisitante(j.placar_visitante); }} className="bg-black/40 border border-gray-800/50 p-4 rounded-xl cursor-pointer hover:border-yellow-500/50 hover:bg-white/[0.02] transition group relative overflow-hidden">
                         
-                        {j.status === 'finalizado' && (
+                        {finalizado && (
                             <div className="absolute top-0 right-0 w-2 h-2 bg-green-500 rounded-bl-lg shadow-[0_0_8px_rgba(34,197,94,0.5)]"></div>
                         )}
 
                         <div className="flex justify-between items-center text-xs mt-1">
                             {/* Mandante (Direita) */}
-                            <div className="flex items-center justify-end gap-3 w-[35%]">
-                                <span className="font-bold text-[10px] text-gray-400 group-hover:text-white truncate text-right leading-tight">{casa?.nome}</span>
+                            <div className="flex items-center justify-end gap-3 w-[40%]">
+                                <span className={`text-[10px] font-bold text-right leading-tight break-words ${cVenceu ? 'text-green-400' : 'text-gray-400 group-hover:text-gray-200'}`}>
+                                    {casa?.nome || 'Time'}
+                                </span>
                                 <img src={casa?.escudo || '/shield-placeholder.png'} className="w-8 h-8 object-contain drop-shadow-md" />
                             </div>
                             
                             {/* Placar */}
-                            <div className="bg-[#0a0a0a] border border-gray-800 px-3 py-1.5 rounded-lg text-sm font-black font-mono text-white group-hover:text-yellow-500 group-hover:border-yellow-500/30 transition whitespace-nowrap shadow-inner flex items-center justify-center min-w-[60px]">
-                                {j.placar_casa ?? '-'} <span className="text-gray-600 mx-1">:</span> {j.placar_visitante ?? '-'}
+                            <div className={`
+                                border px-2 py-1.5 rounded-lg text-sm font-black font-mono transition whitespace-nowrap shadow-inner flex items-center justify-center min-w-[50px]
+                                ${finalizado ? 'bg-[#151515] border-gray-800' : 'bg-[#0a0a0a] border-gray-800 text-gray-600'}
+                            `}>
+                                <span className={cVenceu ? 'text-green-400' : 'text-white'}>{j.placar_casa ?? '-'}</span>
+                                <span className="text-gray-700 mx-1">:</span>
+                                <span className={vVenceu ? 'text-green-400' : 'text-white'}>{j.placar_visitante ?? '-'}</span>
                             </div>
                             
                             {/* Visitante (Esquerda) */}
-                            <div className="flex items-center justify-start gap-3 w-[35%]">
+                            <div className="flex items-center justify-start gap-3 w-[40%]">
                                 <img src={visitante?.escudo || '/shield-placeholder.png'} className="w-8 h-8 object-contain drop-shadow-md" />
-                                <span className="font-bold text-[10px] text-gray-400 group-hover:text-white truncate text-left leading-tight">{visitante?.nome}</span>
+                                <span className={`text-[10px] font-bold text-left leading-tight break-words ${vVenceu ? 'text-green-400' : 'text-gray-400 group-hover:text-gray-200'}`}>
+                                    {visitante?.nome || 'Time'}
+                                </span>
                             </div>
                         </div>
                     </div>

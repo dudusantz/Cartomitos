@@ -5,9 +5,9 @@ import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { 
-  adicionarTimeAoCampeonato, listarTimesDoCampeonato, listarTodosTimes, 
-  removerTimeDaLiga, atualizarConfiguracaoLiga, gerarMataMataInteligente, 
-  sortearGrupos, gerarMataMataCopa 
+  listarTimesDoCampeonato, listarTodosTimes, 
+  atualizarConfiguracaoLiga, gerarMataMataInteligente, 
+  gerarMataMataCopa 
 } from '../../../actions'
 import { supabase } from '@/lib/supabase'
 import ModalConfirmacao from '@/app/components/ModalConfirmacao'
@@ -25,11 +25,9 @@ export default function GerenciarLiga() {
   const [liga, setLiga] = useState<any>(null)
   const [timesLiga, setTimesLiga] = useState<any[]>([]) 
   const [todosTimes, setTodosTimes] = useState<any[]>([])
-  
   const [tabAtiva, setTabAtiva] = useState<string>('times')
   const [finalUnica, setFinalUnica] = useState(false)
-  const [seeds, setSeeds] = useState<any[]>([]) // Estado para ordenar seeds
-
+  const [seeds, setSeeds] = useState<any[]>([]) 
   const [modalOpen, setModalOpen] = useState(false)
   const [modalConfig, setModalConfig] = useState<any>({})
 
@@ -42,13 +40,15 @@ export default function GerenciarLiga() {
     
     const _times = await listarTimesDoCampeonato(campeonatoId)
     setTimesLiga(_times)
-    setSeeds([..._times]) // Inicializa seeds
+    setSeeds([..._times])
     setTodosTimes(await listarTodosTimes())
 
+    // Define aba padrão
     if (data?.tipo === 'pontos_corridos' && tabAtiva === 'times') setTabAtiva('classificacao')
+    else if (data?.tipo === 'mata_mata' && tabAtiva === 'times') setTabAtiva('jogos')
+    else if (data?.tipo === 'copa' && tabAtiva === 'times') setTabAtiva('grupos')
   }
 
-  // --- ORDENAÇÃO SEEDS ---
   function moverSeed(index: number, direcao: number) {
     const novosSeeds = [...seeds];
     const item = novosSeeds[index];
@@ -67,14 +67,6 @@ export default function GerenciarLiga() {
       await atualizarConfiguracaoLiga(campeonatoId, finalUnica)
       toast.success("Salvo")
   }
-
-  // 1. Defina quantas rodadas tem a fase de grupos. 
-  // Geralmente: (Nº Times no Grupo - 1) * 2. Ex: Grupo de 4 = 6 rodadas.
-  // Como pode variar, vamos definir um padrão seguro ou calcular.
-  const RODADAS_CORTE_COPA = 6; // Padrão para grupos de 4 times (Ida e Volta)
-  
-  // 2. Garante que a variável exista para o botão usar
-  const totalRodadasGrupos = RODADAS_CORTE_COPA;
 
   return (
     <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-yellow-500/30">
@@ -115,8 +107,14 @@ export default function GerenciarLiga() {
         <div className="p-8 max-w-[1600px] mx-auto">
             
             {/* PAINÉIS */}
-            {tabAtiva === 'classificacao' && <PainelPontosCorridos campeonatoId={campeonatoId} times={timesLiga} />}
-            {tabAtiva === 'jogos' && liga?.tipo === 'mata_mata' && <PainelMataMata campeonatoId={campeonatoId} rodadasCorte={0} />}
+            {tabAtiva === 'classificacao' && liga?.tipo === 'pontos_corridos' && (
+                <PainelPontosCorridos campeonatoId={campeonatoId} times={timesLiga} />
+            )}
+
+            {tabAtiva === 'jogos' && liga?.tipo === 'mata_mata' && (
+                <PainelMataMata campeonatoId={campeonatoId} rodadasCorte={0} />
+            )}
+
             {tabAtiva === 'jogos' && liga?.tipo === 'copa' && (
                 <div>
                     <div className="flex justify-between items-center mb-6 bg-[#121212] p-4 rounded-xl border border-gray-800">
@@ -126,10 +124,14 @@ export default function GerenciarLiga() {
                     <PainelMataMata campeonatoId={campeonatoId} rodadasCorte={6} />
                 </div>
             )}
-            {tabAtiva === 'grupos' && <PainelFaseGrupos campeonatoId={campeonatoId} times={timesLiga} />}
-            {tabAtiva === 'times' && <PainelTimes campeonatoId={campeonatoId} timesLiga={timesLiga} todosTimes={todosTimes} aoAtualizar={carregarDados} />}
 
-            {/* CONFIGURAÇÕES (MATA-MATA SEEDING) */}
+            {tabAtiva === 'grupos' && <PainelFaseGrupos campeonatoId={campeonatoId} times={timesLiga} />}
+
+            {tabAtiva === 'times' && (
+                <PainelTimes campeonatoId={campeonatoId} timesLiga={timesLiga} todosTimes={todosTimes} aoAtualizar={carregarDados} />
+            )}
+
+            {/* ABA CONFIG */}
             {tabAtiva === 'config' && (
                 <div className="bg-[#121212] p-8 rounded-3xl border border-gray-800 max-w-4xl mx-auto animate-fadeIn">
                     <h3 className="text-xl font-bold text-white mb-6 uppercase tracking-wider">Configurações</h3>
@@ -141,15 +143,14 @@ export default function GerenciarLiga() {
                         <input type="checkbox" checked={finalUnica} onChange={e => { setFinalUnica(e.target.checked); atualizarConfiguracaoLiga(campeonatoId, e.target.checked); }} className="w-6 h-6 accent-green-500 cursor-pointer" />
                     </div>
                     
-                    {/* Ordenação de Seeds */}
+                    {/* Seeds */}
                     {liga?.tipo === 'mata_mata' && (
                         <div className="border-t border-gray-800 pt-8">
                             <div className="flex justify-between items-end mb-4">
                                 <div>
                                     <h4 className="text-white font-bold uppercase text-sm tracking-widest">Ranking Inicial (Seeds)</h4>
                                     <p className="text-gray-500 text-xs mt-1">
-                                        Ordene os times por força. O 1º enfrenta o último. <br/>
-                                        Times do topo ganham folga (Bye) se necessário.
+                                        Ordene os times. O 1º enfrenta o último, etc.
                                     </p>
                                 </div>
                                 <button onClick={handleGerarMataMataOrdenado} className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-lg font-bold text-xs uppercase transition shadow-lg shadow-blue-900/20">
@@ -159,7 +160,6 @@ export default function GerenciarLiga() {
 
                             <div className="bg-black/50 border border-gray-800 rounded-xl overflow-hidden max-h-[500px] overflow-y-auto custom-scrollbar">
                                 {seeds.map((item, index) => {
-                                    // Proteção visual
                                     const time = item.times || {};
                                     return (
                                     <div key={item.time_id} className="flex items-center justify-between p-3 border-b border-gray-800/50 hover:bg-white/[0.02]">
@@ -179,7 +179,6 @@ export default function GerenciarLiga() {
                     )}
                 </div>
             )}
-
         </div>
     </div>
   )

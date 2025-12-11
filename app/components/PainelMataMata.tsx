@@ -8,6 +8,7 @@ import {
 } from '../actions'
 import MataMataBracket from './MataMataBracket'
 import ModalConfirmacao from './ModalConfirmacao'
+import SorteioMataMata from './admin/SorteioMataMata' // <--- Import do Sorteio
 
 interface Props {
   campeonatoId: number
@@ -22,6 +23,9 @@ export default function PainelMataMata({ campeonatoId, rodadasCorte }: Props) {
   const [loading, setLoading] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
   const [modalConfig, setModalConfig] = useState<any>({})
+  
+  // Estado para controlar se mostra o sorteio ou as chaves
+  const [modoSorteio, setModoSorteio] = useState(false)
 
   useEffect(() => { carregarDados() }, [campeonatoId])
 
@@ -32,6 +36,13 @@ export default function PainelMataMata({ campeonatoId, rodadasCorte }: Props) {
       .map((p: any) => ({ ...p, rodada: p.rodada - rodadasCorte }))
     
     setPartidas(jogosMataMata)
+    
+    // Se não tem jogos, ativa o modo sorteio
+    if (jogosMataMata.length === 0) {
+        setModoSorteio(true)
+    } else {
+        setModoSorteio(false)
+    }
   }
 
   const fasesDisponiveis = [...new Set(partidas.map(p => p.rodada))].sort((a, b) => a - b)
@@ -65,18 +76,30 @@ export default function PainelMataMata({ campeonatoId, rodadasCorte }: Props) {
   async function handleLimpar() {
     setModalConfig({ titulo: "Limpar", mensagem: "Apagar todo o mata-mata?", onConfirm: async () => {
         const res = await excluirMataMata(campeonatoId, rodadasCorte + 1)
-        if(res.success) { toast.success(res.msg); carregarDados(); }
+        if(res.success) { 
+            toast.success(res.msg); 
+            carregarDados(); // Isso vai ativar o modoSorteio automaticamente
+        }
         setModalOpen(false)
     }, tipo: 'perigo' })
     setModalOpen(true)
   }
 
-  if (partidas.length === 0) return (
-    <div className="text-center py-20 border border-dashed border-gray-800 rounded-xl">
-        <p className="text-gray-500">Nenhum chaveamento gerado ainda.</p>
-    </div>
-  )
+  // --- SE ESTIVER NO MODO SORTEIO ---
+  if (modoSorteio) {
+      return (
+        <div className="animate-fadeIn">
+            <div className="bg-[#121212] p-6 rounded-xl border border-gray-800 mb-6 text-center">
+                <h3 className="text-white font-bold mb-2">Chaveamento Pendente</h3>
+                <p className="text-gray-500 text-xs mb-4">Defina os potes abaixo para sortear os confrontos.</p>
+            </div>
+            {/* Componente de Sorteio com Potes */}
+            <SorteioMataMata campeonatoId={campeonatoId} onSucesso={carregarDados} />
+        </div>
+      )
+  }
 
+  // --- SE JÁ TIVER JOGOS (PAINEL DE CONTROLE) ---
   return (
     <div className="animate-fadeIn space-y-8">
         <ModalConfirmacao isOpen={modalOpen} {...modalConfig} onCancel={() => setModalOpen(false)} />
@@ -96,11 +119,11 @@ export default function PainelMataMata({ campeonatoId, rodadasCorte }: Props) {
                 {!isJogoUnico(Number(faseAtual)) && (
                     <input type="number" placeholder="R. Volta" className="w-20 bg-black border border-gray-700 text-white p-3 rounded text-center" value={rodadaVolta} onChange={e => setRodadaVolta(e.target.value)} />
                 )}
-                <button onClick={handleAtualizar} disabled={loading} className="bg-blue-600 text-white px-4 rounded font-bold uppercase text-xs">{loading ? '...' : 'Atualizar'}</button>
+                <button onClick={handleAtualizar} disabled={loading} className="bg-blue-600 text-white px-4 rounded font-bold uppercase text-xs hover:bg-blue-500 transition">{loading ? '...' : 'Atualizar'}</button>
             </div>
 
-            <button onClick={handleAvancar} className="bg-green-600 text-white px-4 py-3 rounded font-bold uppercase text-xs">Avançar ➜</button>
-            <button onClick={handleLimpar} className="text-red-500 border border-red-900 px-4 py-3 rounded font-bold uppercase text-xs hover:bg-red-900/20">Reset</button>
+            <button onClick={handleAvancar} className="bg-green-600 text-white px-4 py-3 rounded font-bold uppercase text-xs hover:bg-green-500 transition shadow-lg shadow-green-900/20">Avançar ➜</button>
+            <button onClick={handleLimpar} className="text-red-500 border border-red-900 px-4 py-3 rounded font-bold uppercase text-xs hover:bg-red-900/20 transition">Reset</button>
         </div>
 
         <div className="overflow-x-auto pb-10">
@@ -108,4 +131,4 @@ export default function PainelMataMata({ campeonatoId, rodadasCorte }: Props) {
         </div>
     </div>
   )
-}
+} 

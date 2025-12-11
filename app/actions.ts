@@ -3,7 +3,7 @@
 import { supabase } from "@/lib/supabase"
 
 // ==============================================================================
-// HELPER: FETCH SEGURO COM TIMEOUT E HEADERS (EVITA BLOQUEIO DA GLOBO)
+// HELPER: FETCH SEGURO COM TIMEOUT (API CARTOLA)
 // ==============================================================================
 async function fetchCartola(url: string, timeout = 5000) {
   const controller = new AbortController();
@@ -17,25 +17,22 @@ async function fetchCartola(url: string, timeout = 5000) {
         'Accept': 'application/json',
         'Referer': 'https://ge.globo.com/'
       },
-      next: { revalidate: 0 } // Sem cache para dados reais
+      next: { revalidate: 0 } 
     });
     
     clearTimeout(timeoutId);
 
     if (!res.ok) {
-        // Log discreto para não poluir se for apenas um erro 404
-        // console.warn(`[API Cartola] Erro ${res.status}: ${url}`);
         return null;
     }
     return await res.json();
   } catch (error) {
-    // console.error(`[API Cartola] Timeout ou Falha: ${url}`);
     return null;
   }
 }
 
 // ==============================================================================
-// 1. FUNÇÕES BÁSICAS (CRUD, API, CONFIG)
+// 1. FUNÇÕES BÁSICAS
 // ==============================================================================
 
 export async function buscarTimeCartola(termo: string) {
@@ -71,6 +68,11 @@ export async function listarCampeonatos() {
 // ==============================================================================
 // 2. GERENCIAMENTO DE TIMES
 // ==============================================================================
+
+export async function listarIdsTimesSalvos() {
+  const { data } = await supabase.from('times').select('time_id_cartola')
+  return data?.map((t: any) => t.time_id_cartola) || []
+}
 
 export async function adicionarTimeAoCampeonato(campeonatoId: number, timeId: number) {
   const { data: existe } = await supabase.from('classificacao').select('id').eq('campeonato_id', campeonatoId).eq('time_id', timeId).single();
@@ -129,6 +131,7 @@ export async function listarPartidas(campeonatoId: number) {
 }
 
 export async function zerarJogos(campeonatoId: number) {
+  // ATENÇÃO: Limpa jogos E grupos. Use com cuidado.
   await supabase.from('partidas').delete().eq('campeonato_id', campeonatoId)
   await supabase.from('classificacao').update({ pts: 0, pj: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, grupo: null }).eq('campeonato_id', campeonatoId);
   return { success: true }
@@ -137,7 +140,6 @@ export async function zerarJogos(campeonatoId: number) {
 async function atualizarJogoIndividual(jogo: any, rodadaCartola: number) {
     if (!rodadaCartola || rodadaCartola <= 0) return;
     try {
-        // Busca paralela segura
         const [resCasa, resVis] = await Promise.all([
             fetchCartola(`https://api.cartola.globo.com/time/id/${jogo.casa.time_id_cartola}/${rodadaCartola}`),
             fetchCartola(`https://api.cartola.globo.com/time/id/${jogo.visitante.time_id_cartola}/${rodadaCartola}`)
@@ -160,10 +162,13 @@ export async function atualizarPlacarManual(partidaId: number, casa: number, vis
   
   if (!data) return { success: false }
 
-  if (data.campeonato.tipo === 'pontos_corridos') {
+  const tipo = data.campeonato.tipo;
+
+  if (tipo === 'pontos_corridos' || (tipo === 'copa' && data.rodada <= 20)) {
       await recalcularTabelaPontosCorridos(data.campeonato_id)
   }
-  else if (data.campeonato.tipo === 'mata_mata' || (data.campeonato.tipo === 'copa' && data.rodada > 20)) {
+  
+  if (tipo === 'mata_mata' || (tipo === 'copa' && data.rodada > 20)) {
       await verificarEAvancarFase(data.campeonato_id, data.rodada);
   }
   return { success: true }
@@ -236,7 +241,8 @@ export async function atualizarRodadaPontosCorridos(campeonatoId: number, rodada
 }
 
 export async function recalcularTabelaPontosCorridos(campeonatoId: number) {
-    await supabase.from('classificacao').update({ pts: 0, pj: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0 }).eq('campeonato_id', campeonatoId);
+    // Reseta stats mas mantém os grupos
+    await supabase.from('classificacao').update({ pts: 0, pj: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pp: 0, pc: 0, sp: 0 }).eq('campeonato_id', campeonatoId);
     
     const { data: jogos } = await supabase.from('partidas').select('*').eq('campeonato_id', campeonatoId).eq('status', 'finalizado');
     const { data: times } = await supabase.from('classificacao').select('time_id').eq('campeonato_id', campeonatoId);
@@ -244,17 +250,22 @@ export async function recalcularTabelaPontosCorridos(campeonatoId: number) {
     if (!times) return;
 
     const stats: any = {};
-    times.forEach((t: any) => { stats[t.time_id] = { pts: 0, pj: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0 }; });
+    times.forEach((t: any) => { stats[t.time_id] = { pts: 0, pj: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pp: 0, pc: 0, sp: 0 }; });
 
     if (jogos) {
         jogos.forEach((j: any) => {
             const c = stats[j.time_casa]; const v = stats[j.time_visitante];
             if (c && v) {
                 c.pj++; v.pj++;
-                c.gp += j.placar_casa; c.gc += j.placar_visitante;
-                v.gp += j.placar_visitante; v.gc += j.placar_casa;
-                c.sg = c.gp - c.gc; v.sg = v.gp - v.gc;
-                
+                // PP = Pontos Pró, PC = Pontos Contra, SP = Saldo de Pontos
+                c.pp += j.placar_casa; c.pc += j.placar_visitante;
+                v.pp += j.placar_visitante; v.pc += j.placar_casa;
+                c.sp = c.pp - c.pc; v.sp = v.pp - v.pc;
+
+                // Compatibilidade com campos de futebol
+                c.gp = c.pp; c.gc = c.pc; c.sg = c.sp;
+                v.gp = v.pp; v.gc = v.pc; v.sg = v.sp;
+
                 if (j.placar_casa > j.placar_visitante) { c.pts += 3; c.v++; v.d++; }
                 else if (j.placar_visitante > j.placar_casa) { v.pts += 3; v.v++; c.d++; }
                 else { c.pts += 1; v.pts += 1; c.e++; v.e++; }
@@ -269,12 +280,12 @@ export async function recalcularTabelaPontosCorridos(campeonatoId: number) {
 
 export async function buscarTabelaPontosCorridos(campeonatoId: number) {
     const { data } = await supabase.from('classificacao').select('*, times(*)').eq('campeonato_id', campeonatoId)
-      .order('pts', { ascending: false }).order('v', { ascending: false }).order('sg', { ascending: false }).order('gp', { ascending: false });
+      .order('pts', { ascending: false }).order('v', { ascending: false }).order('sp', { ascending: false }).order('pp', { ascending: false });
     return data || [];
 }
 
 // ==============================================================================
-// 5. MÓDULO: MATA-MATA
+// 5. MÓDULO: MATA-MATA GERAL
 // ==============================================================================
 
 function getBracketOrder(n: number): number[] {
@@ -398,7 +409,7 @@ async function verificarEAvancarFase(campeonatoId: number, rodadaAtual: number) 
 
     if (pA > pB) classificados.push(jogo.time_casa);
     else if (pB > pA) classificados.push(jogo.time_visitante);
-    else classificados.push(jogo.time_casa); 
+    else classificados.push(jogo.time_casa); // Empate (pode adicionar regra de penaltis depois)
   }
 
   if (classificados.length < 2) return;
@@ -431,24 +442,33 @@ export async function avancarFaseMataMata(campeonatoId: number, faseAtual: numbe
 }
 
 // ==============================================================================
-// 6. MÓDULO: COPA
+// 6. MÓDULO: COPA (GRUPOS E CHAVEAMENTO)
 // ==============================================================================
 
 export async function sortearGrupos(campeonatoId: number, numGrupos: number, potes: number[][]) {
   if (potes.length === 0 || potes[0].length === 0) return { success: false, msg: "Potes vazios." };
+  
   await supabase.from('classificacao').update({ grupo: null, fase_atual: 'fase_grupos' }).eq('campeonato_id', campeonatoId);
+  await supabase.from('partidas').delete().eq('campeonato_id', campeonatoId).lte('rodada', 20); 
+
   const letras = ['A','B','C','D','E','F','G','H'];
+  
   for (let i = 0; i < potes.length; i++) {
     const pote = potes[i].sort(() => Math.random() - 0.5);
     for (let g = 0; g < numGrupos; g++) {
-      if (pote[g]) await supabase.from('classificacao').update({ grupo: letras[g] }).eq('campeonato_id', campeonatoId).eq('time_id', pote[g]);
+      if (pote[g]) {
+          await supabase.from('classificacao').update({ grupo: letras[g] }).eq('campeonato_id', campeonatoId).eq('time_id', pote[g]);
+      }
     }
   }
   return { success: true, msg: "Grupos sorteados!" };
 }
 
 export async function gerarJogosFaseGrupos(campeonatoId: number) {
-  await zerarJogos(campeonatoId);
+  // Limpa apenas partidas, mantém grupos
+  await supabase.from('partidas').delete().eq('campeonato_id', campeonatoId);
+  await supabase.from('classificacao').update({ pts: 0, pj: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pp: 0, pc: 0, sp: 0 }).eq('campeonato_id', campeonatoId);
+
   const times = await listarTimesDoCampeonato(campeonatoId);
   const letras = ['A','B','C','D','E','F','G','H'];
   const partidas = [];
@@ -476,6 +496,9 @@ export async function gerarJogosFaseGrupos(campeonatoId: number) {
   }
   const { error } = await supabase.from('partidas').insert(partidas);
   if (error) return { success: false, msg: error.message };
+  
+  await recalcularTabelaPontosCorridos(campeonatoId);
+  
   return { success: true, msg: "Jogos da fase de grupos gerados!" };
 }
 
@@ -489,6 +512,7 @@ export async function atualizarRodadaGrupos(campeonatoId: number, rodadaLiga: nu
   for (const jogo of partidas) {
       await atualizarJogoIndividual(jogo, rodadaCartola);
   }
+  await recalcularTabelaPontosCorridos(campeonatoId);
   return { success: true, msg: "Rodada atualizada!" };
 }
 
@@ -501,7 +525,7 @@ export async function buscarTabelaGrupos(campeonatoId: number) {
   times.forEach((t: any) => { stats[t.time_id] = { ...t, pts: 0, pj: 0, v: 0, e: 0, d: 0, pp: 0, pc: 0, sp: 0 }; });
 
   jogos?.forEach((jogo: any) => {
-    if (jogo.rodada > 20) return; 
+    if (jogo.rodada > 20) return; // Ignora jogos de mata-mata
     const c = stats[jogo.time_casa]; const v = stats[jogo.time_visitante];
     if (c && v) {
       c.pj++; v.pj++;
@@ -531,101 +555,123 @@ export async function excluirMataMata(campeonatoId: number, rodadaInicio: number
     return { success: true, msg: "Mata-mata limpo." };
 }
 
+// --------------------------------------------------------------------------------
+// GERAÇÃO DE MATA-MATA (LÓGICA AVANÇADA DE SORTEIO DIRIGIDO)
+// --------------------------------------------------------------------------------
 export async function gerarMataMataCopa(campeonatoId: number) {
+  // 1. Descobrir rodada inicial do mata-mata
   const { data: jogos } = await supabase.from('partidas').select('rodada').eq('campeonato_id', campeonatoId);
   const rodadas = jogos?.map(j => j.rodada).filter(r => r <= 20) || [];
   const maxRodadaGrupos = rodadas.length > 0 ? Math.max(...rodadas) : 6;
   const inicioMataMata = maxRodadaGrupos + 1;
 
+  // Limpa mata-mata anterior
   await excluirMataMata(campeonatoId, inicioMataMata);
 
+  // 2. Buscar Classificação e separar Potes
   const grupos = await buscarTabelaGrupos(campeonatoId);
   const letras = Object.keys(grupos).sort();
   
-  if (letras.length === 0) return { success: false, msg: "Fase de grupos vazia ou incompleta." };
+  if (letras.length === 0) return { success: false, msg: "Fase de grupos vazia." };
 
-  const primeiros: any[] = [];
-  const segundos: any[] = [];
+  const pot1: any[] = []; // Primeiros colocados
+  const pot2: any[] = []; // Segundos colocados
 
   letras.forEach(l => {
-      if (grupos[l][0]) primeiros.push({ ...grupos[l][0], gp_origem: l });
-      if (grupos[l][1]) segundos.push({ ...grupos[l][1], gp_origem: l });
+      if (grupos[l][0]) pot1.push({ ...grupos[l][0], gp_origem: l });
+      if (grupos[l][1]) pot2.push({ ...grupos[l][1], gp_origem: l });
   });
 
-  if (primeiros.length < 2) return { success: false, msg: "Times insuficientes classificados." };
+  if (pot1.length < 2) return { success: false, msg: "Times insuficientes." };
 
-  primeiros.sort((a, b) => b.pts - a.pts || b.v - a.v || b.sp - a.sp || b.pp - a.pp);
+  // 3. Ordenar Pote 1 para definir seeds (Melhor e Segunda Melhor Campanha)
+  pot1.sort((a, b) => b.pts - a.pts || b.v - a.v || b.sp - a.sp || b.pp - a.pp);
 
-  const melhorCampanha = primeiros[0];
-  const segundaMelhor = primeiros[1];
-  const outrosPrimeiros = primeiros.slice(2);
+  const numConfrontos = pot1.length; 
+  const metadeBracket = Math.floor(numConfrontos / 2);
 
-  outrosPrimeiros.sort(() => Math.random() - 0.5);
+  // Array que representará os Mandantes (Cabeças de Chave do Pote 1)
+  const mandantes = new Array(numConfrontos).fill(null);
 
-  const mandantesConfrontos = [
-      melhorCampanha,
-      outrosPrimeiros[0],
-      outrosPrimeiros[1],
-      outrosPrimeiros[2],
-      segundaMelhor,
-      outrosPrimeiros[3],
-      outrosPrimeiros[4],
-      outrosPrimeiros[5]
-  ].filter(x => x !== undefined);
+  // 4. TRAVA DE CHAVEAMENTO:
+  // Coloca o 1º Melhor no topo da chave e o 2º Melhor na metade oposta.
+  const seed1 = pot1[0]; 
+  const seed2 = pot1[1]; 
+  const outrosCabecas = pot1.slice(2);
 
-  let confrontosFinais: any[] = [];
+  mandantes[0] = seed1;               // Chave Superior
+  mandantes[metadeBracket] = seed2;   // Chave Inferior
+
+  // Preencher os outros espaços com o restante do Pote 1 aleatoriamente
+  outrosCabecas.sort(() => Math.random() - 0.5);
+  let idxOutros = 0;
+  for (let i = 0; i < numConfrontos; i++) {
+      if (mandantes[i] === null) {
+          mandantes[i] = outrosCabecas[idxOutros];
+          idxOutros++;
+      }
+  }
+
+  // 5. SORTEIO DO POTE 2 (ADVERSÁRIOS)
+  // Regra: Não pode enfrentar time do mesmo grupo de origem
+  let oponentes: any[] = [];
   let sucesso = false;
   let tentativas = 0;
 
-  while (!sucesso && tentativas < 100) {
+  while (!sucesso && tentativas < 1000) {
       tentativas++;
-      const poolSegundos = [...segundos].sort(() => Math.random() - 0.5);
-      const tempConfrontos = [];
+      const pool = [...pot2].sort(() => Math.random() - 0.5);
+      const tempOponentes = [];
       let valido = true;
 
-      for (const mandante of mandantesConfrontos) {
-          const indexOponente = poolSegundos.findIndex(seg => seg.gp_origem !== mandante.gp_origem);
+      for (let i = 0; i < numConfrontos; i++) {
+          const mandante = mandantes[i];
+          const matchIndex = pool.findIndex(p => p.gp_origem !== mandante.gp_origem);
           
-          if (indexOponente === -1) {
+          if (matchIndex === -1) {
               valido = false;
-              break;
+              break; 
           }
           
-          const oponente = poolSegundos[indexOponente];
-          poolSegundos.splice(indexOponente, 1);
-          
-          tempConfrontos.push({ t1: mandante, t2: oponente });
+          tempOponentes[i] = pool[matchIndex];
+          pool.splice(matchIndex, 1);
       }
 
       if (valido) {
-          confrontosFinais = tempConfrontos;
+          oponentes = tempOponentes;
           sucesso = true;
       }
   }
 
   if (!sucesso) {
-      return { success: false, msg: "Erro ao gerar chaves: conflito de grupos insolúvel." };
+      return { success: false, msg: "Não foi possível gerar confrontos válidos (conflito de grupos)." };
   }
 
+  // 6. Salvar Partidas (Ida e Volta)
   const partidasNovas: any[] = [];
-  const { data: camp } = await supabase.from('campeonatos').select('final_unica').eq('id', campeonatoId).single();
   
-  confrontosFinais.forEach((c, index) => {
+  for (let i = 0; i < numConfrontos; i++) {
+      const mandante = mandantes[i];  // Pote 1
+      const visitante = oponentes[i]; // Pote 2
+
+      // Jogo de IDA: Pote 2 manda o jogo
       partidasNovas.push({ 
           campeonato_id: campeonatoId, 
           rodada: inicioMataMata, 
-          time_casa: c.t2.time_id, 
-          time_visitante: c.t1.time_id, 
+          time_casa: visitante.time_id, 
+          time_visitante: mandante.time_id, 
           status: 'agendado' 
       });
+
+      // Jogo de VOLTA: Pote 1 manda o jogo (decide em casa)
       partidasNovas.push({ 
           campeonato_id: campeonatoId, 
           rodada: inicioMataMata + 1, 
-          time_casa: c.t1.time_id, 
-          time_visitante: c.t2.time_id, 
+          time_casa: mandante.time_id, 
+          time_visitante: visitante.time_id, 
           status: 'agendado' 
       });
-  });
+  }
 
   const { error } = await supabase.from('partidas').insert(partidasNovas);
   if (error) return { success: false, msg: error.message };
@@ -634,14 +680,13 @@ export async function gerarMataMataCopa(campeonatoId: number) {
 }
 
 // ==============================================================================
-// 7. FUNÇÕES PARA HOME E RANKING (OTIMIZADO)
+// 7. FUNÇÕES PARA HOME E RANKING
 // ==============================================================================
 
 export async function buscarRankingCompleto() {
   const { data: meusTimes } = await supabase.from('times').select('*')
   if (!meusTimes || meusTimes.length === 0) return []
 
-  // Otimização: Busca em Lotes de 5 para não sobrecarregar
   const resultados = [];
   const chunkSize = 5;
   
@@ -720,16 +765,5 @@ export async function buscarParciaisAoVivo(jogos: any[]) {
   return { success: true, jogos: jogosComParcial }
 }
 
-export async function buscarHistoricoConfrontoDireto(campeonatoId: number, timeIds: number[]) {
-  const { data: jogos } = await supabase.from('partidas')
-    .select('time_casa, time_visitante, placar_casa, placar_visitante')
-    .eq('campeonato_id', campeonatoId)
-    .in('time_casa', timeIds)
-    .in('time_visitante', timeIds)
-    .not('placar_casa', 'is', null)
-  return jogos || []
-}
-
-// Aliases para manter compatibilidade
 export async function recalcularTabela(id: number) { await recalcularTabelaPontosCorridos(id); return { success: true } }
 export async function buscarTabela(id: number) { return buscarTabelaPontosCorridos(id) }

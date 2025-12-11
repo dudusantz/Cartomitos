@@ -42,18 +42,16 @@ export default function SorteioMataMata({ campeonatoId, onSucesso }: Props) {
       if (pote1.length === 0 || pote2.length === 0) return toast.error("Os potes não podem estar vazios.")
       
       setLoading(true)
-      // Aqui enviamos os IDs ordenados: Primeiro os do Pote 1 (Seeds 1,3,5...), depois Pote 2 (Seeds 2,4,6...)
-      // A lógica do 'gerarMataMataInteligente' vai cruzar Pote 1 x Pote 2
-      
       // Ordenação para garantir Pote 1 x Pote 2
-      // Vamos intercalar para a função de geração entender a ordem de força
       const seedsOrdenados: number[] = []
       
       // Embaralha os potes internamente para o sorteio ser real
       const p1Random = [...pote1].sort(() => Math.random() - 0.5)
       const p2Random = [...pote2].sort(() => Math.random() - 0.5)
 
-      // Cria a lista de seeds: [Melhor1, Pior1, Melhor2, Pior2...]
+      // Cria a lista de seeds: [Pote1-time1, Pote2-time1, Pote1-time2, Pote2-time2...]
+      // A lógica do 'gerarMataMataInteligente' (1º vs último, 2º vs penúltimo)
+      // vai garantir que o time 1 do Pote 1 (que é o 1º da lista) enfrente o último da lista (time 1 do Pote 2)
       const maiorTamanho = Math.max(p1Random.length, p2Random.length)
       for (let i = 0; i < maiorTamanho; i++) {
           if (p1Random[i]) seedsOrdenados.push(p1Random[i].time_id)
@@ -87,7 +85,7 @@ export default function SorteioMataMata({ campeonatoId, onSucesso }: Props) {
                 <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
                     {pote1.map(t => (
                         <div key={t.time_id} onClick={() => moverTime(t, 'p1')} className="flex items-center gap-3 bg-[#151515] p-2 rounded cursor-pointer hover:bg-red-900/20 hover:border-red-500/50 border border-transparent transition group">
-                            <img src={t.times?.escudo} className="w-6 h-6 object-contain" />
+                            <img src={t.times?.escudo || '/shield-placeholder.png'} className="w-6 h-6 object-contain" />
                             <span className="text-gray-300 text-xs font-bold truncate">{t.times?.nome}</span>
                             <span className="ml-auto text-[10px] text-gray-600 group-hover:text-red-500">Mover →</span>
                         </div>
@@ -105,7 +103,7 @@ export default function SorteioMataMata({ campeonatoId, onSucesso }: Props) {
                     {pote2.map(t => (
                         <div key={t.time_id} onClick={() => moverTime(t, 'p2')} className="flex items-center gap-3 bg-[#151515] p-2 rounded cursor-pointer hover:bg-green-900/20 hover:border-green-500/50 border border-transparent transition group">
                             <span className="text-[10px] text-gray-600 group-hover:text-green-500">← Mover</span>
-                            <img src={t.times?.escudo} className="w-6 h-6 object-contain" />
+                            <img src={t.times?.escudo || '/shield-placeholder.png'} className="w-6 h-6 object-contain" />
                             <span className="text-gray-300 text-xs font-bold truncate">{t.times?.nome}</span>
                         </div>
                     ))}

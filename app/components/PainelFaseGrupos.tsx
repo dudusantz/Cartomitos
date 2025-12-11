@@ -20,7 +20,7 @@ export default function PainelFaseGrupos({ campeonatoId, times }: Props) {
   const [rodadaCartola, setRodadaCartola] = useState('')
   const [loading, setLoading] = useState(false)
 
-  // Modal e Edição
+  // Estados do Modal e Edição
   const [modalOpen, setModalOpen] = useState(false)
   const [modalConfig, setModalConfig] = useState<any>({})
   const [editingId, setEditingId] = useState<number | null>(null)
@@ -31,46 +31,57 @@ export default function PainelFaseGrupos({ campeonatoId, times }: Props) {
 
   async function carregarDados() {
     const dadosGrupos = await buscarTabelaGrupos(campeonatoId)
-    setGrupos(dadosGrupos)
+    // Se o objeto de grupos vier vazio ou undefined, setamos como objeto vazio
+    setGrupos(dadosGrupos || {})
+    
     const dadosJogos = await listarPartidas(campeonatoId)
     const jogosGrupos = dadosJogos.filter((j: any) => j.rodada <= 20) 
     setJogos(jogosGrupos)
   }
 
-  const jogosDaRodada = jogos.filter(j => j.rodada === rodadaView)
-  const totalRodadas = jogos.length > 0 ? Math.max(...jogos.map(j => j.rodada)) : 1
-
   function confirm(titulo: string, msg: string, action: () => void) {
-    setModalConfig({ titulo, mensagem: msg, onConfirm: () => { action(); setModalOpen(false) }, tipo: 'info' })
+    setModalConfig({ 
+        titulo, 
+        mensagem: msg, 
+        onConfirm: () => { 
+            action(); 
+            setModalOpen(false); 
+        }, 
+        tipo: 'info' 
+    })
     setModalOpen(true)
   }
 
-  // --- AQUI ESTAVA O PROBLEMA ---
-  async function handleSortear() {
-    if (!times || times.length < 4) {
-        return toast.error("Mínimo 4 times para sortear.")
-    }
+  // Configuração dos Potes para Preview
+  const numPotes = 4
+  const timesPorPote = times && times.length > 0 ? Math.ceil(times.length / numPotes) : 0
+  const previewPotes = []
+  if (times && times.length > 0) {
+      for (let i = 0; i < numPotes; i++) {
+          const slice = times.slice(i * timesPorPote, (i + 1) * timesPorPote)
+          if (slice.length > 0) previewPotes.push({ numero: i+1, times: slice })
+      }
+  }
 
-    const numPotes = 4
-    const timesPorPote = Math.ceil(times.length / numPotes)
-    
-    // CORREÇÃO: Definindo o tipo para o TypeScript não bloquear
+  // --- AÇÕES ---
+
+  async function handleSortear() {
+    if (!times || times.length < 4) return toast.error("Mínimo 4 times para sortear.")
+
     const potes: number[][] = []
-    
     for (let i = 0; i < numPotes; i++) {
         const slice = times.slice(i * timesPorPote, (i + 1) * timesPorPote)
-        // Pega só os IDs
         const ids = slice.map((t: any) => t.time_id)
-        if (ids.length > 0) {
-            potes.push(ids)
-        }
+        if (ids.length > 0) potes.push(ids)
     }
     
-    confirm("Sortear Grupos", "Isso vai apagar tudo e criar novos grupos. Confirmar?", async () => {
-        const res = await sortearGrupos(campeonatoId, numPotes, potes)
+    const numGruposParaGerar = timesPorPote;
+
+    confirm("Sortear Grupos", `Isso criará ${numGruposParaGerar} grupos. Confirmar?`, async () => {
+        const res = await sortearGrupos(campeonatoId, numGruposParaGerar, potes)
         if(res.success) { 
             toast.success(res.msg)
-            carregarDados() 
+            await carregarDados() 
         } else { 
             toast.error(res.msg)
         }
@@ -78,23 +89,33 @@ export default function PainelFaseGrupos({ campeonatoId, times }: Props) {
   }
 
   async function handleGerarJogos() {
-    confirm("Gerar Jogos", "Criar confrontos de ida e volta?", async () => {
-        const res = await gerarJogosFaseGrupos(campeonatoId)
-        if(res.success) { 
-            toast.success(res.msg)
-            carregarDados()
-            setRodadaView(1)
-        } else { 
-            toast.error(res.msg)
-        }
-    })
+    if(jogos.length > 0) {
+        confirm("Regerar Jogos", "Já existem jogos criados. Deseja apagar e criar novos?", async () => {
+            executarGeracaoJogos()
+        })
+    } else {
+        confirm("Gerar Jogos", "Criar confrontos de ida e volta para todos os grupos?", async () => {
+            executarGeracaoJogos()
+        })
+    }
+  }
+
+  async function executarGeracaoJogos() {
+      const res = await gerarJogosFaseGrupos(campeonatoId)
+      if(res.success) { 
+          toast.success(res.msg)
+          await carregarDados()
+          setRodadaView(1)
+      } else { 
+          toast.error(res.msg)
+      }
   }
 
   async function handleAtualizarRodada() {
     if(!rodadaCartola) return toast.error("Informe a rodada.")
     setLoading(true)
     const res = await atualizarRodadaGrupos(campeonatoId, rodadaView, Number(rodadaCartola))
-    if(res.success) { toast.success(res.msg); carregarDados(); } else toast.error(res.msg)
+    if(res.success) { toast.success(res.msg); await carregarDados(); } else toast.error(res.msg)
     setLoading(false)
   }
 
@@ -102,34 +123,65 @@ export default function PainelFaseGrupos({ campeonatoId, times }: Props) {
     if(!editingId) return
     await atualizarPlacarManual(editingId, Number(tempCasa), Number(tempVisitante))
     setEditingId(null)
-    carregarDados()
+    await carregarDados()
     toast.success("Salvo!")
   }
 
-  // TELA DE SORTEIO PENDENTE
-  if (Object.keys(grupos).length === 0) {
+  const jogosDaRodada = jogos.filter(j => j.rodada === rodadaView)
+  const totalRodadas = jogos.length > 0 ? Math.max(...jogos.map(j => j.rodada)) : 1
+
+  // =====================================================================
+  // RENDERIZAÇÃO
+  // =====================================================================
+
+  if (!grupos || Object.keys(grupos).length === 0) {
       return (
-        <div className="flex flex-col items-center justify-center py-32 border border-gray-800 border-dashed rounded-3xl bg-[#080808]">
-            <span className="text-6xl mb-4 opacity-20">🎲</span>
-            <h3 className="text-xl font-bold text-gray-300 mb-2">Sorteio Pendente</h3>
-            <p className="text-gray-500 text-sm mb-6">A fase de grupos ainda não foi definida.</p>
+        <div className="flex flex-col items-center animate-fadeIn py-10">
+            <ModalConfirmacao isOpen={modalOpen} {...modalConfig} onCancel={() => setModalOpen(false)} />
+
+            <div className="text-center mb-8">
+                <span className="text-6xl mb-4 block opacity-20">🎲</span>
+                <h3 className="text-xl font-bold text-gray-300 mb-2">Definição dos Grupos</h3>
+                <p className="text-gray-500 text-sm">
+                    Verifique os potes abaixo.<br/>
+                    <span className="text-yellow-600">Vá na aba <strong>CONFIG</strong> para reordenar os seeds se necessário.</span>
+                </p>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full mb-8">
+                {previewPotes.map(pote => (
+                    <div key={pote.numero} className="bg-[#121212] border border-gray-800 rounded-xl p-4">
+                        <h4 className="text-xs font-bold text-blue-400 uppercase mb-3 border-b border-gray-800 pb-2">
+                            Pote {pote.numero}
+                        </h4>
+                        <div className="space-y-2 max-h-[300px] overflow-y-auto custom-scrollbar pr-1">
+                            {pote.times.map((t:any) => (
+                                <div key={t.time_id} className="flex items-center gap-2 text-xs text-gray-400">
+                                    <img src={t.times?.escudo || '/shield-placeholder.png'} className="w-4 h-4 object-contain" />
+                                    <span className="truncate">{t.times?.nome || 'Time'}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                ))}
+            </div>
             
-            {/* O BOTÃO QUE NÃO FUNCIONAVA */}
             <button 
                 onClick={handleSortear} 
-                className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-lg font-bold transition shadow-lg shadow-blue-900/20 uppercase tracking-widest text-xs"
+                className="bg-blue-600 hover:bg-blue-500 text-white px-8 py-4 rounded-xl font-bold transition shadow-lg shadow-blue-900/20 uppercase tracking-widest text-xs"
             >
-                Sortear Grupos Agora
+                Confirmar Potes e Sortear
             </button>
         </div>
       )
   }
 
+  // TELA COM GRUPOS E PONTUAÇÃO COMPLETA
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-fadeIn items-start">
       <ModalConfirmacao isOpen={modalOpen} {...modalConfig} onCancel={() => setModalOpen(false)} />
       
-      {/* Modal Edição */}
+      {/* Modal Edição de Placar */}
       {editingId && (
         <div className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 backdrop-blur-md">
             <div className="bg-[#121212] p-8 rounded-3xl border border-gray-800 w-96 shadow-2xl shadow-black transform scale-100 transition-all">
@@ -156,8 +208,17 @@ export default function PainelFaseGrupos({ campeonatoId, times }: Props) {
                 <span className="text-sm font-black text-white uppercase tracking-widest">Fase de Grupos</span>
             </div>
             <div className="flex gap-3">
-                <button onClick={handleSortear} className="bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition">Re-sortear</button>
-                <button onClick={handleGerarJogos} className="bg-green-600 hover:bg-green-500 text-white px-5 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition shadow-lg shadow-green-900/20">Gerar Jogos</button>
+                <button onClick={() => confirm("Re-sortear", "Isso apagará todos os jogos e grupos atuais. Confirmar?", handleSortear)} className="bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition">Re-sortear</button>
+                
+                {jogos.length === 0 ? (
+                    <button onClick={handleGerarJogos} className="bg-green-600 hover:bg-green-500 text-white px-5 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition shadow-lg shadow-green-900/20 animate-pulse">
+                        Gerar Jogos Agora
+                    </button>
+                ) : (
+                    <button onClick={handleGerarJogos} className="bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition">
+                        Regerar Jogos
+                    </button>
+                )}
             </div>
         </div>
 
@@ -168,16 +229,20 @@ export default function PainelFaseGrupos({ campeonatoId, times }: Props) {
                         <span className="text-white font-black tracking-widest text-xs uppercase">Grupo {letra}</span>
                     </div>
                     
-                    <div className="w-full">
+                    <div className="w-full overflow-x-auto">
                         <table className="w-full text-left text-[10px]">
                             <thead className="bg-black text-gray-500 uppercase font-bold tracking-widest border-b border-gray-800">
                                 <tr>
-                                    <th className="py-3 pl-4 text-center w-[10%]">#</th>
-                                    <th className="py-3 px-1">Time</th> 
-                                    <th className="py-3 text-center text-white w-[12%] bg-white/[0.02]">PTS</th>
-                                    <th className="py-3 text-center w-[10%]">J</th>
-                                    <th className="py-3 text-center w-[10%]">V</th>
-                                    <th className="py-3 text-center w-[10%]">SG</th>
+                                    <th className="py-3 pl-4 text-center w-[8%]">#</th>
+                                    <th className="py-3 px-1 w-[28%]">Time</th> 
+                                    <th className="py-3 text-center text-white w-[10%] bg-white/[0.02]">PTS</th>
+                                    <th className="py-3 text-center w-[8%]">J</th>
+                                    <th className="py-3 text-center w-[8%]">V</th>
+                                    
+                                    {/* NOVAS COLUNAS */}
+                                    <th className="py-3 text-center w-[10%] text-gray-400" title="Pontos Pró">PP</th>
+                                    <th className="py-3 text-center w-[10%] text-gray-400" title="Pontos Contra">PC</th>
+                                    <th className="py-3 text-center w-[10%] text-white" title="Saldo">SP</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-800/40">
@@ -204,6 +269,10 @@ export default function PainelFaseGrupos({ campeonatoId, times }: Props) {
                                         <td className="py-3 text-center font-black text-white bg-white/[0.02] text-xs shadow-inner">{t.pts}</td>
                                         <td className="py-3 text-center text-gray-500 font-mono">{t.pj}</td>
                                         <td className="py-3 text-center text-gray-500 font-mono">{t.v}</td>
+                                        
+                                        {/* NOVAS CÉLULAS DE DADOS */}
+                                        <td className="py-3 text-center text-gray-400 font-mono">{t.pp}</td>
+                                        <td className="py-3 text-center text-gray-400 font-mono">{t.pc}</td>
                                         <td className={`py-3 text-center font-mono font-bold ${t.sp > 0 ? 'text-green-500' : t.sp < 0 ? 'text-red-500' : 'text-gray-500'}`}>{t.sp}</td>
                                     </tr>
                                 )})}

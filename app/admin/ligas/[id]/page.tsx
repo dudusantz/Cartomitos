@@ -10,6 +10,7 @@ import {
 } from '@/app/actions'
 import { supabase } from '@/lib/supabase'
 import ModalConfirmacao from '@/app/components/ModalConfirmacao'
+import BotaoFinalizarCampeonato from '@/app/components/BotaoFinalizarCampeonato' // <--- NOVO
 
 // IMPORTAÇÃO DOS PAINÉIS
 import PainelPontosCorridos from '@/app/components/PainelPontosCorridos'
@@ -29,7 +30,7 @@ export default function GerenciarLiga() {
   const [tabAtiva, setTabAtiva] = useState<string>('times')
   const [finalUnica, setFinalUnica] = useState(false)
   
-  // CONTROLE DE REDIRECIONAMENTO (Isso resolve o problema)
+  // CONTROLE DE REDIRECIONAMENTO
   const [redirFeito, setRedirFeito] = useState(false)
   
   // Copa
@@ -60,9 +61,6 @@ export default function GerenciarLiga() {
         await atualizarPotes();
     }
 
-    // --- CORREÇÃO AQUI ---
-    // Se ainda não redirecionou (redirFeito == false), faz o redirecionamento inicial.
-    // Se já redirecionou (você está editando times), ele ignora isso e te mantém onde você está.
     if (!redirFeito && data) {
         if (data.tipo === 'copa') {
             setTabAtiva('grupos');
@@ -71,7 +69,7 @@ export default function GerenciarLiga() {
         } else if (data.tipo === 'mata_mata') {
             setTabAtiva('jogos');
         }
-        setRedirFeito(true); // Trava para as próximas atualizações
+        setRedirFeito(true); 
     }
   }
 
@@ -125,30 +123,42 @@ export default function GerenciarLiga() {
         {/* HEADER */}
         <div className="p-8 border-b border-gray-800 bg-[#080808]">
             <div className="max-w-[1600px] mx-auto flex flex-col md:flex-row justify-between items-end gap-6">
-                <div>
+                <div className="flex-1">
                     <Link href="/admin/ligas" className="text-gray-500 text-xs font-bold hover:text-white uppercase mb-2 block transition">← Voltar</Link>
-                    <h1 className="text-4xl font-black tracking-tighter text-white mb-2">{liga?.nome}</h1>
-                    <span className="text-[10px] bg-gray-800 border border-gray-700 px-3 py-1 rounded-full uppercase font-bold text-gray-300 tracking-widest">{liga?.tipo?.replace('_', ' ')}</span>
+                    <div className="flex items-center gap-4">
+                        <h1 className="text-4xl font-black tracking-tighter text-white">{liga?.nome}</h1>
+                        
+                        {/* --- BOTÃO FINALIZAR (INSERIDO AQUI) --- */}
+                        {liga?.ativo && (
+                            <div className="ml-4">
+                                <BotaoFinalizarCampeonato campeonatoId={campeonatoId} />
+                            </div>
+                        )}
+                    </div>
+                    <div className="mt-2 flex items-center gap-2">
+                        <span className="text-[10px] bg-gray-800 border border-gray-700 px-3 py-1 rounded-full uppercase font-bold text-gray-300 tracking-widest">{liga?.tipo?.replace('_', ' ')}</span>
+                        {!liga?.ativo && <span className="text-[10px] bg-red-900/30 border border-red-500/30 text-red-400 px-3 py-1 rounded-full uppercase font-bold tracking-widest">Finalizado</span>}
+                    </div>
                 </div>
                 
-                <div className="flex gap-2 bg-[#121212] p-1.5 rounded-xl border border-gray-800 shadow-xl">
+                <div className="flex gap-2 bg-[#121212] p-1.5 rounded-xl border border-gray-800 shadow-xl overflow-x-auto max-w-full">
                     {liga?.tipo === 'pontos_corridos' && (
-                        <button onClick={() => setTabAtiva('classificacao')} className={`px-5 py-2.5 rounded-lg font-bold text-xs uppercase transition tracking-wider ${tabAtiva === 'classificacao' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}>Tabela</button>
+                        <button onClick={() => setTabAtiva('classificacao')} className={`px-5 py-2.5 rounded-lg font-bold text-xs uppercase transition tracking-wider whitespace-nowrap ${tabAtiva === 'classificacao' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}>Tabela</button>
                     )}
                     {liga?.tipo === 'mata_mata' && (
-                        <button onClick={() => setTabAtiva('jogos')} className={`px-5 py-2.5 rounded-lg font-bold text-xs uppercase transition tracking-wider ${tabAtiva === 'jogos' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}>Chaveamento</button>
+                        <button onClick={() => setTabAtiva('jogos')} className={`px-5 py-2.5 rounded-lg font-bold text-xs uppercase transition tracking-wider whitespace-nowrap ${tabAtiva === 'jogos' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}>Chaveamento</button>
                     )}
                     {liga?.tipo === 'copa' && (
                         <>
-                            <button onClick={() => setTabAtiva('grupos')} className={`px-5 py-2.5 rounded-lg font-bold text-xs uppercase transition tracking-wider ${tabAtiva === 'grupos' ? 'bg-yellow-600 text-black shadow-lg' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}>Grupos</button>
-                            <button onClick={() => setTabAtiva('jogos')} className={`px-5 py-2.5 rounded-lg font-bold text-xs uppercase transition tracking-wider ${tabAtiva === 'jogos' ? 'bg-yellow-600 text-black shadow-lg' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}>Mata-Mata</button>
+                            <button onClick={() => setTabAtiva('grupos')} className={`px-5 py-2.5 rounded-lg font-bold text-xs uppercase transition tracking-wider whitespace-nowrap ${tabAtiva === 'grupos' ? 'bg-yellow-600 text-black shadow-lg' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}>Grupos</button>
+                            <button onClick={() => setTabAtiva('jogos')} className={`px-5 py-2.5 rounded-lg font-bold text-xs uppercase transition tracking-wider whitespace-nowrap ${tabAtiva === 'jogos' ? 'bg-yellow-600 text-black shadow-lg' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}>Mata-Mata</button>
                         </>
                     )}
                     
-                    <button onClick={() => setTabAtiva('times')} className={`px-5 py-2.5 rounded-lg font-bold text-xs uppercase transition tracking-wider ${tabAtiva === 'times' ? 'bg-gray-700 text-white shadow-lg' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}>Times</button>
+                    <button onClick={() => setTabAtiva('times')} className={`px-5 py-2.5 rounded-lg font-bold text-xs uppercase transition tracking-wider whitespace-nowrap ${tabAtiva === 'times' ? 'bg-gray-700 text-white shadow-lg' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}>Times</button>
                     
                     {liga?.tipo !== 'pontos_corridos' && (
-                        <button onClick={() => setTabAtiva('config')} className={`px-5 py-2.5 rounded-lg font-bold text-xs uppercase transition tracking-wider ${tabAtiva === 'config' ? 'bg-gray-700 text-white shadow-lg' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}>Config</button>
+                        <button onClick={() => setTabAtiva('config')} className={`px-5 py-2.5 rounded-lg font-bold text-xs uppercase transition tracking-wider whitespace-nowrap ${tabAtiva === 'config' ? 'bg-gray-700 text-white shadow-lg' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}>Config</button>
                     )}
                 </div>
             </div>
@@ -192,19 +202,19 @@ export default function GerenciarLiga() {
                                         <h4 className="text-xs font-bold text-gray-300 uppercase">Líderes</h4>
                                     </div>
                                     <div className="space-y-1">
-                                        {pote1.map((t, idx) => (
-                                            <div key={t.time_id} className={`flex justify-between items-center p-2 rounded ${idx < 2 ? 'bg-yellow-500/10 border border-yellow-500/30' : 'bg-white/5'}`}>
-                                                <div className="flex items-center gap-3">
-                                                    <span className={`font-mono font-bold text-[10px] w-4 ${idx < 2 ? 'text-yellow-500' : 'text-gray-500'}`}>#{idx + 1}</span>
-                                                    <img src={t.times?.escudo || '/shield-placeholder.png'} className="w-5 h-5 object-contain" />
-                                                    <span className="text-xs font-bold text-gray-300">{t.times?.nome}</span>
+                                            {pote1.map((t, idx) => (
+                                                <div key={t.time_id} className={`flex justify-between items-center p-2 rounded ${idx < 2 ? 'bg-yellow-500/10 border border-yellow-500/30' : 'bg-white/5'}`}>
+                                                    <div className="flex items-center gap-3">
+                                                        <span className={`font-mono font-bold text-[10px] w-4 ${idx < 2 ? 'text-yellow-500' : 'text-gray-500'}`}>#{idx + 1}</span>
+                                                        <img src={t.times?.escudo || '/shield-placeholder.png'} className="w-5 h-5 object-contain" />
+                                                        <span className="text-xs font-bold text-gray-300">{t.times?.nome}</span>
+                                                    </div>
+                                                    <div className="flex gap-3 text-[10px] font-mono text-gray-500">
+                                                        <span>Gr.{t.gp_origem}</span>
+                                                        <span className="text-white font-bold">{t.pts}pts</span>
+                                                    </div>
                                                 </div>
-                                                <div className="flex gap-3 text-[10px] font-mono text-gray-500">
-                                                    <span>Gr.{t.gp_origem}</span>
-                                                    <span className="text-white font-bold">{t.pts}pts</span>
-                                                </div>
-                                            </div>
-                                        ))}
+                                            ))}
                                     </div>
                                 </div>
 
@@ -214,19 +224,19 @@ export default function GerenciarLiga() {
                                         <h4 className="text-xs font-bold text-gray-300 uppercase">Desafiantes</h4>
                                     </div>
                                     <div className="space-y-1">
-                                        {pote2.map((t) => (
-                                            <div key={t.time_id} className="flex justify-between items-center p-2 rounded bg-white/5">
-                                                <div className="flex items-center gap-3">
-                                                    <span className="font-mono font-bold text-[10px] w-4 text-gray-500">-</span>
-                                                    <img src={t.times?.escudo || '/shield-placeholder.png'} className="w-5 h-5 object-contain" />
-                                                    <span className="text-xs font-bold text-gray-300">{t.times?.nome}</span>
+                                            {pote2.map((t) => (
+                                                <div key={t.time_id} className="flex justify-between items-center p-2 rounded bg-white/5">
+                                                    <div className="flex items-center gap-3">
+                                                        <span className="font-mono font-bold text-[10px] w-4 text-gray-500">-</span>
+                                                        <img src={t.times?.escudo || '/shield-placeholder.png'} className="w-5 h-5 object-contain" />
+                                                        <span className="text-xs font-bold text-gray-300">{t.times?.nome}</span>
+                                                    </div>
+                                                    <div className="flex gap-3 text-[10px] font-mono text-gray-500">
+                                                        <span>Gr.{t.gp_origem}</span>
+                                                        <span className="text-white font-bold">{t.pts}pts</span>
+                                                    </div>
                                                 </div>
-                                                <div className="flex gap-3 text-[10px] font-mono text-gray-500">
-                                                    <span>Gr.{t.gp_origem}</span>
-                                                    <span className="text-white font-bold">{t.pts}pts</span>
-                                                </div>
-                                            </div>
-                                        ))}
+                                            ))}
                                     </div>
                                 </div>
                             </div>

@@ -226,7 +226,7 @@ export default function PainelPontosCorridos({ campeonatoId, times }: Props) {
         </div>
       </div>
 
-      {/* COLUNA 2: JOGOS (Cards Melhorados com Destaque Verde) */}
+      {/* COLUNA 2: JOGOS */}
       <div className="lg:col-span-1 space-y-6">
          <div className="bg-[#121212] border border-gray-800 rounded-2xl p-6 sticky top-6 shadow-xl h-fit">
             <div className="flex justify-between items-center mb-6 pb-4 border-b border-gray-800 shrink-0">

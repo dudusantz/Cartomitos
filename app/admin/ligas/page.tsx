@@ -2,8 +2,8 @@
 
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
-import { criarCampeonato, atualizarCampeonato, listarCampeonatos, excluirCampeonato, finalizarCampeonato, reabrirCampeonato } from '../../actions'
-import toast from 'react-hot-toast'; 
+import { criarCampeonato, atualizarCampeonato, listarCampeonatos, excluirCampeonato, finalizarCampeonato, reabrirCampeonato } from '@/app/actions'
+import toast from 'react-hot-toast'
 
 const TIPOS_TORNEIO = {
     pontos_corridos: { icon: '🏆', label: 'Pontos Corridos', style: 'text-blue-400 bg-blue-500/10 border-blue-500/20' },
@@ -244,38 +244,38 @@ export default function AdminLigas() {
                                     </div>
 
                                     <div className="flex items-center gap-2 self-end sm:self-auto border-t sm:border-t-0 border-white/5 pt-3 sm:pt-0 w-full sm:w-auto justify-end">
-                                        {/* Botão Finalizar */}
-                                        <button 
-                                            onClick={() => handleFinalizar(liga.id, isAtivo)}
-                                            title={isAtivo ? "Finalizar Campeonato" : "Reabrir Campeonato"}
-                                            className={`p-2 rounded-lg border transition-all ${isAtivo 
-                                                ? 'text-yellow-500/50 hover:text-yellow-500 border-yellow-500/10 hover:bg-yellow-500/10' 
-                                                : 'text-green-500 border-green-500/20 hover:bg-green-500/10'}`}
-                                        >
-                                            {isAtivo 
-                                                ? <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                                : <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                                            }
-                                        </button>
+                                            {/* Botão Finalizar (Ícone Rápido) */}
+                                            <button 
+                                                onClick={() => handleFinalizar(liga.id, isAtivo)}
+                                                title={isAtivo ? "Finalizar Campeonato" : "Reabrir Campeonato"}
+                                                className={`p-2 rounded-lg border transition-all ${isAtivo 
+                                                    ? 'text-yellow-500/50 hover:text-yellow-500 border-yellow-500/10 hover:bg-yellow-500/10' 
+                                                    : 'text-green-500 border-green-500/20 hover:bg-green-500/10'}`}
+                                            >
+                                                {isAtivo 
+                                                    ? <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                                    : <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                                                }
+                                            </button>
 
-                                        {/* Botão Excluir */}
-                                        <button 
-                                            onClick={() => handleExcluir(liga.id)}
-                                            title="Excluir Liga"
-                                            className="p-2 rounded-lg text-red-500/50 hover:text-red-500 border border-red-500/10 hover:bg-red-500/10 transition-all"
-                                        >
-                                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                        </button>
-                                        
-                                        <div className="w-px h-6 bg-white/10 mx-1"></div>
+                                            {/* Botão Excluir */}
+                                            <button 
+                                                onClick={() => handleExcluir(liga.id)}
+                                                title="Excluir Liga"
+                                                className="p-2 rounded-lg text-red-500/50 hover:text-red-500 border border-red-500/10 hover:bg-red-500/10 transition-all"
+                                            >
+                                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                            </button>
+                                            
+                                            <div className="w-px h-6 bg-white/10 mx-1"></div>
 
-                                        <Link 
-                                            href={`/admin/ligas/${liga.id}`}
-                                            className="bg-white/5 hover:bg-white/10 text-white text-xs font-bold py-2.5 px-5 rounded-lg border border-white/10 transition-all hover:border-green-500/30 flex items-center gap-2"
-                                        >
-                                            Gerenciar
-                                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-                                        </Link>
+                                            <Link 
+                                                href={`/admin/ligas/${liga.id}`}
+                                                className="bg-white/5 hover:bg-white/10 text-white text-xs font-bold py-2.5 px-5 rounded-lg border border-white/10 transition-all hover:border-green-500/30 flex items-center gap-2"
+                                            >
+                                                Gerenciar
+                                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                                            </Link>
                                     </div>
                                 </div>
                             )

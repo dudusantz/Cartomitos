@@ -278,26 +278,25 @@ export default function PainelFaseGrupos({ campeonatoId, times }: Props) {
 
                                     return (
                                     <tr key={t.id} className="hover:bg-white/[0.03] transition group relative">
-                                        <td className="py-3 pl-4 text-center relative">
-                                            {isClassificado && <div className="absolute left-0 top-0 bottom-0 w-1 bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]"></div>}
-                                            {isSulamericana && <div className="absolute left-0 top-0 bottom-0 w-1 bg-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.5)]"></div>}
-                                            <span className={`font-black text-xs ${isClassificado ? 'text-green-500' : isSulamericana ? 'text-yellow-500' : 'text-gray-600'}`}>{idx + 1}</span>
-                                        </td>
-                                        <td className="py-3 px-1">
-                                            <div className="flex items-center gap-2 overflow-hidden">
-                                                <img src={escudo} className="w-6 h-6 object-contain shrink-0 drop-shadow-md" />
-                                                {/* CORREÇÃO AQUI: Removido truncate e max-w para mostrar nome completo */}
-                                                <span className="font-bold text-gray-300 group-hover:text-white block whitespace-normal leading-tight">{nome}</span>
-                                            </div>
-                                        </td>
-                                        <td className="py-3 text-center font-black text-white bg-white/[0.02] text-xs shadow-inner">{t.pts}</td>
-                                        <td className="py-3 text-center text-gray-500 font-mono">{t.pj}</td>
-                                        <td className="py-3 text-center text-gray-500 font-mono">{t.v}</td>
-                                        <td className="py-3 text-center text-gray-500 font-mono">{t.e}</td>
-                                        <td className="py-3 text-center text-gray-500 font-mono">{t.d}</td>
-                                        <td className="py-3 text-center text-gray-400 font-mono">{t.pp}</td>
-                                        <td className="py-3 text-center text-gray-400 font-mono">{t.pc}</td>
-                                        <td className={`py-3 text-center font-mono font-bold ${t.sp > 0 ? 'text-green-500' : t.sp < 0 ? 'text-red-500' : 'text-gray-500'}`}>{t.sp}</td>
+                                            <td className="py-3 pl-4 text-center relative">
+                                                {isClassificado && <div className="absolute left-0 top-0 bottom-0 w-1 bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]"></div>}
+                                                {isSulamericana && <div className="absolute left-0 top-0 bottom-0 w-1 bg-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.5)]"></div>}
+                                                <span className={`font-black text-xs ${isClassificado ? 'text-green-500' : isSulamericana ? 'text-yellow-500' : 'text-gray-600'}`}>{idx + 1}</span>
+                                            </td>
+                                            <td className="py-3 px-1">
+                                                <div className="flex items-center gap-2 overflow-hidden">
+                                                    <img src={escudo} className="w-6 h-6 object-contain shrink-0 drop-shadow-md" />
+                                                    <span className="font-bold text-gray-300 group-hover:text-white block whitespace-normal leading-tight">{nome}</span>
+                                                </div>
+                                            </td>
+                                            <td className="py-3 text-center font-black text-white bg-white/[0.02] text-xs shadow-inner">{t.pts}</td>
+                                            <td className="py-3 text-center text-gray-500 font-mono">{t.pj}</td>
+                                            <td className="py-3 text-center text-gray-500 font-mono">{t.v}</td>
+                                            <td className="py-3 text-center text-gray-500 font-mono">{t.e}</td>
+                                            <td className="py-3 text-center text-gray-500 font-mono">{t.d}</td>
+                                            <td className="py-3 text-center text-gray-400 font-mono">{t.pp}</td>
+                                            <td className="py-3 text-center text-gray-400 font-mono">{t.pc}</td>
+                                            <td className={`py-3 text-center font-mono font-bold ${t.sp > 0 ? 'text-green-500' : t.sp < 0 ? 'text-red-500' : 'text-gray-500'}`}>{t.sp}</td>
                                     </tr>
                                 )})}
                             </tbody>
@@ -372,7 +371,7 @@ export default function PainelFaseGrupos({ campeonatoId, times }: Props) {
                                 <span className="text-gray-700 text-[10px]">✕</span>
                                 <span className={vVis ? 'text-green-400' : ''}>{j.placar_visitante ?? '-'}</span>
                             </div>
-
+                            
                             {/* Visitante (Alinhado à esquerda) */}
                             <div className="flex flex-col items-start gap-1.5 overflow-hidden">
                                 <img src={visitante?.escudo || '/shield-placeholder.png'} className={`w-8 h-8 object-contain drop-shadow-md transition-transform group-hover:scale-110 ${!vVis && jaFoi && !empate ? 'opacity-60 grayscale' : ''}`} />

@@ -1127,34 +1127,78 @@ export async function excluirCampeonato(id: number) {
 }
 
 export async function finalizarCampeonato(id: number) {
-  // Marca como ativo = false (Finalizado)
-  const { error } = await supabase.from('campeonatos').update({ ativo: false }).eq('id', id)
+  const supabase = createClient(); // Garanta que createClient está importado/disponível
+
+  // 1. Busca informações do campeonato
+  const { data: camp } = await supabase.from('campeonatos').select('*').eq('id', id).single();
+  if (!camp) return { success: false, msg: "Campeonato não encontrado." };
+
+  let podium: any[] = [];
+
+  // 2. Define o Pódio baseado no tipo
+  if (camp.tipo === 'pontos_corridos' || camp.tipo === 'grupos') {
+      // Busca os 3 primeiros da tabela
+      const { data } = await supabase.from('classificacao')
+          .select('*, times(*)')
+          .eq('campeonato_id', id)
+          .order('pts', { ascending: false })
+          .order('v', { ascending: false })
+          .order('sg', { ascending: false })
+          .limit(3);
+      
+      if (data) podium = data.map(d => d.times);
+  } 
+  else if (camp.tipo === 'mata_mata' || camp.tipo === 'copa') {
+      // Pega o último jogo finalizado (a Grande Final)
+      const { data: ult } = await supabase.from('partidas')
+          .select('*, casa:times!partidas_time_casa_fkey(*), visitante:times!partidas_time_visitante_fkey(*)')
+          .eq('campeonato_id', id)
+          .eq('status', 'finalizado')
+          .order('rodada', { ascending: false }) // A última rodada é a final
+          .limit(1)
+          .single();
+      
+      if (ult) {
+          const pC = ult.placar_casa || 0;
+          const pV = ult.placar_visitante || 0;
+          // Define 1º e 2º
+          if (pC > pV) { podium = [ult.casa, ult.visitante]; }
+          else { podium = [ult.visitante, ult.casa]; }
+      }
+  }
+
+  // 3. Marca como inativo (Finalizado)
+  const { error } = await supabase.from('campeonatos').update({ ativo: false }).eq('id', id);
   
   if (!error) {
-    revalidatePath('/admin/ligas')
-    revalidatePath('/campeonatos')
-    revalidatePath('/campeoes') // Atualiza a galeria com o novo campeão
-  }
-  return { success: !error, msg: error ? error.message : 'Liga finalizada!' }
-}
+    // 4. Salva o título na Galeria automaticamente
+    if (podium.length > 0 && podium[0]) {
+        // Verifica se já tem o título
+        const { data: temTitulo } = await supabase.from('titulos_manuais')
+            .select('id')
+            .eq('time_id', podium[0].id)
+            .eq('nome_campeonato', camp.nome)
+            .eq('ano', camp.ano)
+            .single();
 
-export async function reabrirCampeonato(id: number) {
-  const { error } = await supabase.from('campeonatos').update({ ativo: true }).eq('id', id)
-  if (!error) revalidatePath('/admin/ligas');
-  return { success: !error }
-}
+        if (!temTitulo) {
+            await supabase.from('titulos_manuais').insert([{
+                time_id: podium[0].id,
+                nome_campeonato: camp.nome,
+                ano: camp.ano
+            }]);
+        }
+    }
 
-export async function atualizarCampeonato(id: number, nome: string, ano: number, tipo: string) {
-  const { error } = await supabase
-    .from('campeonatos')
-    .update({ nome, ano, tipo })
-    .eq('id', id)
+    revalidatePath('/admin/ligas');
+    revalidatePath(`/campeonatos/${id}`);
+    revalidatePath('/campeoes');
     
-  if (!error) {
-    revalidatePath('/admin/ligas')
-    revalidatePath('/campeonatos')
+    // Retorna o pódio para o frontend exibir a festa
+    return { success: true, msg: 'Campeonato encerrado com sucesso!', podium };
   }
-  return { success: !error, msg: error ? error.message : 'Liga atualizada!' }
+
+  return { success: !error, msg: error ? error.message : 'Erro ao finalizar.' };
 }
 
 // ==============================================================================

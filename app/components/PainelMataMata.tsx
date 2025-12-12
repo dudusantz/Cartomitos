@@ -143,7 +143,6 @@ export default function PainelMataMata({ campeonatoId, rodadasCorte, bloquearGer
         </div>
 
         <div className="overflow-x-auto pb-10">
-            {/* CORREÇÃO AQUI: Passando 'partidas' em vez de 'jogos' */}
             <MataMataBracket partidas={partidas} rodadaInicial={rodadasCorte} />
         </div>
     </div>

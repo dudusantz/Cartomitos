@@ -7,7 +7,7 @@ import toast from 'react-hot-toast'
 import { 
   listarTimesDoCampeonato, listarTodosTimes, 
   atualizarConfiguracaoLiga, gerarMataMataCopa, buscarTabelaGrupos 
-} from '../../../actions'
+} from '@/app/actions'
 import { supabase } from '@/lib/supabase'
 import ModalConfirmacao from '@/app/components/ModalConfirmacao'
 
@@ -24,10 +24,15 @@ export default function GerenciarLiga() {
   const [liga, setLiga] = useState<any>(null)
   const [timesLiga, setTimesLiga] = useState<any[]>([]) 
   const [todosTimes, setTodosTimes] = useState<any[]>([])
+  
+  // Estado inicial
   const [tabAtiva, setTabAtiva] = useState<string>('times')
   const [finalUnica, setFinalUnica] = useState(false)
   
-  // Estado para visualização dos classificados da Copa
+  // CONTROLE DE REDIRECIONAMENTO (Isso resolve o problema)
+  const [redirFeito, setRedirFeito] = useState(false)
+  
+  // Copa
   const [pote1, setPote1] = useState<any[]>([])
   const [pote2, setPote2] = useState<any[]>([])
 
@@ -36,7 +41,6 @@ export default function GerenciarLiga() {
 
   useEffect(() => { if (id) carregarDados() }, [id])
 
-  // Recarrega os potes sempre que entrar na aba 'jogos' em Copas
   useEffect(() => {
     if (tabAtiva === 'jogos' && liga?.tipo === 'copa') {
         atualizarPotes()
@@ -52,14 +56,22 @@ export default function GerenciarLiga() {
     setTimesLiga(_times)
     setTodosTimes(await listarTodosTimes())
 
-    // Redirecionamento inicial de abas
     if (data?.tipo === 'copa') {
         await atualizarPotes();
-        if (tabAtiva === 'times') setTabAtiva('grupos');
-    } else if (data?.tipo === 'pontos_corridos' && tabAtiva === 'times') {
-        setTabAtiva('classificacao');
-    } else if (data?.tipo === 'mata_mata' && tabAtiva === 'times') {
-        setTabAtiva('jogos');
+    }
+
+    // --- CORREÇÃO AQUI ---
+    // Se ainda não redirecionou (redirFeito == false), faz o redirecionamento inicial.
+    // Se já redirecionou (você está editando times), ele ignora isso e te mantém onde você está.
+    if (!redirFeito && data) {
+        if (data.tipo === 'copa') {
+            setTabAtiva('grupos');
+        } else if (data.tipo === 'pontos_corridos') {
+            setTabAtiva('classificacao');
+        } else if (data.tipo === 'mata_mata') {
+            setTabAtiva('jogos');
+        }
+        setRedirFeito(true); // Trava para as próximas atualizações
     }
   }
 
@@ -74,17 +86,15 @@ export default function GerenciarLiga() {
     
     if (grupos) {
         Object.keys(grupos).forEach(letra => {
-            const time1 = grupos[letra][0]; // 1º Colocado
-            const time2 = grupos[letra][1]; // 2º Colocado
+            const time1 = grupos[letra][0];
+            const time2 = grupos[letra][1];
             
             if (time1) p1.push({ ...time1, gp_origem: letra });
             if (time2) p2.push({ ...time2, gp_origem: letra });
         });
     }
 
-    // Ordenar Pote 1 (Melhores Campanhas)
     p1.sort((a, b) => b.pts - a.pts || b.v - a.v || b.sp - a.sp || b.pp - a.pp);
-    
     setPote1(p1);
     setPote2(p2);
   }
@@ -227,7 +237,6 @@ export default function GerenciarLiga() {
                         )}
                     </div>
                     
-                    {/* Passamos bloquearGerador=true aqui */}
                     <PainelMataMata campeonatoId={campeonatoId} rodadasCorte={6} bloquearGerador={true} />
                 </div>
             )}

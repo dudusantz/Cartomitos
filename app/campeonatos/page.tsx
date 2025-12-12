@@ -53,7 +53,7 @@ export default async function CampeonatosPage() {
 
             return (
                 <Link 
-                  href={`/campeonato/${camp.id}`} 
+                  href={`/campeonatos/${camp.id}`} 
                   key={camp.id}
                   className="group relative block"
                 >

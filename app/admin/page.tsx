@@ -1,19 +1,30 @@
 import Link from 'next/link'
+import { deslogar } from '../login/actions'
 
 export default function AdminDashboard() {
   return (
     <div className="min-h-screen bg-[#121212] text-white p-6 md:p-10 animate-fadeIn">
       <div className="max-w-5xl mx-auto">
         
-        {/* Header */}
-        <div className="flex items-center gap-4 mb-12 pb-6 border-b border-white/10">
-            <div className="w-16 h-16 bg-gradient-to-br from-green-600 to-green-900 rounded-2xl flex items-center justify-center shadow-lg shadow-green-900/20">
-                <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+        {/* Header com Logout */}
+        <div className="flex items-center justify-between mb-12 pb-6 border-b border-white/10">
+            <div className="flex items-center gap-4">
+                <div className="w-16 h-16 bg-gradient-to-br from-green-600 to-green-900 rounded-2xl flex items-center justify-center shadow-lg shadow-green-900/20">
+                    <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                </div>
+                <div>
+                    <h1 className="text-4xl font-black uppercase tracking-tighter">Painel Admin</h1>
+                    <p className="text-gray-500 font-medium">Gerencie ligas, times e histórico.</p>
+                </div>
             </div>
-            <div>
-                <h1 className="text-4xl font-black uppercase tracking-tighter">Painel Admin</h1>
-                <p className="text-gray-500 font-medium">Gerencie ligas, times e histórico.</p>
-            </div>
+
+            {/* Botão de Logout */}
+            <form action={deslogar}>
+                <button className="text-red-500 hover:text-red-400 text-[10px] font-bold uppercase tracking-widest border border-red-900/30 hover:bg-red-900/10 px-4 py-2 rounded-lg transition flex items-center gap-2">
+                    <span className="hidden md:inline">Sair</span>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+                </button>
+            </form>
         </div>
 
         {/* Grid de Ações */}
@@ -49,7 +60,7 @@ export default function AdminDashboard() {
                 </div>
             </Link>
 
-            {/* CARD 3: HISTÓRICO (O que você pediu) */}
+            {/* CARD 3: HISTÓRICO */}
             <Link href="/admin/titulos" className="group relative overflow-hidden bg-[#1a1a1a] border border-white/5 p-8 rounded-3xl hover:border-yellow-500/50 transition-all hover:-translate-y-1 shadow-xl">
                 <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity">
                     <svg className="w-24 h-24 text-yellow-500" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>

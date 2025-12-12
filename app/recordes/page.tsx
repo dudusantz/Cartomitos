@@ -45,7 +45,8 @@ export default async function RecordesPage() {
                         <div className="absolute inset-0 bg-gradient-to-b from-gray-400/10 to-transparent"></div>
                         <h3 className="text-white font-bold truncate text-lg relative z-10">{segundo.time}</h3>
                         <p className="text-gray-500 text-xs uppercase font-bold mb-2 relative z-10">Rodada {segundo.rodada}</p>
-                        <span className="text-3xl font-black text-gray-300 relative z-10">{Number(segundo.pontos).toFixed(1)}</span>
+                        {/* CORREÇÃO AQUI: toFixed(2) */}
+                        <span className="text-3xl font-black text-gray-300 relative z-10">{Number(segundo.pontos).toFixed(2)}</span>
                     </div>
                 </div>
             )}
@@ -63,7 +64,8 @@ export default async function RecordesPage() {
                         <div className="absolute inset-0 bg-gradient-to-b from-yellow-500/10 to-transparent"></div>
                         <h3 className="text-white font-black truncate text-xl md:text-2xl mb-1 relative z-10">{primeiro.time}</h3>
                         <p className="text-yellow-500/80 text-xs uppercase font-bold mb-3 relative z-10 tracking-wider">MVP da Temporada</p>
-                        <span className="text-5xl font-black text-white relative z-10 drop-shadow-md">{Number(primeiro.pontos).toFixed(1)}</span>
+                        {/* CORREÇÃO AQUI: toFixed(2) */}
+                        <span className="text-5xl font-black text-white relative z-10 drop-shadow-md">{Number(primeiro.pontos).toFixed(2)}</span>
                         <p className="text-gray-600 text-[10px] uppercase font-bold mt-2 relative z-10">Rodada {primeiro.rodada} • {primeiro.liga}</p>
                     </div>
                 </div>
@@ -79,14 +81,12 @@ export default async function RecordesPage() {
                     </div>
                     <div className="bg-[#1a1a1a] border-t-4 border-orange-800 w-full rounded-t-2xl p-4 text-center h-32 flex flex-col justify-center relative overflow-hidden">
                         <div className="absolute inset-0 bg-gradient-to-b from-orange-800/10 to-transparent"></div>
-                        
-                        {/* AQUI ESTAVA O PROBLEMA: Removi 'truncate' e ajustei o texto */}
                         <h3 className="text-white font-bold text-sm md:text-base leading-tight line-clamp-2 relative z-10 mb-1">
                             {terceiro.time}
                         </h3>
-                        
                         <p className="text-gray-500 text-[10px] uppercase font-bold mb-1 relative z-10">Rodada {terceiro.rodada}</p>
-                        <span className="text-2xl font-black text-orange-200/80 relative z-10">{Number(terceiro.pontos).toFixed(1)}</span>
+                        {/* CORREÇÃO AQUI: toFixed(2) */}
+                        <span className="text-2xl font-black text-orange-200/80 relative z-10">{Number(terceiro.pontos).toFixed(2)}</span>
                     </div>
                 </div>
             )}
@@ -113,7 +113,8 @@ export default async function RecordesPage() {
                         </div>
 
                         <div className="text-right pr-2">
-                            <span className="text-xl font-black text-white">{Number(rec.pontos).toFixed(1)}</span>
+                            {/* CORREÇÃO AQUI: toFixed(2) */}
+                            <span className="text-xl font-black text-white">{Number(rec.pontos).toFixed(2)}</span>
                             <span className="text-[9px] block text-gray-600 font-bold uppercase">Pts</span>
                         </div>
                     </div>

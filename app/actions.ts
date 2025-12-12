@@ -62,7 +62,7 @@ export async function criarCampeonato(nome: string, ano: number, tipo: string) {
   
   if (!error) {
     revalidatePath('/admin/ligas')
-    revalidatePath('/campeonato')
+    revalidatePath('/campeonatos')
   }
   
   return { success: !error, msg: error ? error.message : 'Criado!' }
@@ -70,7 +70,7 @@ export async function criarCampeonato(nome: string, ano: number, tipo: string) {
 
 export async function atualizarConfiguracaoLiga(campeonatoId: number, finalUnica: boolean) {
   await supabase.from('campeonatos').update({ final_unica: finalUnica }).eq('id', campeonatoId)
-  revalidatePath(`/campeonato/${campeonatoId}`)
+  revalidatePath(`/campeonatos/${campeonatoId}`)
   revalidatePath(`/admin/ligas/${campeonatoId}`)
   return { success: true }
 }
@@ -102,7 +102,7 @@ export async function adicionarTimeAoCampeonato(campeonatoId: number, timeId: nu
   }
   
   await recalcularTabelaPontosCorridos(campeonatoId);
-  revalidatePath(`/campeonato/${campeonatoId}`)
+  revalidatePath(`/campeonatos/${campeonatoId}`)
   revalidatePath(`/admin/ligas/${campeonatoId}`)
   
   return { success: true }
@@ -112,7 +112,7 @@ export async function removerTimeDaLiga(campeonatoId: number, timeId: number) {
   await supabase.from('partidas').delete().eq('campeonato_id', campeonatoId).or(`time_casa.eq.${timeId},time_visitante.eq.${timeId}`)
   await supabase.from('classificacao').delete().eq('campeonato_id', campeonatoId).eq('time_id', timeId)
   
-  revalidatePath(`/campeonato/${campeonatoId}`)
+  revalidatePath(`/campeonatos/${campeonatoId}`)
   revalidatePath(`/admin/ligas/${campeonatoId}`)
   
   return { success: true }
@@ -160,7 +160,7 @@ export async function zerarJogos(campeonatoId: number) {
   await supabase.from('partidas').delete().eq('campeonato_id', campeonatoId)
   await supabase.from('classificacao').update({ pts: 0, pj: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, grupo: null }).eq('campeonato_id', campeonatoId);
   
-  revalidatePath(`/campeonato/${campeonatoId}`)
+  revalidatePath(`/campeonatos/${campeonatoId}`)
   revalidatePath(`/admin/ligas/${campeonatoId}`)
   return { success: true }
 }
@@ -200,7 +200,7 @@ export async function atualizarPlacarManual(partidaId: number, casa: number, vis
       await verificarEAvancarFase(data.campeonato_id, data.rodada);
   }
 
-  revalidatePath(`/campeonato/${data.campeonato_id}`)
+  revalidatePath(`/campeonatos/${data.campeonato_id}`)
   return { success: true }
 }
 
@@ -254,7 +254,7 @@ export async function gerarJogosPontosCorridos(campeonatoId: number) {
     await supabase.from('partidas').insert([...partidas, ...partidasReturno]);
     await recalcularTabelaPontosCorridos(campeonatoId);
 
-    revalidatePath(`/campeonato/${campeonatoId}`)
+    revalidatePath(`/campeonatos/${campeonatoId}`)
     return { success: true, msg: "Tabela de Pontos Corridos gerada!" };
 }
 
@@ -271,7 +271,7 @@ export async function atualizarRodadaPontosCorridos(campeonatoId: number, rodada
 
     await recalcularTabelaPontosCorridos(campeonatoId);
     
-    revalidatePath(`/campeonato/${campeonatoId}`)
+    revalidatePath(`/campeonatos/${campeonatoId}`)
     return { success: true, msg: "Rodada atualizada!" };
 }
 
@@ -386,7 +386,7 @@ export async function gerarMataMataInteligente(campeonatoId: number, idsOrdenado
   const { error } = await supabase.from('partidas').insert(partidasParaSalvar);
   if (error) return { success: false, msg: error.message };
 
-  revalidatePath(`/campeonato/${campeonatoId}`)
+  revalidatePath(`/campeonatos/${campeonatoId}`)
   return { success: true, msg: `Mata-Mata gerado com ${numTimes} times!` };
 }
 
@@ -410,7 +410,7 @@ export async function atualizarRodadaMataMata(campeonatoId: number, fase: number
 
   await verificarEAvancarFase(campeonatoId, fase);
   
-  revalidatePath(`/campeonato/${campeonatoId}`)
+  revalidatePath(`/campeonatos/${campeonatoId}`)
   return { success: true, msg: `Pontos atualizados!` };
 }
 
@@ -481,7 +481,7 @@ async function verificarEAvancarFase(campeonatoId: number, rodadaAtual: number) 
 
 export async function avancarFaseMataMata(campeonatoId: number, faseAtual: number) {
   await verificarEAvancarFase(campeonatoId, faseAtual);
-  revalidatePath(`/campeonato/${campeonatoId}`)
+  revalidatePath(`/campeonatos/${campeonatoId}`)
   return { success: true, msg: "Verificação concluída." };
 }
 
@@ -506,7 +506,7 @@ export async function sortearGrupos(campeonatoId: number, numGrupos: number, pot
     }
   }
   
-  revalidatePath(`/campeonato/${campeonatoId}`)
+  revalidatePath(`/campeonatos/${campeonatoId}`)
   return { success: true, msg: "Grupos sorteados!" };
 }
 
@@ -548,7 +548,7 @@ export async function gerarJogosFaseGrupos(campeonatoId: number) {
   
   await recalcularTabelaPontosCorridos(campeonatoId);
   
-  revalidatePath(`/campeonato/${campeonatoId}`)
+  revalidatePath(`/campeonatos/${campeonatoId}`)
   return { success: true, msg: "Jogos da fase de grupos gerados!" };
 }
 
@@ -564,7 +564,7 @@ export async function atualizarRodadaGrupos(campeonatoId: number, rodadaLiga: nu
   }
   await recalcularTabelaPontosCorridos(campeonatoId);
   
-  revalidatePath(`/campeonato/${campeonatoId}`)
+  revalidatePath(`/campeonatos/${campeonatoId}`)
   return { success: true, msg: "Rodada atualizada!" };
 }
 
@@ -606,7 +606,7 @@ export async function excluirMataMata(campeonatoId: number, rodadaInicio: number
     const { error } = await supabase.from('partidas').delete().eq('campeonato_id', campeonatoId).gte('rodada', rodadaInicio);
     if (error) return { success: false, msg: error.message };
     
-    revalidatePath(`/campeonato/${campeonatoId}`)
+    revalidatePath(`/campeonatos/${campeonatoId}`)
     return { success: true, msg: "Mata-mata limpo." };
 }
 
@@ -731,7 +731,7 @@ export async function gerarMataMataCopa(campeonatoId: number) {
   const { error } = await supabase.from('partidas').insert(partidasNovas);
   if (error) return { success: false, msg: error.message };
   
-  revalidatePath(`/campeonato/${campeonatoId}`)
+  revalidatePath(`/campeonatos/${campeonatoId}`)
   return { success: true, msg: "Mata-mata sorteado com sucesso!" };
 }
 
@@ -740,7 +740,34 @@ export async function gerarMataMataCopa(campeonatoId: number) {
 // ==============================================================================
 
 export async function buscarRankingCompleto() {
-  const { data: meusTimes } = await supabase.from('times').select('*')
+  // 1. Busca apenas campeonatos de PONTOS CORRIDOS e ATIVOS
+  const { data: ligas } = await supabase
+    .from('campeonatos')
+    .select('id')
+    .eq('tipo', 'pontos_corridos')
+    .eq('ativo', true)
+
+  if (!ligas || ligas.length === 0) return []
+
+  const idsLigas = ligas.map(l => l.id)
+
+  // 2. Busca os times que estão nessas ligas
+  const { data: participantes } = await supabase
+    .from('classificacao')
+    .select('time_id')
+    .in('campeonato_id', idsLigas)
+
+  if (!participantes || participantes.length === 0) return []
+
+  // Remove duplicados (caso o time esteja em mais de uma liga)
+  const idsTimesUnicos = [...new Set(participantes.map(p => p.time_id))]
+
+  // 3. Busca os dados apenas desses times
+  const { data: meusTimes } = await supabase
+    .from('times')
+    .select('*')
+    .in('id', idsTimesUnicos)
+
   if (!meusTimes || meusTimes.length === 0) return []
 
   const resultados = [];
@@ -754,8 +781,12 @@ export async function buscarRankingCompleto() {
               if (!dados) return null;
               
               return {
-                  pos: 0, time: dados.time.nome, cartoleiro: dados.time.nome_cartola,
-                  pontos: dados.pontos_campeonato || 0, escudo: dados.time.url_escudo_png
+                  id: time.id, // Importante: ID do banco para salvar depois
+                  pos: 0, 
+                  time: dados.time.nome, 
+                  cartoleiro: dados.time.nome_cartola,
+                  pontos: dados.pontos_campeonato || 0, 
+                  escudo: dados.time.url_escudo_png
               }
           } catch { return null }
       });
@@ -768,6 +799,60 @@ export async function buscarRankingCompleto() {
     .filter(i => i !== null)
     .sort((a: any, b: any) => b.pontos - a.pontos)
     .map((i: any, idx) => ({ ...i, pos: idx + 1 }))
+}
+
+// NOVA FUNÇÃO: Salvar Histórico Completo (JSON)
+export async function salvarHistoricoTemporada(rankingCompleto: any[], anoPersonalizado?: number) {
+    // Se vier um ano, usa ele. Se não, usa o ano atual.
+    const anoSalvar = anoPersonalizado || new Date().getFullYear();
+    
+    // Verifica se já salvou este ano
+    const { data: existe } = await supabase
+        .from('historico_temporadas')
+        .select('id')
+        .eq('ano', anoSalvar)
+        .single();
+
+    if (existe) {
+        await supabase
+            .from('historico_temporadas')
+            .update({ ranking_json: rankingCompleto, data_salvamento: new Date() })
+            .eq('id', existe.id);
+            
+        return { success: true, msg: `Histórico de ${anoSalvar} atualizado!` };
+    }
+
+    const { error } = await supabase
+        .from('historico_temporadas')
+        .insert([{ 
+            ano: anoSalvar, 
+            ranking_json: rankingCompleto 
+        }]);
+
+    if (error) return { success: false, msg: error.message };
+
+    // Salva o troféu do campeão com o ano correto
+    if (rankingCompleto.length > 0) {
+        const campeao = rankingCompleto[0];
+        await salvarTituloCampeao(campeao.id, campeao.time, anoSalvar);
+    }
+
+    return { success: true, msg: `Histórico de ${anoSalvar} salvo com sucesso!` };
+}
+
+// Função auxiliar para salvar o troféu do campeão (para aparecer na Galeria)
+async function salvarTituloCampeao(timeId: number, nomeTime: string, ano: number) {
+    // Verifica se já tem o título para não duplicar
+    const { data } = await supabase.from('titulos_manuais').select('id').eq('time_id', timeId).eq('ano', ano).eq('nome_campeonato', 'Campeão Geral').single();
+    
+    if (!data) {
+        await supabase.from('titulos_manuais').insert([{
+            time_id: timeId,
+            nome_campeonato: 'Campeão Geral',
+            ano: ano
+        }]);
+        revalidatePath('/campeoes');
+    }
 }
 
 export async function buscarLigaOficial() {
@@ -873,7 +958,12 @@ export async function buscarGaleriaDeTrofeus() {
   const titulosPorTime: Record<number, { nome: string, escudo: string, titulos: string[] }> = {};
 
   // 1. Títulos Automáticos (do Sistema)
-  const { data: campeonatos } = await supabase.from('campeonatos').select('*');
+  // MUDANÇA AQUI: Adicionado .eq('ativo', false) para pegar SÓ os finalizados
+  const { data: campeonatos } = await supabase
+    .from('campeonatos')
+    .select('*')
+    .eq('ativo', false);
+
   if (campeonatos) {
       for (const camp of campeonatos) {
         let campeaoId = null;
@@ -888,6 +978,7 @@ export async function buscarGaleriaDeTrofeus() {
             if (lider) { campeaoId = lider.time_id; timeInfo = lider.times; }
         } 
         else if (camp.tipo === 'mata_mata' || camp.tipo === 'copa') {
+            // Pega o último jogo finalizado (a Final)
             const { data: ult } = await supabase
                 .from('partidas').select('*, casa:times!partidas_time_casa_fkey(*), visitante:times!partidas_time_visitante_fkey(*)')
                 .eq('campeonato_id', camp.id).eq('status', 'finalizado').order('rodada', { ascending: false }).limit(1).single();
@@ -937,7 +1028,7 @@ export async function excluirCampeonato(id: number) {
 
   if (!error) {
     revalidatePath('/admin/ligas')
-    revalidatePath('/campeonato')
+    revalidatePath('/campeonatos')
     revalidatePath('/campeoes')
   }
   return { success: !error, msg: error ? error.message : 'Liga excluída!' }
@@ -949,7 +1040,7 @@ export async function finalizarCampeonato(id: number) {
   
   if (!error) {
     revalidatePath('/admin/ligas')
-    revalidatePath('/campeonato')
+    revalidatePath('/campeonatos')
     revalidatePath('/campeoes') // Atualiza a galeria com o novo campeão
   }
   return { success: !error, msg: error ? error.message : 'Liga finalizada!' }
@@ -969,7 +1060,30 @@ export async function atualizarCampeonato(id: number, nome: string, ano: number,
     
   if (!error) {
     revalidatePath('/admin/ligas')
-    revalidatePath('/campeonato')
+    revalidatePath('/campeonatos')
   }
   return { success: !error, msg: error ? error.message : 'Liga atualizada!' }
+}
+
+// ==============================================================================
+// 9. HISTÓRICO DE TEMPORADAS (NOVO)
+// ==============================================================================
+
+export async function listarAnosHistorico() {
+  const { data } = await supabase
+    .from('historico_temporadas')
+    .select('ano, data_salvamento')
+    .order('ano', { ascending: false });
+  
+  return data || [];
+}
+
+export async function buscarHistoricoPorAno(ano: number) {
+  const { data } = await supabase
+    .from('historico_temporadas')
+    .select('*')
+    .eq('ano', ano)
+    .single();
+    
+  return data || null;
 }

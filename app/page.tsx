@@ -11,7 +11,6 @@ export default async function Home() {
   return (
     <div className="max-w-7xl mx-auto p-6 md:p-10 animate-fadeIn min-h-screen">
         
-
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 relative z-0">
 
           {/* === ESQUERDA: RANKING GERAL === */}
@@ -131,7 +130,8 @@ export default async function Home() {
                                     </div>
                                 </div>
                                 <div className="text-right pl-3">
-                                    <div className="font-mono font-black text-green-500 text-sm">{Number(recorde.pontos).toFixed(1)}</div>
+                                    {/* CORREÇÃO AQUI: Mudado para toFixed(2) */}
+                                    <div className="font-mono font-black text-green-500 text-sm">{Number(recorde.pontos).toFixed(2)}</div>
                                 </div>
                             </div>
                             ))

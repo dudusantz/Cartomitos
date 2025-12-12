@@ -84,7 +84,7 @@ export default function PaginaMataMataPublica() {
       {/* --- CABEÇALHO --- */}
       <div className="relative border-b border-gray-800/60 pt-10 pb-8 px-6 bg-gradient-to-b from-gray-900/50 to-black">
         <div className="max-w-7xl mx-auto relative z-10">
-          <Link href={`/campeonato/${id}`} className="inline-flex items-center gap-2 text-gray-500 hover:text-white text-xs font-bold uppercase tracking-widest transition mb-6">
+          <Link href={`/campeonatos/${id}`} className="inline-flex items-center gap-2 text-gray-500 hover:text-white text-xs font-bold uppercase tracking-widest transition mb-6">
             <span>←</span> Voltar ao Início
           </Link>
           

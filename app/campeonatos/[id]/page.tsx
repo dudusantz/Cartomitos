@@ -14,6 +14,7 @@ export default function PaginaCampeonato() {
   const [liga, setLiga] = useState<any>(null)
   const [tab, setTab] = useState('tabela')
 
+  // Garante que o ID seja um número válido
   const campeonatoId = params?.id ? Number(params.id) : 0
 
   useEffect(() => {
@@ -28,6 +29,7 @@ export default function PaginaCampeonato() {
             
         if (data && !error) {
             setLiga(data)
+            // Se for mata-mata, já abre na aba da chave. Se não, abre na tabela/grupos.
             if (data.tipo === 'mata_mata') {
                 setTab('chave')
             } else {
@@ -51,11 +53,11 @@ export default function PaginaCampeonato() {
         
         {/* HEADER */}
         <div className="border-b border-gray-800 bg-[#1F2937] py-8 px-6 relative overflow-hidden">
-            {/* Background Glow */}
-            <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-[#009B3A]/5 rounded-full blur-[100px] pointer-events-none -mr-20 -mt-20"></div>
+            
+            {/* AQUI FOI A MUDANÇA: Troquei a cor verde (#009B3A) pelo Amarelo (yellow-500) */}
+            <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-yellow-500/5 rounded-full blur-[100px] pointer-events-none -mr-20 -mt-20"></div>
 
             <div className="max-w-[1800px] mx-auto relative z-10">
-                {/* CORREÇÃO: Voltar para a lista de campeonatos */}
                 <Link href="/campeonatos" className="text-[10px] font-bold uppercase tracking-widest text-gray-400 hover:text-[#FFC107] mb-6 inline-flex items-center gap-2 transition-colors">
                     ← Voltar para Lista
                 </Link>
@@ -69,9 +71,10 @@ export default function PaginaCampeonato() {
             </div>
         </div>
 
-        {/* MENU */}
+        {/* MENU DE ABAS */}
         <div className="sticky top-0 z-50 bg-[#050505]/90 backdrop-blur border-b border-gray-800">
             <div className="max-w-[1800px] mx-auto flex justify-center gap-4 p-3">
+                {/* Botão da Tabela (Só aparece se NÃO for Mata-Mata puro) */}
                 {liga.tipo !== 'mata_mata' && (
                     <button 
                         onClick={() => setTab('tabela')} 
@@ -81,6 +84,7 @@ export default function PaginaCampeonato() {
                     </button>
                 )}
                 
+                {/* Botão do Mata-Mata (Só aparece se NÃO for Pontos Corridos puro) */}
                 {liga.tipo !== 'pontos_corridos' && (
                     <button 
                         onClick={() => setTab('chave')} 
@@ -92,7 +96,7 @@ export default function PaginaCampeonato() {
             </div>
         </div>
 
-        {/* CONTEUDO */}
+        {/* CONTEUDO PRINCIPAL */}
         <div className="flex-1 w-full max-w-[1800px] mx-auto p-6 animate-fadeIn">
             
             {tab === 'tabela' && (

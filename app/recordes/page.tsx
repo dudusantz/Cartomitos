@@ -77,11 +77,16 @@ export default async function RecordesPage() {
                          <img src={terceiro.escudo} alt={terceiro.time} className="w-20 h-20 md:w-24 md:h-24 object-contain relative z-10 drop-shadow-lg transform group-hover:-translate-y-2 transition-transform" />
                          <div className="absolute -bottom-3 -right-2 bg-orange-700 text-white font-black text-xs w-8 h-8 flex items-center justify-center rounded-full border-4 border-[#121212]">3º</div>
                     </div>
-                    <div className="bg-[#1a1a1a] border-t-4 border-orange-800 w-full rounded-t-2xl p-6 text-center h-32 flex flex-col justify-center relative overflow-hidden">
+                    <div className="bg-[#1a1a1a] border-t-4 border-orange-800 w-full rounded-t-2xl p-4 text-center h-32 flex flex-col justify-center relative overflow-hidden">
                         <div className="absolute inset-0 bg-gradient-to-b from-orange-800/10 to-transparent"></div>
-                        <h3 className="text-white font-bold truncate text-lg relative z-10">{terceiro.time}</h3>
-                        <p className="text-gray-500 text-xs uppercase font-bold mb-2 relative z-10">Rodada {terceiro.rodada}</p>
-                        <span className="text-3xl font-black text-orange-200/80 relative z-10">{Number(terceiro.pontos).toFixed(1)}</span>
+                        
+                        {/* AQUI ESTAVA O PROBLEMA: Removi 'truncate' e ajustei o texto */}
+                        <h3 className="text-white font-bold text-sm md:text-base leading-tight line-clamp-2 relative z-10 mb-1">
+                            {terceiro.time}
+                        </h3>
+                        
+                        <p className="text-gray-500 text-[10px] uppercase font-bold mb-1 relative z-10">Rodada {terceiro.rodada}</p>
+                        <span className="text-2xl font-black text-orange-200/80 relative z-10">{Number(terceiro.pontos).toFixed(1)}</span>
                     </div>
                 </div>
             )}

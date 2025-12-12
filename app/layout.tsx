@@ -45,7 +45,7 @@ export default function RootLayout({
               <Link href="/" className="hover:text-yellow-500 transition-colors py-2">Início</Link>
               {/* Link atualizado para a lista de campeonatos */}
               <Link href="/campeonatos" className="hover:text-yellow-500 transition-colors py-2">Campeonatos</Link>
-              <Link href="/#recordes" className="hover:text-yellow-500 transition-colors py-2">Recordes</Link>
+              <Link href="/campeoes" className="hover:text-yellow-500 transition-colors py-2">Galeria de Troféus</Link>
             </div>
 
             {/* BOTÃO ADMIN */}

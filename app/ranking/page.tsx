@@ -1,6 +1,6 @@
 import Link from 'next/link'
-import { cookies } from 'next/headers'
-import { buscarRankingCompleto } from '../actions'
+import { buscarRankingCompleto } from '@/app/actions' // Caminho absoluto para evitar erros
+import { supabase } from '@/lib/supabase' // Importação correta para checar admin
 import BotaoSalvarRanking from '../components/BotaoSalvarRanking'
 
 export const revalidate = 60
@@ -8,9 +8,9 @@ export const revalidate = 60
 export default async function RankingGeral() {
   const ranking = await buscarRankingCompleto()
   
-  // Verifica se é admin para mostrar o botão de salvar
-  const cookieStore = await cookies()
-  const isAdmin = cookieStore.has('admin_session')
+  // Verifica se é admin usando o Supabase (mais seguro e consistente com o resto do app)
+  const { data: { session } } = await supabase.auth.getSession()
+  const isAdmin = session?.user?.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL
 
   return (
     <div className="min-h-screen bg-[#050505] text-white font-sans pb-20 selection:bg-cartola-gold selection:text-black">
@@ -46,7 +46,12 @@ export default async function RankingGeral() {
           {/* Botão de Salvar (Apenas Admin) */}
           {isAdmin && ranking && ranking.length > 0 && (
              <div className="flex justify-center mt-8">
-                <BotaoSalvarRanking ranking={ranking} />
+                <BotaoSalvarRanking 
+                    ranking={ranking}
+                    // ADICIONADO: Props obrigatórios para o salvamento funcionar
+                    tipo="ranking"
+                    tituloPadrao={`Ranking Geral ${new Date().getFullYear()}`}
+                />
              </div>
           )}
         </div>

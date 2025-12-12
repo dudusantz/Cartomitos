@@ -801,43 +801,135 @@ export async function buscarRankingCompleto() {
     .map((i: any, idx) => ({ ...i, pos: idx + 1 }))
 }
 
-// NOVA FUNÇÃO: Salvar Histórico Completo (JSON)
+// ==============================================================================
+// 9. HISTÓRICO DE TEMPORADAS E RECORDES (CORRIGIDO)
+// ==============================================================================
+
+export async function listarAnosHistorico(tipo: 'ranking' | 'recordes' = 'ranking') {
+  
+  if (tipo === 'recordes') {
+      const { data } = await supabase
+        .from('historico_recordes')
+        .select('ano, data_salvamento, titulo')
+        .order('ano', { ascending: false });
+      return data || [];
+  }
+
+  // Padrão: Ranking de Temporadas
+  const { data } = await supabase
+    .from('historico_temporadas')
+    .select('ano, data_salvamento')
+    .order('ano', { ascending: false });
+  
+  return data || [];
+}
+
+// *** CORREÇÃO IMPORTANTE: ORDEM DOS PARÂMETROS ***
+// Deve corresponder à ordem que o BotaoSalvarRanking envia: (DADOS, ANO, TIPO, TÍTULO)
+export async function salvarHistorico(dados: any[], ano: number, tipo: 'ranking' | 'recordes', titulo: string) {
+  
+  // 1. RECORDES (Tabela separada: historico_recordes)
+  if (tipo === 'recordes') {
+      const { data: existe } = await supabase
+          .from('historico_recordes')
+          .select('id')
+          .eq('ano', ano)
+          .single();
+
+      if (existe) {
+          const { error } = await supabase
+              .from('historico_recordes')
+              .update({ 
+                  dados: dados, 
+                  titulo: titulo,
+                  data_salvamento: new Date() 
+              })
+              .eq('id', existe.id);
+          
+          if (error) return { success: false, msg: 'Erro ao atualizar recordes.' };
+          return { success: true, msg: `Recordes de ${ano} atualizados!` };
+      } else {
+          const { error } = await supabase
+              .from('historico_recordes')
+              .insert([{ 
+                  ano: ano, 
+                  titulo: titulo,
+                  dados: dados 
+              }]);
+          
+          if (error) return { success: false, msg: 'Erro ao salvar recordes.' };
+          return { success: true, msg: `Recordes de ${ano} salvos!` };
+      }
+  }
+  
+  // 2. RANKING DE LIGAS (Tabela padrão: historico_temporadas)
+  else {
+      const { data: existe } = await supabase
+          .from('historico_temporadas')
+          .select('id')
+          .eq('ano', ano)
+          .single();
+
+      if (existe) {
+          await supabase
+              .from('historico_temporadas')
+              .update({ ranking_json: dados, data_salvamento: new Date() })
+              .eq('id', existe.id);
+          return { success: true, msg: `Ranking de ${ano} atualizado!` };
+      }
+
+      const { error } = await supabase
+          .from('historico_temporadas')
+          .insert([{ 
+              ano: ano, 
+              ranking_json: dados 
+          }]);
+
+      if (error) return { success: false, msg: error.message };
+
+      // Salva troféu do campeão se for ranking
+      if (dados.length > 0) {
+          const campeao = dados[0];
+          await salvarTituloCampeao(campeao.id, campeao.time, ano);
+      }
+      
+      return { success: true, msg: `Ranking de ${ano} salvo com sucesso!` };
+  }
+}
+
+// Função genérica de busca: seleciona a tabela correta baseada no 'tipo'
+export async function buscarHistoricoPorAno(ano: number, tipo: string = 'ranking') {
+  
+  if (tipo === 'recordes') {
+    const { data } = await supabase
+      .from('historico_recordes')
+      .select('*')
+      .eq('ano', ano)
+      .single();
+    return data;
+  }
+  
+  // Default: Ranking
+  const { data } = await supabase
+    .from('historico_temporadas')
+    .select('*')
+    .eq('ano', ano)
+    .single();
+  return data;
+}
+
+// Mantida para compatibilidade - AGORA CHAMA COM A ORDEM CORRETA
 export async function salvarHistoricoTemporada(rankingCompleto: any[], anoPersonalizado?: number) {
-    // Se vier um ano, usa ele. Se não, usa o ano atual.
     const anoSalvar = anoPersonalizado || new Date().getFullYear();
-    
-    // Verifica se já salvou este ano
-    const { data: existe } = await supabase
-        .from('historico_temporadas')
-        .select('id')
-        .eq('ano', anoSalvar)
-        .single();
+    // Ordem: dados, ano, tipo, titulo
+    return await salvarHistorico(rankingCompleto, anoSalvar, "ranking", "Ranking Geral");
+}
 
-    if (existe) {
-        await supabase
-            .from('historico_temporadas')
-            .update({ ranking_json: rankingCompleto, data_salvamento: new Date() })
-            .eq('id', existe.id);
-            
-        return { success: true, msg: `Histórico de ${anoSalvar} atualizado!` };
-    }
-
-    const { error } = await supabase
-        .from('historico_temporadas')
-        .insert([{ 
-            ano: anoSalvar, 
-            ranking_json: rankingCompleto 
-        }]);
-
-    if (error) return { success: false, msg: error.message };
-
-    // Salva o troféu do campeão com o ano correto
-    if (rankingCompleto.length > 0) {
-        const campeao = rankingCompleto[0];
-        await salvarTituloCampeao(campeao.id, campeao.time, anoSalvar);
-    }
-
-    return { success: true, msg: `Histórico de ${anoSalvar} salvo com sucesso!` };
+// Mantida para compatibilidade - AGORA CHAMA COM A ORDEM CORRETA
+export async function salvarHistoricoRecordes(recordes: any[], anoPersonalizado?: number) {
+    const anoSalvar = anoPersonalizado || new Date().getFullYear();
+    // Ordem: dados, ano, tipo, titulo
+    return await salvarHistorico(recordes, anoSalvar, "recordes", "Recordes Gerais");
 }
 
 // Função auxiliar para salvar o troféu do campeão (para aparecer na Galeria)
@@ -1066,24 +1158,28 @@ export async function atualizarCampeonato(id: number, nome: string, ano: number,
 }
 
 // ==============================================================================
-// 9. HISTÓRICO DE TEMPORADAS (NOVO)
+// 10. EXCLUSÃO DE HISTÓRICO
 // ==============================================================================
 
-export async function listarAnosHistorico() {
-  const { data } = await supabase
-    .from('historico_temporadas')
-    .select('ano, data_salvamento')
-    .order('ano', { ascending: false });
+export async function excluirHistorico(ano: number, tipo: 'ranking' | 'recordes') {
+  let tabela = 'historico_temporadas'; // Padrão
   
-  return data || [];
-}
+  if (tipo === 'recordes') {
+    tabela = 'historico_recordes';
+  }
 
-export async function buscarHistoricoPorAno(ano: number) {
-  const { data } = await supabase
-    .from('historico_temporadas')
-    .select('*')
-    .eq('ano', ano)
-    .single();
-    
-  return data || null;
+  const { error } = await supabase
+    .from(tabela)
+    .delete()
+    .eq('ano', ano);
+
+  if (error) {
+    console.error('Erro ao excluir:', error);
+    return { success: false, msg: 'Erro ao excluir histórico.' };
+  }
+
+  revalidatePath('/historico');
+  revalidatePath(`/historico/${ano}`);
+  
+  return { success: true, msg: `${tipo === 'recordes' ? 'Recordes' : 'Ranking'} de ${ano} excluído!` };
 }

@@ -1,24 +1,34 @@
 'use client'
 
-import { salvarHistoricoTemporada } from '../actions'
+import { salvarHistorico } from '../actions'
 import { useState } from 'react'
 import toast from 'react-hot-toast'
-import ModalSalvarHistorico from './ModalSalvarHistorico' // <--- Importe o novo modal
+import ModalSalvarHistorico from './ModalSalvarHistorico'
 
-export default function BotaoSalvarRanking({ ranking }: { ranking: any[] }) {
+interface BotaoProps {
+  ranking: any[];
+  tipo?: 'ranking' | 'recordes';
+  tituloPadrao?: string;
+}
+
+export default function BotaoSalvarRanking({ 
+  ranking, 
+  tipo = 'ranking', 
+  tituloPadrao = 'Ranking Geral' 
+}: BotaoProps) {
+    
     const [loading, setLoading] = useState(false);
     const [modalAberto, setModalAberto] = useState(false);
 
     async function executarSalvamento(anoEscolhido: number) {
-        setModalAberto(false); // Fecha o modal
-        
+        setModalAberto(false);
         if (!ranking || ranking.length === 0) return;
-        if (isNaN(anoEscolhido) || anoEscolhido < 2000 || anoEscolhido > 2100) {
-            return toast.error("Ano inválido!");
-        }
 
         setLoading(true);
-        const res = await salvarHistoricoTemporada(ranking, anoEscolhido);
+        
+        // ENVIA: DADOS, ANO, TIPO, TITULO
+        const res = await salvarHistorico(ranking, anoEscolhido, tipo, tituloPadrao);
+        
         setLoading(false);
 
         if (res.success) {
@@ -35,14 +45,13 @@ export default function BotaoSalvarRanking({ ranking }: { ranking: any[] }) {
     return (
         <>
             <button 
-            onClick={() => setModalAberto(true)}
-            disabled={loading}
-            className="bg-blue-600 hover:bg-blue-500 text-white px-5 py-3 rounded-xl font-bold uppercase tracking-widest text-xs shadow-lg shadow-blue-900/20 transition-all flex items-center gap-2 hover:scale-105 active:scale-95 disabled:opacity-50"
-        >
-            {loading ? 'Salvando...' : '💾 Salvar Ranking'}
-        </button>
+                onClick={() => setModalAberto(true)}
+                disabled={loading}
+                className="bg-blue-600 hover:bg-blue-500 text-white px-5 py-3 rounded-xl font-bold uppercase tracking-widest text-xs shadow-lg shadow-blue-900/20 transition-all flex items-center gap-2 hover:scale-105 active:scale-95 disabled:opacity-50"
+            >
+                {loading ? 'Salvando...' : '💾 Salvar Histórico'}
+            </button>
 
-            {/* Componente do Modal */}
             <ModalSalvarHistorico 
                 isOpen={modalAberto}
                 onClose={() => setModalAberto(false)}

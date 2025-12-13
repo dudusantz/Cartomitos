@@ -140,13 +140,30 @@ export async function adicionarTimeAoCampeonato(campeonatoId: number, timeId: nu
 }
 
 export async function removerTimeDaLiga(campeonatoId: number, timeId: number) {
-  await supabase.from('partidas').delete().eq('campeonato_id', campeonatoId).or(`time_casa.eq.${timeId},time_visitante.eq.${timeId}`)
-  await supabase.from('classificacao').delete().eq('campeonato_id', campeonatoId).eq('time_id', timeId)
+  // 1. Tenta remover as partidas do time nessa liga
+  const { error: erroPartidas } = await supabase.from('partidas')
+    .delete()
+    .eq('campeonato_id', campeonatoId)
+    .or(`time_casa.eq.${timeId},time_visitante.eq.${timeId}`)
   
+  // Se der erro ao apagar partidas, retorna o aviso
+  if (erroPartidas) return { success: false, msg: erroPartidas.message }
+
+  // 2. Tenta remover o time da tabela de classificação
+  const { error: erroClass } = await supabase.from('classificacao')
+    .delete()
+    .eq('campeonato_id', campeonatoId)
+    .eq('time_id', timeId)
+
+  // Se der erro ao apagar a classificação, retorna o aviso
+  if (erroClass) return { success: false, msg: erroClass.message }
+  
+  // 3. Atualiza o cache das páginas
   revalidatePath(`/campeonatos/${campeonatoId}`)
   revalidatePath(`/admin/ligas/${campeonatoId}`)
   
-  return { success: true }
+  // 4. SUCESSO: Agora retornamos a 'msg' que o componente espera!
+  return { success: true, msg: "Time removido com sucesso!" }
 }
 
 export async function listarTimesDoCampeonato(campeonatoId: number) {

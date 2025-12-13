@@ -1,9 +1,15 @@
 import Link from 'next/link'
 import { buscarHistoricoPorAno } from '@/app/actions'
 
-export default async function DetalheHistoricoPage({ params }: { params: { ano: string } }) {
-  const p = await params;
-  const ano = Number(p.ano);
+// Definimos a interface para garantir que o TypeScript entenda que params é uma Promise
+interface Props {
+  params: Promise<{ ano: string }>
+}
+
+export default async function DetalheHistoricoPage({ params }: Props) {
+  // Aguardamos a resolução dos parâmetros
+  const resolvedParams = await params;
+  const ano = Number(resolvedParams.ano);
   
   const dados = await buscarHistoricoPorAno(ano)
 
@@ -26,7 +32,6 @@ export default async function DetalheHistoricoPage({ params }: { params: { ano: 
                     </Link>
                     <div>
                         <span className="text-blue-500 font-bold text-xs uppercase tracking-widest block mb-1">Arquivo Oficial</span>
-                        {/* MUDANÇA AQUI: Ranking em vez de Temporada */}
                         <h1 className="text-4xl font-black uppercase tracking-tighter">Ranking {ano}</h1>
                     </div>
                 </div>

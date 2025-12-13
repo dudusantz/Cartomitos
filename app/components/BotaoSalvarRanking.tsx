@@ -4,6 +4,7 @@ import { salvarHistorico } from '../actions'
 import { useState } from 'react'
 import toast from 'react-hot-toast'
 import ModalSalvarHistorico from './ModalSalvarHistorico'
+import { Save } from 'lucide-react'
 
 interface BotaoProps {
   ranking: any[];
@@ -26,15 +27,15 @@ export default function BotaoSalvarRanking({
 
         setLoading(true);
         
-        // ENVIA: DADOS, ANO, TIPO, TITULO
+        // Salva usando a Server Action
         const res = await salvarHistorico(ranking, anoEscolhido, tipo, tituloPadrao);
         
         setLoading(false);
 
         if (res.success) {
-            toast.success(res.msg, { duration: 5000 });
+            toast.success(res.msg, { duration: 5000, style: { background: '#121212', color: '#fff', border: '1px solid #333' } });
         } else {
-            toast.error(res.msg);
+            toast.error(res.msg, { style: { background: '#121212', color: '#fff', border: '1px solid #333' } });
         }
     }
 
@@ -47,9 +48,10 @@ export default function BotaoSalvarRanking({
             <button 
                 onClick={() => setModalAberto(true)}
                 disabled={loading}
-                className="bg-blue-600 hover:bg-blue-500 text-white px-5 py-3 rounded-xl font-bold uppercase tracking-widest text-xs shadow-lg shadow-blue-900/20 transition-all flex items-center gap-2 hover:scale-105 active:scale-95 disabled:opacity-50"
+                className="w-full bg-yellow-500/10 hover:bg-yellow-500/20 border border-yellow-500/30 text-yellow-500 hover:text-yellow-400 px-4 py-3 rounded-lg text-xs font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2 backdrop-blur-sm group disabled:opacity-50"
             >
-                {loading ? 'Salvando...' : '💾 Salvar Histórico'}
+                <Save size={16} className="group-hover:scale-110 transition-transform" />
+                {loading ? 'Salvando...' : 'Salvar Ranking da Temporada'}
             </button>
 
             <ModalSalvarHistorico 

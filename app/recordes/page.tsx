@@ -1,12 +1,11 @@
 import { buscarTodosRecordes } from '@/app/actions'
 import Link from 'next/link'
 import { cookies } from 'next/headers'
-import BotaoSalvarRanking from '@/app/components/BotaoSalvarRanking'
+import BotaoSalvarRecordes from '@/app/components/BotaoSalvarRecordes' // Importa o componente com Modal
 import { Trophy, History, Crown } from 'lucide-react'
 
 // CORREÇÃO CRÍTICA: Força a renderização dinâmica.
 // Isso garante que o servidor leia os cookies (login de admin) em tempo real.
-// Se deixar 'revalidate', ele cacheia a página como "deslogado" e o botão nunca aparece.
 export const dynamic = 'force-dynamic'
 
 export default async function RecordesPage() {
@@ -46,13 +45,9 @@ export default async function RecordesPage() {
                     </Link>
 
                     {/* Botão Salvar (APENAS PARA ADMIN LOGADO e SE TIVER RECORDES) */}
+                    {/* Aqui passamos os dados atuais para o botão que abrirá o modal de confirmação */}
                     {isAdmin && recordes && recordes.length > 0 && (
-                        <BotaoSalvarRanking 
-                            dados={recordes} 
-                            anoAtual={new Date().getFullYear()} 
-                            tipo="recordes" 
-                            tituloPadrao={`Recordes ${new Date().getFullYear()}`}
-                        />
+                        <BotaoSalvarRecordes dados={recordes} />
                     )}
                 </div>
             </div>

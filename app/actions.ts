@@ -891,9 +891,10 @@ export async function salvarHistoricoTemporada(rankingCompleto: any[], anoPerson
     return await salvarHistorico(rankingCompleto, anoSalvar, "ranking", "Ranking Geral");
 }
 
-export async function salvarHistoricoRecordes(recordes: any[], anoPersonalizado?: number) {
+export async function salvarHistoricoRecordes(recordes: any[], anoPersonalizado?: number, titulo?: string) {
     const anoSalvar = anoPersonalizado || new Date().getFullYear();
-    return await salvarHistorico(recordes, anoSalvar, "recordes", "Recordes Gerais");
+    const tituloFinal = titulo || "Recordes Gerais"; 
+    return await salvarHistorico(recordes, anoSalvar, "recordes", tituloFinal);
 }
 
 async function salvarTituloCampeao(timeId: number, nomeTime: string, ano: number) {
@@ -1165,4 +1166,72 @@ export async function excluirHistorico(ano: number, tipo: 'ranking' | 'recordes'
   if (error) return { success: false, msg: 'Erro ao excluir histórico.' };
   revalidatePath('/historico'); revalidatePath(`/historico/${ano}`);
   return { success: true, msg: `${tipo === 'recordes' ? 'Recordes' : 'Ranking'} de ${ano} excluído!` };
+}
+
+export async function salvarRecordes(ano: number) {
+  try {
+    const ranking = await buscarRankingCompleto();
+    const maiorPontuador = ranking.length > 0 ? ranking[0] : null;
+
+    const recordesRodada = await buscarTodosRecordes();
+    const mitoRodada = recordesRodada.length > 0 ? recordesRodada[0] : null;
+
+    if (!maiorPontuador && !mitoRodada) {
+        return { success: false, msg: 'Nenhum dado encontrado para salvar.' };
+    }
+
+    const recordesParaSalvar = [];
+
+    if (maiorPontuador) {
+        recordesParaSalvar.push({
+            ano: ano,
+            titulo: 'Maior Pontuador',
+            time_nome: maiorPontuador.time,
+            valor: maiorPontuador.pontos,
+            tipo: 'pontuacao'
+        });
+    }
+
+    if (mitoRodada) {
+        recordesParaSalvar.push({
+            ano: ano,
+            titulo: 'Mito da Rodada',
+            time_nome: mitoRodada.time,
+            valor: mitoRodada.pontos,
+            tipo: 'rodada',
+            detalhe: `Rodada ${mitoRodada.rodada}`
+        });
+    }
+
+    const { error } = await supabase
+      .from('historico_recordes')
+      .upsert(recordesParaSalvar, { onConflict: 'ano, titulo' });
+
+    if (error) throw error;
+
+    revalidatePath('/recordes');
+    revalidatePath('/historico');
+    
+    return { success: true, msg: 'Recordes salvos com sucesso!' };
+
+  } catch (error: any) {
+    console.error(error);
+    return { success: false, msg: 'Erro ao salvar: ' + error.message };
+  }
+}
+
+export async function salvarRankingAtual(ano: number) {
+    try {
+        const ranking = await buscarRankingCompleto();
+        
+        if (!ranking || ranking.length === 0) {
+            return { success: false, msg: "Erro: O ranking está vazio ou não pôde ser carregado." };
+        }
+
+        return await salvarHistorico(ranking, ano, "ranking", "Ranking Geral");
+
+    } catch (error: any) {
+        console.error("Erro ao salvar ranking:", error);
+        return { success: false, msg: "Falha interna ao salvar ranking." };
+    }
 }

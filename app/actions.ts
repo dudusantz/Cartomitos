@@ -234,7 +234,7 @@ export async function atualizarPlacarManual(
   
   if (!data) return { success: false }
 
-  const tipo = data.campeonato.tipo;
+  const tipo = data.campeonato[0].tipo;
 
   if (tipo === 'pontos_corridos' || (tipo === 'copa' && data.rodada <= 20)) {
       await recalcularTabelaPontosCorridos(data.campeonato_id)

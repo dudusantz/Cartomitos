@@ -1,10 +1,11 @@
 'use client'
 
-import { finalizarCampeonato } from '@/app/actions'
-import { useState } from 'react'
+import { finalizarCampeonato, reabrirCampeonato, checarStatusLiga } from '@/app/actions' //
+import { useState, useEffect } from 'react'
 import toast from 'react-hot-toast'
 import { useRouter } from 'next/navigation'
-import confetti from 'canvas-confetti' // Se não tiver, pode remover a chamada do confetti ou instalar: npm i canvas-confetti + npm i -D @types/canvas-confetti
+import confetti from 'canvas-confetti'
+import { Trophy, X, RotateCcw, Lock } from 'lucide-react'
 
 interface Props {
     campeonatoId: number
@@ -12,11 +13,29 @@ interface Props {
 
 export default function BotaoFinalizarCampeonato({ campeonatoId }: Props) {
     const [loading, setLoading] = useState(false)
+    const [ativo, setAtivo] = useState(true) // Controla qual botão aparece
+    const [verificando, setVerificando] = useState(true)
+    
+    // Modais
     const [showConfirm, setShowConfirm] = useState(false)
+    const [showReabrir, setShowReabrir] = useState(false)
     const [showPodium, setShowPodium] = useState(false)
     const [podiumData, setPodiumData] = useState<any[]>([])
+    
     const router = useRouter()
 
+    // Verifica status ao carregar o componente
+    useEffect(() => {
+        verificarStatus()
+    }, [campeonatoId])
+
+    async function verificarStatus() {
+        const isAtivo = await checarStatusLiga(campeonatoId)
+        setAtivo(isAtivo)
+        setVerificando(false)
+    }
+
+    // --- AÇÃO: FINALIZAR ---
     async function handleFinalizar() {
         setLoading(true)
         setShowConfirm(false)
@@ -26,6 +45,7 @@ export default function BotaoFinalizarCampeonato({ campeonatoId }: Props) {
 
         if (res.success) {
             toast.success(res.msg)
+            setAtivo(false) // Muda o botão para "Reabrir"
             if (res.podium && res.podium.length > 0) {
                 setPodiumData(res.podium)
                 setShowPodium(true)
@@ -37,49 +57,82 @@ export default function BotaoFinalizarCampeonato({ campeonatoId }: Props) {
         }
     }
 
-    function dispararConfete() {
-        // Efeito simples de confete (se não tiver a lib instalada, essa função pode ser vazia)
-        try {
-            const duration = 3000;
-            const end = Date.now() + duration;
+    // --- AÇÃO: REABRIR ---
+    async function handleReabrir() {
+        setLoading(true)
+        setShowReabrir(false)
 
-            (function frame() {
-                confetti({
-                    particleCount: 5,
-                    angle: 60,
-                    spread: 55,
-                    origin: { x: 0 },
-                    colors: ['#FFD700', '#C0C0C0', '#CD7F32'] 
-                });
-                confetti({
-                    particleCount: 5,
-                    angle: 120,
-                    spread: 55,
-                    origin: { x: 1 },
-                    colors: ['#FFD700', '#C0C0C0', '#CD7F32']
-                });
+        const res = await reabrirCampeonato(campeonatoId)
+        setLoading(false)
 
-                if (Date.now() < end) {
-                    requestAnimationFrame(frame);
-                }
-            }());
-        } catch (e) {
-            console.log("Confetti não instalado ou erro na animação");
+        if (res.success) {
+            toast.success("Campeonato reaberto! Os jogos podem ser editados novamente.")
+            setAtivo(true) // Muda o botão para "Encerrar"
+            router.refresh()
+        } else {
+            toast.error(res.msg)
         }
     }
 
+    function dispararConfete() {
+        const duration = 3000;
+        const end = Date.now() + duration;
+
+        (function frame() {
+            confetti({
+                particleCount: 5,
+                angle: 60,
+                spread: 55,
+                origin: { x: 0 },
+                colors: ['#FFD700', '#C0C0C0', '#CD7F32'],
+                zIndex: 9999
+            });
+            confetti({
+                particleCount: 5,
+                angle: 120,
+                spread: 55,
+                origin: { x: 1 },
+                colors: ['#FFD700', '#C0C0C0', '#CD7F32'],
+                zIndex: 9999
+            });
+
+            if (Date.now() < end) {
+                requestAnimationFrame(frame);
+            }
+        }());
+    }
+
+    const fecharPodium = () => {
+        setShowPodium(false)
+        router.refresh()
+    }
+
+    if (verificando) return null; // Não mostra nada enquanto carrega
+
     return (
         <>
-            {/* BOTÃO PRINCIPAL */}
-            <button 
-                onClick={() => setShowConfirm(true)}
-                disabled={loading}
-                className="bg-red-600 hover:bg-red-500 text-white px-6 py-3 rounded-xl font-black uppercase tracking-widest text-xs shadow-lg shadow-red-900/20 transition-all flex items-center gap-2 hover:scale-105 border border-red-500/50"
-            >
-                🏁 Encerrar Campeonato
-            </button>
+            {/* --- BOTÃO DE AÇÃO (ALTERNÁVEL) --- */}
+            {ativo ? (
+                // MODO: ENCERRAR (Vermelho)
+                <button 
+                    onClick={() => setShowConfirm(true)}
+                    disabled={loading}
+                    className="bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white border border-red-600/20 px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition flex items-center gap-2"
+                >
+                    <Trophy size={14} /> Encerrar
+                </button>
+            ) : (
+                // MODO: REABRIR (Verde)
+                <button 
+                    onClick={() => setShowReabrir(true)}
+                    disabled={loading}
+                    className="bg-green-600/10 hover:bg-green-600 text-green-500 hover:text-white border border-green-600/20 px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition flex items-center gap-2"
+                >
+                    <RotateCcw size={14} /> Reabrir Liga
+                </button>
+            )}
 
-            {/* MODAL DE CONFIRMAÇÃO */}
+            {/* --- MODAL CONFIRMAR ENCERRAMENTO --- */}
             {showConfirm && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
                     <div className="bg-[#151515] border border-white/10 rounded-2xl max-w-sm w-full p-6 text-center shadow-2xl">
@@ -88,37 +141,60 @@ export default function BotaoFinalizarCampeonato({ campeonatoId }: Props) {
                         </div>
                         <h3 className="text-xl font-bold text-white mb-2">Encerrar Temporada?</h3>
                         <p className="text-sm text-gray-400 mb-6">
-                            Isso irá finalizar o campeonato, arquivar a tabela atual e consagrar o campeão. <br/>
-                            <span className="font-bold text-red-400 mt-2 block">Essa ação não pode ser desfeita.</span>
+                            Isso finalizará o campeonato e consagrará o campeão. <br/>
+                            <span className="font-bold text-red-400 mt-2 block">Você poderá reabrir depois se precisar.</span>
                         </p>
                         <div className="flex gap-3">
                             <button onClick={() => setShowConfirm(false)} className="flex-1 py-3 bg-white/5 hover:bg-white/10 rounded-xl font-bold text-sm text-gray-300">Cancelar</button>
                             <button onClick={handleFinalizar} disabled={loading} className="flex-1 py-3 bg-red-600 hover:bg-red-500 rounded-xl font-bold text-sm text-white shadow-lg">
-                                {loading ? 'Encerrando...' : 'Sim, Encerrar'}
+                                {loading ? '...' : 'Sim, Encerrar'}
                             </button>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* MODAL DE PÓDIO (CELEBRAÇÃO) */}
+            {/* --- MODAL CONFIRMAR REABERTURA --- */}
+            {showReabrir && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
+                    <div className="bg-[#151515] border border-white/10 rounded-2xl max-w-sm w-full p-6 text-center shadow-2xl">
+                        <div className="w-16 h-16 bg-green-500/10 text-green-500 rounded-full flex items-center justify-center mx-auto mb-4 text-3xl border border-green-500/20">
+                            🔓
+                        </div>
+                        <h3 className="text-xl font-bold text-white mb-2">Reabrir Campeonato?</h3>
+                        <p className="text-sm text-gray-400 mb-6">
+                            A liga voltará para o status "Em Andamento". <br/>
+                            Você poderá editar placares e adicionar rodadas novamente.
+                        </p>
+                        <div className="flex gap-3">
+                            <button onClick={() => setShowReabrir(false)} className="flex-1 py-3 bg-white/5 hover:bg-white/10 rounded-xl font-bold text-sm text-gray-300">Cancelar</button>
+                            <button onClick={handleReabrir} disabled={loading} className="flex-1 py-3 bg-green-600 hover:bg-green-500 rounded-xl font-bold text-sm text-white shadow-lg">
+                                {loading ? '...' : 'Sim, Reabrir'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* --- MODAL DE PÓDIO --- */}
             {showPodium && (
-                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md animate-in zoom-in-95 duration-300">
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/95 backdrop-blur-xl animate-in zoom-in-95 duration-300">
                     <div className="relative max-w-2xl w-full bg-gradient-to-b from-[#1a1a1a] to-black border border-yellow-500/30 rounded-3xl p-8 text-center shadow-[0_0_50px_rgba(234,179,8,0.2)] overflow-hidden">
                         
-                        {/* Raios de luz de fundo */}
-                        <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10"></div>
-                        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-1/2 bg-yellow-500/10 blur-3xl rounded-full"></div>
+                        <div className="absolute top-4 right-4 z-50">
+                            <button onClick={fecharPodium} className="p-2 bg-white/10 hover:bg-white/20 rounded-full text-white transition">
+                                <X size={20} />
+                            </button>
+                        </div>
 
-                        <h2 className="text-3xl md:text-4xl font-black text-white uppercase tracking-tighter mb-1 relative z-10">
-                            Campeonato Finalizado!
+                        <h2 className="text-3xl md:text-4xl font-black text-white uppercase tracking-tighter mb-1 relative z-10 flex items-center justify-center gap-3">
+                           <Trophy className="text-yellow-500 w-8 h-8 md:w-10 md:h-10" /> Campeões
                         </h2>
                         <p className="text-yellow-500 text-xs font-bold uppercase tracking-[0.4em] mb-10 relative z-10">
                             Hall da Fama Atualizado
                         </p>
 
-                        <div className="flex flex-col md:flex-row items-end justify-center gap-6 relative z-10 mb-8">
-                            
+                        <div className="flex flex-col md:flex-row items-end justify-center gap-6 relative z-10 mb-12">
                             {/* 2º LUGAR */}
                             {podiumData[1] && (
                                 <div className="order-2 md:order-1 flex flex-col items-center">
@@ -136,7 +212,6 @@ export default function BotaoFinalizarCampeonato({ campeonatoId }: Props) {
                             {podiumData[0] && (
                                 <div className="order-1 md:order-2 flex flex-col items-center -mt-8">
                                     <div className="relative mb-4">
-                                        <div className="absolute -top-10 left-1/2 -translate-x-1/2 text-5xl drop-shadow-lg animate-bounce">👑</div>
                                         <div className="w-28 h-28 rounded-full bg-gradient-to-br from-yellow-600 to-yellow-800 border-4 border-yellow-400 flex items-center justify-center shadow-[0_0_30px_rgba(234,179,8,0.4)]">
                                             <img src={podiumData[0].escudo || podiumData[0].url_escudo_png} className="w-20 h-20 object-contain drop-shadow-md" />
                                         </div>
@@ -160,12 +235,17 @@ export default function BotaoFinalizarCampeonato({ campeonatoId }: Props) {
                             )}
                         </div>
 
-                        <button 
-                            onClick={() => setShowPodium(false)}
-                            className="bg-white text-black hover:bg-gray-200 px-8 py-3 rounded-full font-bold uppercase tracking-widest text-sm transition-colors shadow-xl"
-                        >
-                            Fechar e Continuar
-                        </button>
+                        <div className="relative z-50">
+                            <button 
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    fecharPodium();
+                                }}
+                                className="bg-white hover:bg-gray-200 text-black px-10 py-4 rounded-full font-black uppercase tracking-widest text-sm transition-transform hover:scale-105 shadow-2xl cursor-pointer"
+                            >
+                                Fechar e Continuar
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

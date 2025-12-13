@@ -1,6 +1,6 @@
 'use server'
 
-import { supabase } from "@/lib/supabase"
+import { supabase } from "@/lib/supabase" //
 import { revalidatePath } from "next/cache"
 
 // ==============================================================================
@@ -33,8 +33,13 @@ async function fetchCartola(url: string, timeout = 5000) {
 }
 
 // ==============================================================================
-// 1. FUNÇÕES BÁSICAS
+// 1. FUNÇÕES BÁSICAS (CRUD E STATUS)
 // ==============================================================================
+
+export async function checarStatusLiga(id: number) {
+  const { data } = await supabase.from('campeonatos').select('ativo').eq('id', id).single()
+  return data?.ativo ?? true
+}
 
 export async function buscarTimeCartola(termo: string) {
   return await fetchCartola(`https://api.cartola.globo.com/times?q=${termo}`) || []
@@ -66,6 +71,30 @@ export async function criarCampeonato(nome: string, ano: number, tipo: string) {
   }
   
   return { success: !error, msg: error ? error.message : 'Criado!' }
+}
+
+export async function atualizarCampeonato(id: number, nome: string, ano: number, tipo: string) {
+  const { error } = await supabase.from('campeonatos').update({ nome, ano, tipo }).eq('id', id)
+  
+  if (!error) {
+    revalidatePath('/admin/ligas')
+    revalidatePath('/campeonatos')
+    revalidatePath(`/campeonatos/${id}`)
+  }
+  
+  return { success: !error, msg: error ? error.message : 'Campeonato atualizado!' }
+}
+
+export async function reabrirCampeonato(id: number) {
+  const { error } = await supabase.from('campeonatos').update({ ativo: true }).eq('id', id)
+
+  if (!error) {
+    revalidatePath('/admin/ligas')
+    revalidatePath('/campeonatos')
+    revalidatePath(`/campeonatos/${id}`)
+  }
+
+  return { success: !error, msg: error ? error.message : 'Campeonato reaberto!' }
 }
 
 export async function atualizarConfiguracaoLiga(campeonatoId: number, finalUnica: boolean) {
@@ -320,7 +349,7 @@ export async function buscarTabelaPontosCorridos(campeonatoId: number) {
 }
 
 // ==============================================================================
-// 5. MÓDULO: MATA-MATA GERAL
+// 5. MÓDULO: MATA-MATA GERAL (COM 3º LUGAR E FINAL)
 // ==============================================================================
 
 function getBracketOrder(n: number): number[] {
@@ -422,15 +451,16 @@ async function verificarEAvancarFase(campeonatoId: number, rodadaAtual: number) 
   const { data: jogosFase } = await supabase.from('partidas').select('*').eq('campeonato_id', campeonatoId).in('rodada', [rodadaIda, rodadaVolta]);
   if (!jogosFase || jogosFase.length === 0) return;
 
-  // Verifica se todos os jogos "não-bye" estão finalizados
   const pendentes = jogosFase.filter((j: any) => j.status !== 'finalizado' && j.status !== 'bye');
   if (pendentes.length > 0) return; 
 
   const proximaRodada = rodadaIda + 2;
   const { data: existe } = await supabase.from('partidas').select('id').eq('campeonato_id', campeonatoId).eq('rodada', proximaRodada).limit(1);
-  if (existe && existe.length > 0) return; // Próxima fase já gerada
+  if (existe && existe.length > 0) return; 
 
   const classificados: number[] = [];
+  const eliminados: number[] = [];
+
   const jogosIdaList = jogosFase.filter((j: any) => j.rodada === rodadaIda).sort((a, b) => a.id - b.id);
 
   for (const jogo of jogosIdaList) {
@@ -444,15 +474,22 @@ async function verificarEAvancarFase(campeonatoId: number, rodadaAtual: number) 
     let pB = jogo.placar_visitante || 0;
 
     if (volta) {
-       // Soma placares agregados
        if (volta.time_casa === jogo.time_visitante) { pA += (volta.placar_visitante || 0); pB += (volta.placar_casa || 0); }
        else { pA += (volta.placar_casa || 0); pB += (volta.placar_visitante || 0); }
     }
 
-    // Critério de Desempate (Simplificado: quem tem mais pontos/gols. Pênaltis não implementado auto)
-    if (pA > pB) classificados.push(jogo.time_casa);
-    else if (pB > pA) classificados.push(jogo.time_visitante);
-    else classificados.push(jogo.time_casa); // Empate (TODO: Implementar lógica de melhor campanha ou sorteio)
+    if (pA > pB) {
+        classificados.push(jogo.time_casa);
+        eliminados.push(jogo.time_visitante);
+    }
+    else if (pB > pA) {
+        classificados.push(jogo.time_visitante);
+        eliminados.push(jogo.time_casa);
+    }
+    else {
+        classificados.push(jogo.time_casa);
+        eliminados.push(jogo.time_visitante);
+    }
   }
 
   if (classificados.length < 2) return;
@@ -462,6 +499,8 @@ async function verificarEAvancarFase(campeonatoId: number, rodadaAtual: number) 
   const criarJogoUnico = ehFinal && (camp?.final_unica === true);
 
   const novasPartidas = [];
+
+  // GRANDE FINAL
   for (let i = 0; i < classificados.length; i += 2) {
     const timeA = classificados[i];
     const timeB = classificados[i+1]; 
@@ -476,6 +515,19 @@ async function verificarEAvancarFase(campeonatoId: number, rodadaAtual: number) 
       }
     }
   }
+
+  // 3º LUGAR
+  if (ehFinal && eliminados.length === 2) {
+      const time3A = eliminados[0];
+      const time3B = eliminados[1];
+      if (criarJogoUnico) {
+          novasPartidas.push({ campeonato_id: campeonatoId, rodada: proximaRodada, time_casa: time3A, time_visitante: time3B, status: 'agendado' });
+      } else {
+          novasPartidas.push({ campeonato_id: campeonatoId, rodada: proximaRodada, time_casa: time3A, time_visitante: time3B, status: 'agendado' });
+          novasPartidas.push({ campeonato_id: campeonatoId, rodada: proximaRodada + 1, time_casa: time3B, time_visitante: time3A, status: 'agendado' });
+      }
+  }
+
   await supabase.from('partidas').insert(novasPartidas);
 }
 
@@ -1070,14 +1122,56 @@ export async function buscarGaleriaDeTrofeus() {
             if (lider) { campeaoId = lider.time_id; timeInfo = lider.times; }
         } 
         else if (camp.tipo === 'mata_mata' || camp.tipo === 'copa') {
-            // Pega o último jogo finalizado (a Final)
-            const { data: ult } = await supabase
-                .from('partidas').select('*, casa:times!partidas_time_casa_fkey(*), visitante:times!partidas_time_visitante_fkey(*)')
-                .eq('campeonato_id', camp.id).eq('status', 'finalizado').order('rodada', { ascending: false }).limit(1).single();
-            if (ult) {
-                 const pC = ult.placar_casa || 0; const pV = ult.placar_visitante || 0;
-                 if (pC > pV) { campeaoId = ult.time_casa; timeInfo = ult.casa; }
-                 else if (pV > pC) { campeaoId = ult.time_visitante; timeInfo = ult.visitante; }
+            
+            // NOVA LÓGICA: Distinguir Final x 3º Lugar
+            const { data: ultimosJogos } = await supabase.from('partidas')
+                .select('*, casa:times!partidas_time_casa_fkey(*), visitante:times!partidas_time_visitante_fkey(*)')
+                .eq('campeonato_id', camp.id)
+                .eq('status', 'finalizado')
+                .order('rodada', { ascending: false });
+
+            if (ultimosJogos && ultimosJogos.length > 0) {
+                const maxRodada = ultimosJogos[0].rodada;
+                const finais = ultimosJogos.filter((j: any) => j.rodada === maxRodada);
+
+                if (finais.length === 1) {
+                   const ult = finais[0];
+                   const pC = ult.placar_casa || 0; const pV = ult.placar_visitante || 0;
+                   if (pC > pV) { campeaoId = ult.time_casa; timeInfo = ult.casa; }
+                   else if (pV > pC) { campeaoId = ult.time_visitante; timeInfo = ult.visitante; }
+                }
+                else if (finais.length >= 2) {
+                   const timeA = finais[0].time_casa;
+                   const { data: prevMatch } = await supabase.from('partidas')
+                       .select('placar_casa, placar_visitante, time_casa, time_visitante')
+                       .eq('campeonato_id', camp.id)
+                       .or(`time_casa.eq.${timeA},time_visitante.eq.${timeA}`)
+                       .lt('rodada', maxRodada)
+                       .order('rodada', { ascending: false })
+                       .limit(1)
+                       .single();
+
+                   let isWinner = false;
+                   if (prevMatch) {
+                       const pC = prevMatch.placar_casa ?? 0;
+                       const pV = prevMatch.placar_visitante ?? 0;
+                       if (prevMatch.time_casa === timeA && pC > pV) isWinner = true;
+                       if (prevMatch.time_visitante === timeA && pV > pC) isWinner = true;
+                   }
+
+                   let finalMatch;
+                   if (isWinner) {
+                       finalMatch = finais[0];
+                   } else {
+                       finalMatch = finais[1];
+                   }
+
+                   if (finalMatch) {
+                       const pC = finalMatch.placar_casa || 0; const pV = finalMatch.placar_visitante || 0;
+                       if (pC > pV) { campeaoId = finalMatch.time_casa; timeInfo = finalMatch.casa; }
+                       else { campeaoId = finalMatch.time_visitante; timeInfo = finalMatch.visitante; }
+                   }
+                }
             }
         }
 
@@ -1127,8 +1221,6 @@ export async function excluirCampeonato(id: number) {
 }
 
 export async function finalizarCampeonato(id: number) {
-  const supabase = createClient(); // Garanta que createClient está importado/disponível
-
   // 1. Busca informações do campeonato
   const { data: camp } = await supabase.from('campeonatos').select('*').eq('id', id).single();
   if (!camp) return { success: false, msg: "Campeonato não encontrado." };
@@ -1149,21 +1241,79 @@ export async function finalizarCampeonato(id: number) {
       if (data) podium = data.map(d => d.times);
   } 
   else if (camp.tipo === 'mata_mata' || camp.tipo === 'copa') {
-      // Pega o último jogo finalizado (a Grande Final)
-      const { data: ult } = await supabase.from('partidas')
+      
+      // NOVA LÓGICA: Distinguir Final x 3º Lugar
+      const { data: ultimosJogos } = await supabase.from('partidas')
           .select('*, casa:times!partidas_time_casa_fkey(*), visitante:times!partidas_time_visitante_fkey(*)')
           .eq('campeonato_id', id)
           .eq('status', 'finalizado')
-          .order('rodada', { ascending: false }) // A última rodada é a final
-          .limit(1)
-          .single();
-      
-      if (ult) {
-          const pC = ult.placar_casa || 0;
-          const pV = ult.placar_visitante || 0;
-          // Define 1º e 2º
-          if (pC > pV) { podium = [ult.casa, ult.visitante]; }
-          else { podium = [ult.visitante, ult.casa]; }
+          .order('rodada', { ascending: false });
+
+      if (ultimosJogos && ultimosJogos.length > 0) {
+          const maxRodada = ultimosJogos[0].rodada;
+          const finais = ultimosJogos.filter((j: any) => j.rodada === maxRodada);
+
+          // Se tiver só 1 jogo na última rodada, é a Final (sem 3º lugar)
+          if (finais.length === 1) {
+             const ult = finais[0];
+             const pC = ult.placar_casa || 0; const pV = ult.placar_visitante || 0;
+             if (pC > pV) { podium = [ult.casa, ult.visitante]; }
+             else { podium = [ult.visitante, ult.casa]; }
+          }
+          // Se tiver 2 jogos (Final + 3º Lugar)
+          else if (finais.length >= 2) {
+             // Precisamos saber qual jogo é a Final. 
+             // Heurística: Checamos se um dos times venceu o jogo da rodada anterior (Semi).
+             // (Isso evita queries complexas recursivas)
+             
+             const timeA = finais[0].time_casa;
+             const { data: prevMatch } = await supabase.from('partidas')
+                 .select('placar_casa, placar_visitante, time_casa, time_visitante')
+                 .eq('campeonato_id', id)
+                 .or(`time_casa.eq.${timeA},time_visitante.eq.${timeA}`)
+                 .lt('rodada', maxRodada)
+                 .order('rodada', { ascending: false })
+                 .limit(1)
+                 .single();
+
+             let isWinner = false;
+             if (prevMatch) {
+                 const pC = prevMatch.placar_casa ?? 0;
+                 const pV = prevMatch.placar_visitante ?? 0;
+                 if (prevMatch.time_casa === timeA && pC > pV) isWinner = true;
+                 if (prevMatch.time_visitante === timeA && pV > pC) isWinner = true;
+             }
+
+             let finalMatch, disp3Match;
+             
+             // Se timeA venceu a semi, ele está na final.
+             if (isWinner) {
+                 finalMatch = finais[0];
+                 disp3Match = finais[1];
+             } else {
+                 finalMatch = finais[1]; // timeA perdeu, então está na disputa de 3º. O outro jogo é a final.
+                 disp3Match = finais[0];
+             }
+
+             // Monta Pódio
+             const podiumList = [];
+             
+             // 1º e 2º (Da Final)
+             if (finalMatch) {
+                 const pC = finalMatch.placar_casa || 0; const pV = finalMatch.placar_visitante || 0;
+                 if (pC > pV) { podiumList[0] = finalMatch.casa; podiumList[1] = finalMatch.visitante; }
+                 else { podiumList[0] = finalMatch.visitante; podiumList[1] = finalMatch.casa; }
+             }
+
+             // 3º (Da Disputa)
+             if (disp3Match) {
+                 const pC = disp3Match.placar_casa || 0; const pV = disp3Match.placar_visitante || 0;
+                 if (pC > pV) { podiumList[2] = disp3Match.casa; }
+                 else { podiumList[2] = disp3Match.visitante; }
+             }
+
+             podium = podiumList;
+          }
       }
   }
 
@@ -1173,7 +1323,6 @@ export async function finalizarCampeonato(id: number) {
   if (!error) {
     // 4. Salva o título na Galeria automaticamente
     if (podium.length > 0 && podium[0]) {
-        // Verifica se já tem o título
         const { data: temTitulo } = await supabase.from('titulos_manuais')
             .select('id')
             .eq('time_id', podium[0].id)

@@ -3,6 +3,7 @@
 import { useState, useRef } from 'react'
 import { Medal, Trophy } from 'lucide-react'
 
+// --- ATUALIZAÇÃO NO TIPO ---
 type Jogo = {
   id: number;
   rodada: number;
@@ -10,6 +11,12 @@ type Jogo = {
   time_visitante: number | null;
   placar_casa: number | null;
   placar_visitante: number | null;
+  
+  // Novos campos
+  desempate_casa?: number | null;
+  desempate_visitante?: number | null;
+  vencedor_desempate?: number | null;
+
   status: string;
   pontos_reais_casa?: number;
   pontos_reais_visitante?: number;
@@ -51,10 +58,10 @@ export default function MataMataBracket({ partidas }: { partidas: Jogo[] }) {
   const totalFases = numConfrontosIniciais > 0 ? Math.ceil(Math.log2(numConfrontosIniciais)) + 1 : 0;
 
   const bracketColumns: Confronto[][] = [];
-  const vencedoresMap = new Map<string, { nome: string; escudo: string }>(); // Rastreia vencedores para projeção
-  const idsVencedoresSemi = new Set<number>(); // Rastreia IDs dos vencedores da semi para identificar a Final
+  const vencedoresMap = new Map<string, { nome: string; escudo: string }>(); 
+  const idsVencedoresSemi = new Set<number>(); 
 
-  // --- LOOP PRINCIPAL (CONSTRUÇÃO DAS FASES) ---
+  // --- LOOP PRINCIPAL ---
   for (let f = 0; f < totalFases; f++) {
       const numJogosNaFase = numConfrontosIniciais / Math.pow(2, f);
       const colunaAtual: Confronto[] = [];
@@ -64,10 +71,8 @@ export default function MataMataBracket({ partidas }: { partidas: Jogo[] }) {
       const rIda = baseRodada + (f * 2);
       const rVolta = rIda + 1;
 
-      // Busca jogos desta fase
       const jogosDestaFase = partidas.filter(p => p.rodada === rIda || p.rodada === rVolta);
       
-      // Agrupa Ida e Volta
       const confrontosMap = new Map<string, { ida?: Jogo, volta?: Jogo }>();
       jogosDestaFase.forEach(jogo => {
           const key = [jogo.time_casa, jogo.time_visitante].sort().join('-');
@@ -76,22 +81,15 @@ export default function MataMataBracket({ partidas }: { partidas: Jogo[] }) {
           if (jogo.rodada === rIda) { entry.ida = jogo; } else { entry.volta = jogo; }
       });
 
-      // Transforma em array
       let confrontosArray = Array.from(confrontosMap.values());
 
-      // --- LÓGICA ESPECIAL PARA A FINAL ---
-      // Se for a fase final, precisamos distinguir a FINAL do 3º LUGAR
       if (isFinal && confrontosArray.length > 1) {
-          // Tenta encontrar o jogo que tem os vencedores da semi
           const matchFinal = confrontosArray.find(c => {
               if (!c.ida) return false;
               return idsVencedoresSemi.has(c.ida.time_casa) || idsVencedoresSemi.has(c.ida.time_visitante || -1);
           });
-
-          if (matchFinal) {
-              confrontosArray = [matchFinal];
-          } else {
-              // Fallback: ordena por ID
+          if (matchFinal) confrontosArray = [matchFinal];
+          else {
               confrontosArray.sort((a, b) => (a.ida?.id || 0) - (b.ida?.id || 0));
               confrontosArray = [confrontosArray[0]]; 
           }
@@ -99,7 +97,6 @@ export default function MataMataBracket({ partidas }: { partidas: Jogo[] }) {
           confrontosArray.sort((a, b) => (a.ida?.id || 0) - (b.ida?.id || 0));
       }
 
-      // Preenche a Coluna
       for (let i = 0; i < numJogosNaFase; i++) {
           const dados = confrontosArray[i];
           let confronto: Confronto;
@@ -108,7 +105,6 @@ export default function MataMataBracket({ partidas }: { partidas: Jogo[] }) {
               const ida = dados.ida;
               const volta = dados.volta || null;
               
-              // Determina Vencedor
               let vencedor = null;
               let idVencedor = null;
 
@@ -121,7 +117,20 @@ export default function MataMataBracket({ partidas }: { partidas: Jogo[] }) {
                   
                   if (p1 > p2) { vencedor = ida.casa; idVencedor = ida.time_casa; }
                   else if (p2 > p1) { vencedor = ida.visitante; idVencedor = ida.time_visitante; }
-                  else { vencedor = ida.casa; idVencedor = ida.time_casa; } 
+                  else { 
+                      // --- LÓGICA VISUAL DE DESEMPATE ---
+                      const jogoDecisivo = volta || ida;
+                      const dC = jogoDecisivo.desempate_casa ?? -1;
+                      const dV = jogoDecisivo.desempate_visitante ?? -1;
+                      
+                      if (dC >= 0 && dV >= 0) {
+                          if (dC > dV) { vencedor = jogoDecisivo.casa; idVencedor = jogoDecisivo.time_casa; }
+                          else { vencedor = jogoDecisivo.visitante; idVencedor = jogoDecisivo.time_visitante; }
+                      } else {
+                          // Fallback
+                          vencedor = ida.casa; idVencedor = ida.time_casa; 
+                      }
+                  } 
               }
 
               if (vencedor && idVencedor) {
@@ -139,10 +148,8 @@ export default function MataMataBracket({ partidas }: { partidas: Jogo[] }) {
               };
 
           } else {
-              // PLACEHOLDER (Projeção)
               let timeA_Proj = null;
               let timeB_Proj = null;
-
               if (f > 0) {
                   timeA_Proj = vencedoresMap.get(`${f-1}-${i*2}`);
                   timeB_Proj = vencedoresMap.get(`${f-1}-${i*2 + 1}`);
@@ -168,14 +175,13 @@ export default function MataMataBracket({ partidas }: { partidas: Jogo[] }) {
       bracketColumns.push(colunaAtual);
   }
 
-  // --- DETECÇÃO E CRIAÇÃO DO 3º LUGAR ---
+  // ... (RESTO DO CÓDIGO DE DRAG & SCROLL E RENDERIZAÇÃO MANTIDO) ...
+  // ... (Só precisamos atualizar o BracketCard abaixo) ...
+
   let confrontoTerceiro: Confronto | null = null;
-  
-  if (totalFases >= 2) { // Só existe 3º lugar se tiver pelo menos Semifinal (2 fases ou mais)
+  if (totalFases >= 2) { 
       const ultimaFaseIndex = totalFases - 1;
       const rFinalIda = baseRodada + (ultimaFaseIndex * 2);
-      
-      // 1. Tenta achar o jogo REAL no banco
       const idFinalBracket = bracketColumns[ultimaFaseIndex][0]?.ida?.id;
       const jogoTerceiroRaw = partidas.find(p => p.rodada === rFinalIda && p.id !== idFinalBracket);
       
@@ -185,7 +191,6 @@ export default function MataMataBracket({ partidas }: { partidas: Jogo[] }) {
               ((p.time_casa === jogoTerceiroRaw.time_visitante && p.time_visitante === jogoTerceiroRaw.time_casa) ||
                (p.time_casa === jogoTerceiroRaw.time_casa && p.time_visitante === jogoTerceiroRaw.time_visitante))
           );
-
           confrontoTerceiro = {
               uuid: `match-3rd-${jogoTerceiroRaw.id}`,
               ida: jogoTerceiroRaw,
@@ -194,64 +199,28 @@ export default function MataMataBracket({ partidas }: { partidas: Jogo[] }) {
               tipo: 'terceiro'
           };
       } else {
-          // 2. Se não existe jogo real, cria um PLACEHOLDER visual
-          const fakeIda: any = {
-              id: -99, // ID negativo para indicar fake
+           const fakeIda: any = {
+              id: -99, 
               casa: { nome: 'Perdedor Semi 1', escudo: '' },
               visitante: { nome: 'Perdedor Semi 2', escudo: '' },
               placar_casa: null, placar_visitante: null, status: 'tbd'
           };
-
-          confrontoTerceiro = {
-              uuid: `placeholder-3rd`,
-              ida: fakeIda,
-              volta: null,
-              status: 'tbd',
-              tipo: 'terceiro'
-          };
+          confrontoTerceiro = { uuid: `placeholder-3rd`, ida: fakeIda, volta: null, status: 'tbd', tipo: 'terceiro' };
       }
   }
 
-  // --- CONTROLES DE DRAG & SCROLL ---
   const containerRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [startX, setStartX] = useState(0);
   const [scrollLeftState, setScrollLeft] = useState(0);
-
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (!containerRef.current) return;
-    setIsDragging(true);
-    setStartX(e.pageX - containerRef.current.offsetLeft);
-    setScrollLeft(containerRef.current.scrollLeft);
-    containerRef.current.style.cursor = 'grabbing';
-  };
-
-  const handleMouseUp = () => {
-    setIsDragging(false);
-    if (containerRef.current) containerRef.current.style.cursor = 'grab';
-  };
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging || !containerRef.current) return;
-    e.preventDefault();
-    const x = e.pageX - containerRef.current.offsetLeft;
-    const walk = (x - startX) * 1.5;
-    containerRef.current.scrollLeft = scrollLeftState - walk;
-  };
+  const handleMouseDown = (e: React.MouseEvent) => { if (!containerRef.current) return; setIsDragging(true); setStartX(e.pageX - containerRef.current.offsetLeft); setScrollLeft(containerRef.current.scrollLeft); containerRef.current.style.cursor = 'grabbing'; };
+  const handleMouseUp = () => { setIsDragging(false); if (containerRef.current) containerRef.current.style.cursor = 'grab'; };
+  const handleMouseMove = (e: React.MouseEvent) => { if (!isDragging || !containerRef.current) return; e.preventDefault(); const x = e.pageX - containerRef.current.offsetLeft; const walk = (x - startX) * 1.5; containerRef.current.scrollLeft = scrollLeftState - walk; };
 
   return (
-    <div 
-        ref={containerRef}
-        className="w-full h-[700px] overflow-auto bg-[#050505] border border-gray-800 rounded-xl relative select-none cursor-grab active:cursor-grabbing"
-        onMouseDown={handleMouseDown} 
-        onMouseLeave={handleMouseUp} 
-        onMouseUp={handleMouseUp} 
-        onMouseMove={handleMouseMove}
-    >
+    <div ref={containerRef} className="w-full h-[700px] overflow-auto bg-[#050505] border border-gray-800 rounded-xl relative select-none cursor-grab active:cursor-grabbing" onMouseDown={handleMouseDown} onMouseLeave={handleMouseUp} onMouseUp={handleMouseUp} onMouseMove={handleMouseMove}>
         <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)', backgroundSize: '20px 20px', width: '200%', height: '200%' }}></div>
-
         <div className="flex min-h-full min-w-max items-center p-20"> 
-            {/* ÁRVORE PRINCIPAL */}
             {bracketColumns.map((confrontos, colIndex) => {
                 const phasesLeft = totalFases - colIndex;
                 let titulo = `${colIndex + 1}ª Fase`;
@@ -262,30 +231,17 @@ export default function MataMataBracket({ partidas }: { partidas: Jogo[] }) {
 
                 const power = Math.pow(2, colIndex);
                 const gap = (power * GAP_VERT_BASE) + ((power - 1) * CARD_HEIGHT);
-                
                 return (
                     <div key={colIndex} className="flex flex-col justify-center relative" style={{ marginRight: GAP_HORIZ }}>
                         <div className="absolute -top-10 w-full text-center pointer-events-none">
-                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 bg-[#050505]/90 px-3 py-1 rounded border border-gray-800 whitespace-nowrap">
-                                {titulo}
-                            </span>
+                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 bg-[#050505]/90 px-3 py-1 rounded border border-gray-800 whitespace-nowrap">{titulo}</span>
                         </div>
-
                         <div className="flex flex-col" style={{ gap: gap }}>
                             {confrontos.map((conf, idx) => (
                                 <div key={conf.uuid} className="relative flex items-center">
                                     <BracketCard confronto={conf} />
-                                    {/* Linhas de conexão */}
                                     {colIndex < totalFases - 1 && (
-                                        <>
-                                            <div className="absolute -right-[40px] top-1/2 w-[40px] h-[2px] bg-[#333]"></div>
-                                            {idx % 2 === 0 && (
-                                                <div 
-                                                    className="absolute -right-[40px] border-r-2 border-[#333] rounded-tr-none rounded-br-none"
-                                                    style={{ top: '50%', height: `${gap + CARD_HEIGHT}px`, width: '2px' }}
-                                                />
-                                            )}
-                                        </>
+                                        <> <div className="absolute -right-[40px] top-1/2 w-[40px] h-[2px] bg-[#333]"></div> {idx % 2 === 0 && ( <div className="absolute -right-[40px] border-r-2 border-[#333] rounded-tr-none rounded-br-none" style={{ top: '50%', height: `${gap + CARD_HEIGHT}px`, width: '2px' }} /> )} </>
                                     )}
                                     {colIndex > 0 && <div className="absolute -left-[40px] top-1/2 w-[40px] h-[2px] bg-[#333]"></div>}
                                 </div>
@@ -294,16 +250,10 @@ export default function MataMataBracket({ partidas }: { partidas: Jogo[] }) {
                     </div>
                 )
             })}
-
-            {/* --- BLOCO EXTRA: 3º LUGAR --- */}
             {confrontoTerceiro && (
                 <div className="flex flex-col gap-4 relative justify-center border-l-2 border-gray-800 border-dashed pl-12 ml-4 opacity-90 h-[200px] mt-20">
-                    <h3 className="text-center text-orange-500 font-bold uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 bg-[#050505] border border-orange-500/30 px-3 py-1 rounded-full shadow-lg mb-2">
-                        <Medal size={12} /> 3º Lugar
-                    </h3>
-                    <div className="flex flex-col justify-center">
-                        <BracketCard confronto={confrontoTerceiro} />
-                    </div>
+                    <h3 className="text-center text-orange-500 font-bold uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 bg-[#050505] border border-orange-500/30 px-3 py-1 rounded-full shadow-lg mb-2"> <Medal size={12} /> 3º Lugar </h3>
+                    <div className="flex flex-col justify-center"> <BracketCard confronto={confrontoTerceiro} /> </div>
                 </div>
             )}
         </div>
@@ -311,7 +261,7 @@ export default function MataMataBracket({ partidas }: { partidas: Jogo[] }) {
   )
 }
 
-// --- CARD DE JOGO ---
+// --- CARD DE JOGO ATUALIZADO ---
 function BracketCard({ confronto }: { confronto: Confronto }) {
     const { ida, volta, status, tipo } = confronto;
     const isFinal = tipo === 'final';
@@ -355,9 +305,39 @@ function BracketCard({ confronto }: { confronto: Confronto }) {
     
     const finalizado = !isPlaceholder && jogoDados.status === 'finalizado' && (!volta || volta.status === 'finalizado');
     
-    const w1 = finalizado && (total1 !== null && total2 !== null) && total1 > total2;
-    const w2 = finalizado && (total1 !== null && total2 !== null) && total2 > total1;
-    const isPenalts = finalizado && total1 === total2;
+    // --- LÓGICA VISUAL DE DESEMPATE ---
+    const jogoDecisivo = volta || ida;
+    const desempateC = jogoDecisivo?.desempate_casa ?? -1;
+    const desempateV = jogoDecisivo?.desempate_visitante ?? -1;
+    const temDesempate = desempateC >= 0 && desempateV >= 0;
+
+    let w1 = false;
+    let w2 = false;
+
+    if (finalizado && total1 !== null && total2 !== null) {
+        if (total1 > total2) w1 = true;
+        else if (total2 > total1) w2 = true;
+        else if (temDesempate) {
+            // Se empatou no agregado, quem venceu o desempate?
+            // Se for jogo de volta, os valores desempate_casa referem-se ao MANDO DA VOLTA
+            // Logo, se time1 (casa original) joga fora na volta, ele é o visitante do desempate.
+            // Mas para simplificar visualização: a variável 'desempateC' é do time MANDANTE do jogo decisivo.
+            
+            let golsT1 = desempateC;
+            let golsT2 = desempateV;
+
+            if (volta && volta.time_casa === jogoDados.time_visitante) {
+                // Inversão de mando na volta
+                golsT1 = desempateV; // Time 1 (casa na ida) é visitante na volta
+                golsT2 = desempateC; // Time 2 (visitante na ida) é casa na volta
+            }
+
+            if (golsT1 > golsT2) w1 = true;
+            else if (golsT2 > golsT1) w2 = true;
+        }
+    }
+    
+    const isPenalts = finalizado && total1 === total2 && !temDesempate; // Apenas exibe "PEN" se empatou e NÃO tem placar de desempate salvo
 
     return (
         <div className={`
@@ -369,7 +349,7 @@ function BracketCard({ confronto }: { confronto: Confronto }) {
              style={{ width: CARD_WIDTH, height: CARD_HEIGHT }}>
             
             {/* TIME 1 */}
-            <div className={`flex justify-between items-center px-3 py-1.5 border-b border-gray-800/40 ${finalizado && !w1 && !isPenalts ? 'opacity-40 grayscale' : ''}`}>
+            <div className={`flex justify-between items-center px-3 py-1.5 border-b border-gray-800/40 ${finalizado && !w1 && !isPenalts && !temDesempate ? 'opacity-40 grayscale' : ''}`}>
                 <div className="flex items-center gap-2 w-[60%] overflow-hidden">
                     {casa.escudo ? <img src={casa.escudo} className="w-5 h-5 object-contain" /> : <div className="w-5 h-5 bg-gray-800 rounded-full"></div>}
                     <span className={`text-[11px] font-bold truncate ${w1 ? 'text-green-400' : isPlaceholder ? 'text-gray-600' : 'text-gray-300'}`}>{casa.nome}</span>
@@ -387,7 +367,7 @@ function BracketCard({ confronto }: { confronto: Confronto }) {
             </div>
 
             {/* TIME 2 */}
-            <div className={`flex justify-between items-center px-3 py-1.5 ${finalizado && !w2 && !isPenalts ? 'opacity-40 grayscale' : ''}`}>
+            <div className={`flex justify-between items-center px-3 py-1.5 ${finalizado && !w2 && !isPenalts && !temDesempate ? 'opacity-40 grayscale' : ''}`}>
                 <div className="flex items-center gap-2 w-[60%] overflow-hidden">
                     {visitante?.escudo ? <img src={visitante.escudo} className="w-5 h-5 object-contain" /> : <div className="w-5 h-5 bg-gray-800 rounded-full"></div>}
                     <span className={`text-[11px] font-bold truncate ${w2 ? 'text-green-400' : isPlaceholder ? 'text-gray-600' : 'text-gray-300'}`}>{visitante?.nome || 'A definir'}</span>
@@ -406,6 +386,15 @@ function BracketCard({ confronto }: { confronto: Confronto }) {
 
             {/* ÍCONES E BADGES */}
             {isPenalts && <div className="absolute right-1 top-1/2 -translate-y-1/2 bg-yellow-600 text-black text-[8px] font-black px-1.5 py-0.5 rounded z-20 shadow-sm">PEN</div>}
+            
+            {/* BADGE DO DESEMPATE / JOGO EXTRA */}
+            {temDesempate && (
+                <div className="absolute right-1 top-1/2 -translate-y-1/2 bg-blue-600 text-white text-[8px] font-bold px-1.5 py-0.5 rounded z-20 shadow-sm flex flex-col items-center leading-tight">
+                    <span>EXTRA</span>
+                    <span>{desempateC} x {desempateV}</span>
+                </div>
+            )}
+            
             {isFinal && <div className="absolute top-2 right-2 text-yellow-500"><Trophy size={14} /></div>}
         </div>
     )

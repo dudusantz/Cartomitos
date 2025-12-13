@@ -3,10 +3,11 @@
 import { useState, useEffect } from 'react'
 import { listarTimesDoCampeonato, gerarMataMataInteligente } from '../../actions'
 import toast from 'react-hot-toast'
+import { ChevronUp, ChevronDown, Zap, GripVertical } from 'lucide-react'
 
 interface Props {
   campeonatoId: number
-  onSucesso: () => void
+  onSucesso?: () => void // Agora é opcional, pois o próprio componente garante o reload
 }
 
 export default function SorteioMataMata({ campeonatoId, onSucesso }: Props) {
@@ -16,14 +17,11 @@ export default function SorteioMataMata({ campeonatoId, onSucesso }: Props) {
   useEffect(() => {
     async function load() {
         const dados = await listarTimesDoCampeonato(campeonatoId)
-        // Inicializa a lista. Se já tiver pontuação (ex: vindo de pontos corridos), 
-        // idealmente viria ordenado. Aqui assumimos a ordem que o banco entrega ou alfabética.
-        setTimesOrdenados(dados)
+        setTimesOrdenados(dados || [])
     }
     load()
   }, [campeonatoId])
 
-  // Função para mover os times na lista (Definir Seeds)
   function moverTime(index: number, direcao: 'cima' | 'baixo') {
       if (direcao === 'cima' && index === 0) return;
       if (direcao === 'baixo' && index === timesOrdenados.length - 1) return;
@@ -43,75 +41,87 @@ export default function SorteioMataMata({ campeonatoId, onSucesso }: Props) {
       
       setLoading(true)
       
-      // Extrai apenas os IDs na ordem definida visualmente (Seed 1, Seed 2, ...)
       const seeds = timesOrdenados.map(t => t.time_id)
 
-      // Chama a função passando a ordem EXATA (aleatorio = false)
+      // Gera o mata-mata
       const res = await gerarMataMataInteligente(campeonatoId, seeds, false)
       
       if (res.success) {
-          toast.success("Mata-mata gerado por Seed com sucesso!")
-          onSucesso()
+          toast.success("Chaveamento criado! Atualizando...")
+          
+          // 1. Tenta chamar a função do pai se existir
+          if (onSucesso) onSucesso()
+
+          // 2. FORÇA O RECARREGAMENTO DA PÁGINA (Solução Definitiva)
+          // Pequeno delay para o usuário ver o toast de sucesso antes de piscar a tela
+          setTimeout(() => {
+              window.location.reload()
+          }, 1000)
+          
       } else {
           toast.error(res.msg)
+          setLoading(false) // Só tira o loading se der erro
       }
-      setLoading(false)
   }
 
   return (
-    <div className="w-full mt-4 bg-[#121212] border border-gray-800 rounded-2xl p-6">
+    <div className="w-full mt-4 bg-[#121212] border border-gray-800 rounded-2xl p-6 shadow-xl">
         <div className="mb-6 text-center">
-            <h3 className="text-white font-bold text-lg mb-1">Definição de Seeds (Ranking)</h3>
-            <p className="text-gray-500 text-xs">
-                Ordene os times abaixo. O 1º da lista é o <strong>Seed #1</strong> (Melhor campanha). <br/>
-                Em chaves incompletas, os melhores seeds avançam direto (BYE).
+            <h3 className="text-white font-bold text-lg mb-1 flex items-center justify-center gap-2">
+                <GripVertical size={20} className="text-gray-500" />
+                Definição de Seeds (Ranking)
+            </h3>
+            <p className="text-gray-500 text-xs max-w-md mx-auto">
+                Use as setas para ordenar os times. O 1º da lista será o <strong>Cabeça de Chave #1</strong>.
             </p>
         </div>
 
-        {/* Lista de Ordenação */}
-        <div className="space-y-2 mb-8 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
+        <div className="space-y-2 mb-8 max-h-[400px] overflow-y-auto custom-scrollbar pr-2 bg-black/20 p-2 rounded-xl border border-white/5">
             {timesOrdenados.map((t, idx) => (
-                <div key={t.time_id} className="flex items-center justify-between bg-[#0a0a0a] p-3 rounded-xl border border-gray-800 hover:border-gray-600 transition group">
+                <div key={t.time_id} className="flex items-center justify-between bg-[#1a1a1a] p-3 rounded-lg border border-gray-800 hover:border-gray-600 transition group">
                     <div className="flex items-center gap-4">
-                        <span className={`font-mono font-bold text-xs w-6 text-right ${idx < 4 ? 'text-green-500' : 'text-gray-600'}`}>
+                        <span className={`font-mono font-bold text-xs w-8 text-right ${idx < 4 ? 'text-green-500' : 'text-gray-600'}`}>
                             #{idx + 1}
                         </span>
                         <div className="flex items-center gap-3">
-                            <img src={t.times?.escudo || '/shield-placeholder.png'} className="w-6 h-6 object-contain" />
-                            <span className="text-sm font-bold text-gray-300 group-hover:text-white transition">{t.times?.nome}</span>
+                            {t.times?.escudo ? (
+                                <img src={t.times.escudo} className="w-8 h-8 object-contain" alt="" />
+                            ) : (
+                                <div className="w-8 h-8 bg-gray-700 rounded-full" />
+                            )}
+                            <span className="text-sm font-bold text-gray-300 group-hover:text-white transition">
+                                {t.times?.nome}
+                            </span>
                         </div>
                     </div>
                     
-                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex gap-1 opacity-50 group-hover:opacity-100 transition-opacity">
                         <button 
                             onClick={() => moverTime(idx, 'cima')} 
-                            className="w-8 h-8 flex items-center justify-center bg-gray-800 hover:bg-blue-600 hover:text-white text-gray-400 rounded-lg transition"
-                            title="Subir Rank"
+                            className="p-1.5 bg-gray-800 hover:bg-blue-600 hover:text-white text-gray-400 rounded-md transition disabled:opacity-20"
+                            disabled={idx === 0}
                         >
-                            ▲
+                            <ChevronUp size={16} />
                         </button>
                         <button 
                             onClick={() => moverTime(idx, 'baixo')} 
-                            className="w-8 h-8 flex items-center justify-center bg-gray-800 hover:bg-blue-600 hover:text-white text-gray-400 rounded-lg transition"
-                            title="Descer Rank"
+                            className="p-1.5 bg-gray-800 hover:bg-blue-600 hover:text-white text-gray-400 rounded-md transition disabled:opacity-20"
+                            disabled={idx === timesOrdenados.length - 1}
                         >
-                            ▼
+                            <ChevronDown size={16} />
                         </button>
                     </div>
                 </div>
             ))}
         </div>
 
-        <div className="text-center text-xs text-gray-500 mb-4">
-            {timesOrdenados.length} times qualificados identificados.
-        </div>
-
         <button 
             onClick={handleGerarConfrontos} 
-            disabled={loading || timesOrdenados.length === 0}
-            className="w-full bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 text-white font-bold py-4 rounded-xl uppercase tracking-widest text-xs transition shadow-lg shadow-green-900/20 disabled:opacity-50 flex items-center justify-center gap-2"
+            disabled={loading || timesOrdenados.length < 2}
+            className="w-full bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-400 hover:to-yellow-500 text-black font-black py-4 rounded-xl uppercase tracking-widest text-sm transition shadow-lg shadow-yellow-900/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
-            {loading ? 'Gerando Chaves...' : 'Gerar Mata-Mata por Seed'}
+            {loading ? <Zap className="animate-spin" /> : <Zap fill="black" />}
+            {loading ? 'Gerando e Atualizando...' : '⚡ Gerar Chave Final'}
         </button>
     </div>
   )

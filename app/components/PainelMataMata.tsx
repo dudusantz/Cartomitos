@@ -3,13 +3,15 @@
 import { useState, useEffect } from 'react'
 import toast from 'react-hot-toast'
 import { 
-  atualizarRodadaMataMata, avancarFaseMataMata, 
-  listarPartidas, excluirMataMata, atualizarPlacarManual 
+  atualizarRodadaMataMata, 
+  listarPartidas, 
+  excluirMataMata, 
+  atualizarPlacarManual 
 } from '../actions'
 import MataMataBracket from './MataMataBracket'
 import ModalConfirmacao from './ModalConfirmacao'
 import SorteioMataMata from './admin/SorteioMataMata'
-import { RefreshCw, PlayCircle, Trash2, Trophy, Save, Edit3, Eye, Shield } from 'lucide-react'
+import { RefreshCw, Trash2, Trophy, Save, Edit3, Eye, Shield } from 'lucide-react'
 
 interface Props {
   campeonatoId: number
@@ -38,7 +40,6 @@ export default function PainelMataMata({ campeonatoId, rodadasCorte, bloquearGer
     setLoading(true)
     const todosJogos = await listarPartidas(campeonatoId) || []
     
-    // Normaliza rodada para o Bracket (1, 2, 3...)
     const jogosMataMata = todosJogos
       .filter((p: any) => p.rodada > rodadasCorte)
       .map((p: any) => ({ ...p, rodada_bracket: p.rodada - rodadasCorte }))
@@ -53,7 +54,6 @@ export default function PainelMataMata({ campeonatoId, rodadasCorte, bloquearGer
     setLoading(false)
   }
 
-  // Identifica fases para o Select
   const fasesDisponiveis = [...new Set(partidas.map(p => p.rodada_bracket))].sort((a, b) => a - b)
   const fasesIda = fasesDisponiveis.filter(r => r % 2 !== 0) 
   const isJogoUnico = (fase: number) => !fasesDisponiveis.includes(fase + 1)
@@ -70,23 +70,14 @@ export default function PainelMataMata({ campeonatoId, rodadasCorte, bloquearGer
     const volta = unico ? 0 : Number(rodadaVolta)
     
     const res = await atualizarRodadaMataMata(campeonatoId, rodadaReal, Number(rodadaIda), volta)
-    if(res.success) { toast.success(res.msg); carregarDados(); } else toast.error(res.msg)
+    
+    if(res.success) { 
+        toast.success(res.msg); 
+        carregarDados(); 
+    } else {
+        toast.error(res.msg)
+    }
     setLoading(false)
-  }
-
-  async function handleAvancar() {
-    const rodadaReal = Number(faseAtual) + rodadasCorte
-    setModalConfig({ 
-        titulo: "Avançar Fase", 
-        mensagem: "Confirma o avanço para a próxima fase?", 
-        onConfirm: async () => {
-            const res = await avancarFaseMataMata(campeonatoId, rodadaReal)
-            if(res.success) { toast.success(res.msg); carregarDados(); } else toast.error(res.msg)
-            setModalOpen(false)
-        }, 
-        tipo: 'sucesso' 
-    })
-    setModalOpen(true)
   }
 
   async function handleLimpar() {
@@ -95,7 +86,10 @@ export default function PainelMataMata({ campeonatoId, rodadasCorte, bloquearGer
         mensagem: "Isso apagará TODOS os jogos desta fase. Tem certeza?", 
         onConfirm: async () => {
             const res = await excluirMataMata(campeonatoId, rodadasCorte + 1)
-            if(res.success) { toast.success(res.msg); carregarDados(); }
+            if(res.success) { 
+                toast.success(res.msg); 
+                window.location.reload(); // Recarrega também ao limpar para evitar bugs visuais
+            }
             setModalOpen(false)
         }, 
         tipo: 'perigo' 
@@ -124,7 +118,15 @@ export default function PainelMataMata({ campeonatoId, rodadasCorte, bloquearGer
                 <h3 className="text-white font-bold mb-2">Definir Chaveamento</h3>
                 <p className="text-gray-500 text-xs mb-4">Configure os potes abaixo para gerar os confrontos.</p>
             </div>
-            <SorteioMataMata campeonatoId={campeonatoId} onSucesso={carregarDados} />
+            
+            {/* AQUI ESTÁ A CORREÇÃO: Força o reload da página ao terminar o sorteio */}
+            <SorteioMataMata 
+                campeonatoId={campeonatoId} 
+                onSucesso={() => {
+                    toast.success("Chaves geradas! Atualizando página...");
+                    setTimeout(() => window.location.reload(), 1000); // Pequeno delay para o toast aparecer
+                }} 
+            />
         </div>
       )
   }
@@ -159,16 +161,17 @@ export default function PainelMataMata({ campeonatoId, rodadasCorte, bloquearGer
                 )}
                 <div className="flex items-end">
                     <button onClick={handleAtualizarAPI} disabled={loading} className="h-[42px] bg-blue-600 text-white px-4 rounded-lg font-bold uppercase text-[10px] hover:bg-blue-500 transition shadow-lg shadow-blue-900/20 flex items-center gap-2">
-                        {loading ? <RefreshCw className="animate-spin w-3 h-3"/> : <RefreshCw className="w-3 h-3" />} <span className="hidden sm:inline">Atualizar</span>
+                        {loading ? <RefreshCw className="animate-spin w-3 h-3"/> : <RefreshCw className="w-3 h-3" />} <span className="hidden sm:inline">Atualizar & Avançar</span>
                     </button>
                 </div>
             </div>
 
             <div className="flex gap-2 ml-auto items-center pl-4 border-l border-gray-800 z-10">
-                <button onClick={handleAvancar} className="h-[42px] bg-green-600 text-white px-4 rounded-lg font-bold uppercase text-[10px] hover:bg-green-500 transition shadow-lg shadow-green-900/20 flex items-center gap-2">
-                    <PlayCircle className="w-3 h-3" /> Avançar
-                </button>
-                <button onClick={handleLimpar} className="h-[42px] text-red-500 bg-red-500/10 px-3 rounded-lg hover:bg-red-500 hover:text-white transition border border-red-500/20">
+                <button 
+                    onClick={handleLimpar} 
+                    className="h-[42px] text-red-500 bg-red-500/10 px-3 rounded-lg hover:bg-red-500 hover:text-white transition border border-red-500/20"
+                    title="Limpar / Resetar Fase"
+                >
                     <Trash2 className="w-4 h-4" />
                 </button>
             </div>
@@ -192,10 +195,9 @@ export default function PainelMataMata({ campeonatoId, rodadasCorte, bloquearGer
                         <div className="bg-blue-500 p-1.5 rounded-full mt-0.5"><Edit3 size={12} className="text-white"/></div>
                         <div>
                             <strong className="block mb-1 text-blue-100">Modo de Edição Manual</strong>
-                            Se o placar <strong>agregado (soma da ida e volta)</strong> ou o jogo único terminar empatado, os campos de desempate aparecerão automaticamente.
+                            Use esta área para corrigir placares ou inserir o vencedor dos pênaltis caso haja empate no agregado.
                         </div>
                      </div>
-                     {/* Passamos 'partidas' COMPLETA para a lista para poder calcular o agregado */}
                      <ListaEditavel partidas={partidas} onUpdate={carregarDados} />
                 </div>
             ) : (
@@ -208,7 +210,6 @@ export default function PainelMataMata({ campeonatoId, rodadasCorte, bloquearGer
   )
 }
 
-// --- LISTA EDITÁVEL ---
 function ListaEditavel({ partidas, onUpdate }: { partidas: any[], onUpdate: () => void }) {
     const rodadas = [...new Set(partidas.map(p => p.rodada))].sort((a, b) => a - b);
   
@@ -222,7 +223,6 @@ function ListaEditavel({ partidas, onUpdate }: { partidas: any[], onUpdate: () =
             </div>
             <div className="divide-y divide-gray-800/50">
               {partidas.filter(p => p.rodada === r).map((partida) => (
-                // Importante: Passamos 'todosJogos={partidas}' para ele poder achar o jogo de ida
                 <CardPartidaEditavel key={partida.id} partida={partida} todosJogos={partidas} onUpdate={onUpdate} />
               ))}
             </div>
@@ -232,7 +232,6 @@ function ListaEditavel({ partidas, onUpdate }: { partidas: any[], onUpdate: () =
     )
 }
 
-// --- CARD INDIVIDUAL COM LÓGICA DE AGREGADO ---
 function CardPartidaEditavel({ partida, todosJogos, onUpdate }: { partida: any, todosJogos: any[], onUpdate: () => void }) {
     const [casa, setCasa] = useState(partida.placar_casa?.toString() ?? '')
     const [visitante, setVisitante] = useState(partida.placar_visitante?.toString() ?? '')
@@ -240,15 +239,12 @@ function CardPartidaEditavel({ partida, todosJogos, onUpdate }: { partida: any, 
     const [extraVisitante, setExtraVisitante] = useState(partida.desempate_visitante?.toString() ?? '')
     const [loading, setLoading] = useState(false)
   
-    // --- LÓGICA DE EMPATE (AGREGADO) ---
-    // 1. Tenta achar o jogo de Ida (rodada anterior com os mesmos times, invertidos ou não)
     const jogoIda = todosJogos.find(p => p.rodada === partida.rodada - 1 && (p.time_casa === partida.time_visitante || p.time_casa === partida.time_casa));
-    // 2. Tenta achar jogo de Volta (rodada seguinte) -> se achar, então este AQUI é o jogo de ida
     const jogoVolta = todosJogos.find(p => p.rodada === partida.rodada + 1 && (p.time_casa === partida.time_visitante || p.time_casa === partida.time_casa));
 
-    const isJogoIda = !!jogoVolta; // Se tem volta, este é ida. Nunca desempata na ida.
-    const isJogoUnico = !jogoIda && !jogoVolta; // Se não tem nem ida nem volta.
-    const isJogoVolta = !!jogoIda; // Se tem ida, este é volta.
+    const isJogoIda = !!jogoVolta; 
+    const isJogoUnico = !jogoIda && !jogoVolta; 
+    const isJogoVolta = !!jogoIda;
 
     let isEmpateAgregado = false;
     let textoDesempate = "Pênaltis";
@@ -257,31 +253,20 @@ function CardPartidaEditavel({ partida, todosJogos, onUpdate }: { partida: any, 
     const pV_Atual = visitante === '' ? 0 : Number(visitante);
 
     if (isJogoUnico) {
-        // Jogo único: Empate simples
         if (casa !== '' && visitante !== '' && pC_Atual === pV_Atual) {
             isEmpateAgregado = true;
         }
     } else if (isJogoVolta && jogoIda) {
-        // Jogo de Volta: Calcula Agregado
-        // Ida: Time A vs Time B (ex: 2x1)
-        // Volta (Aqui): Time B vs Time A
-        
-        // Placar da Ida
         const idaC = jogoIda.placar_casa ?? 0;
         const idaV = jogoIda.placar_visitante ?? 0;
 
-        // Assumindo inversão de mando padrão (Quem era Casa vira Visitante)
-        let totalTimeMandanteAtual = pC_Atual; // Time que joga em casa agora
-        let totalTimeVisitanteAtual = pV_Atual; // Time que joga fora agora
+        let totalTimeMandanteAtual = pC_Atual; 
+        let totalTimeVisitanteAtual = pV_Atual; 
 
         if (jogoIda.time_casa === partida.time_visitante) {
-            // Mando Invertido (Padrão)
-            // Mandante Atual era Visitante na Ida -> Soma idaV
             totalTimeMandanteAtual += idaV;
-            // Visitante Atual era Mandante na Ida -> Soma idaC
             totalTimeVisitanteAtual += idaC;
         } else {
-            // Mando igual (Campo Neutro ou Erro)
             totalTimeMandanteAtual += idaC;
             totalTimeVisitanteAtual += idaV;
         }
@@ -291,7 +276,6 @@ function CardPartidaEditavel({ partida, todosJogos, onUpdate }: { partida: any, 
             textoDesempate = "Agregado Empatado";
         }
     }
-    // Se for isJogoIda, isEmpateAgregado continua false.
 
     async function handleSalvar() {
       setLoading(true)
@@ -302,7 +286,12 @@ function CardPartidaEditavel({ partida, todosJogos, onUpdate }: { partida: any, 
       const dv = (isEmpateAgregado && extraVisitante !== '') ? Number(extraVisitante) : undefined
   
       const res = await atualizarPlacarManual(partida.id, c, v, dc, dv)
-      if (res.success) { toast.success('Salvo!'); onUpdate(); } else { toast.error('Erro'); }
+      if (res.success) { 
+          toast.success('Salvo!'); 
+          onUpdate(); 
+      } else { 
+          toast.error('Erro'); 
+      }
       setLoading(false)
     }
   
@@ -311,18 +300,15 @@ function CardPartidaEditavel({ partida, todosJogos, onUpdate }: { partida: any, 
     return (
       <div className="px-4 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-white/5 transition-colors group">
         <div className="flex-1 flex items-center justify-center md:justify-start gap-4">
-          {/* Mandante */}
           <div className="flex items-center gap-3 w-40 justify-end">
             <span className="font-bold text-gray-300 text-xs md:text-sm text-right truncate">{partida.casa?.nome}</span>
             {partida.casa?.escudo ? <img src={partida.casa.escudo} className="w-6 h-6 object-contain" /> : <div className="w-6 h-6 bg-gray-800 rounded-full"/>}
           </div>
-          {/* Placar */}
           <div className="flex items-center gap-2 bg-black/40 p-1.5 rounded-lg border border-gray-800">
              <input type="number" className="w-10 h-8 text-center bg-transparent text-white font-bold focus:outline-none border-b border-gray-600 focus:border-blue-500" value={casa} onChange={e => setCasa(e.target.value)} placeholder="0"/>
              <span className="text-gray-600 text-xs">✕</span>
              <input type="number" className="w-10 h-8 text-center bg-transparent text-white font-bold focus:outline-none border-b border-gray-600 focus:border-blue-500" value={visitante} onChange={e => setVisitante(e.target.value)} placeholder="0"/>
           </div>
-          {/* Visitante */}
           <div className="flex items-center gap-3 w-40">
              {partida.visitante ? (
                  <>
@@ -333,7 +319,6 @@ function CardPartidaEditavel({ partida, todosJogos, onUpdate }: { partida: any, 
           </div>
         </div>
   
-        {/* Lado Direito: Desempate */}
         <div className="flex items-center justify-center gap-4 border-l border-gray-800 pl-4 md:min-w-[220px]">
             <div className={`transition-all duration-300 overflow-hidden flex items-center ${isEmpateAgregado ? 'opacity-100 max-w-[200px]' : 'opacity-0 max-w-0'}`}>
                 <div className="flex items-center gap-1 bg-amber-500/10 px-2 py-1.5 rounded border border-amber-500/30">

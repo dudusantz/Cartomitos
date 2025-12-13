@@ -7,8 +7,7 @@ import {
   buscarTabelaPontosCorridos, zerarJogos, atualizarPlacarManual, listarPartidas, recalcularTabelaPontosCorridos 
 } from '../actions'
 import ModalConfirmacao from './ModalConfirmacao'
-import BotaoFinalizarCampeonato from './BotaoFinalizarCampeonato'
-import { Trophy, ShieldAlert, RefreshCw, Trash2, Save, X, Calendar, PlayCircle } from 'lucide-react'
+import { Trophy, RefreshCw, Trash2, Save, X, Calendar, PlayCircle } from 'lucide-react'
 
 interface Props {
   campeonatoId: number
@@ -143,6 +142,7 @@ export default function PainelPontosCorridos({ campeonatoId, times }: Props) {
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-fadeIn items-start pb-20">
       <ModalConfirmacao isOpen={modalOpen} {...modalConfig} onCancel={() => setModalOpen(false)} />
       
+      {/* MODAL DE EDIÇÃO */}
       {editingId && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[9999] backdrop-blur-sm p-4">
             <div className="bg-[#1a1a1a] border border-gray-700 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden transform transition-all scale-100">
@@ -271,7 +271,9 @@ export default function PainelPontosCorridos({ campeonatoId, times }: Props) {
                 <input type="number" placeholder="Rodada Cartola" className="flex-1 bg-black border border-gray-800 text-white text-[11px] font-bold p-3 rounded-lg focus:border-yellow-500 outline-none transition" value={rodadaCartola} onChange={e => setRodadaCartola(e.target.value)} />
                 <button onClick={handleAtualizarRodada} disabled={loading} className="bg-blue-600 hover:bg-blue-500 text-white px-4 rounded-lg text-[10px] font-bold uppercase transition disabled:opacity-50">{loading ? <RefreshCw className="animate-spin w-4 h-4"/> : 'Atualizar'}</button>
             </div>
-            <div className="space-y-3 max-h-[600px] overflow-y-auto custom-scrollbar pr-1">
+            
+            {/* AQUI ESTÁ A CORREÇÃO: Removemos max-h e overflow-y para os jogos fluírem naturalmente */}
+            <div className="space-y-3">
                 {jogosDaRodada.length === 0 && <div className="text-center text-gray-600 text-xs py-10 border border-dashed border-gray-800 rounded-xl">Sem jogos.</div>}
                 {jogosDaRodada.map(j => {
                     const casa = Array.isArray(j.casa) ? j.casa[0] : j.casa;

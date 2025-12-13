@@ -189,9 +189,7 @@ export default function PainelPontosCorridos({ campeonatoId, times }: Props) {
             </div>
 
             <div className="flex gap-2 items-center w-full md:w-auto">
-                {/* BOTÃO ENCERRAR AQUI NO TOPO */}
-                <BotaoFinalizarCampeonato campeonatoId={campeonatoId} />
-
+              
                 <button onClick={handleRecalcular} disabled={loading} className="flex-1 md:flex-none items-center gap-2 bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition flex justify-center disabled:opacity-50">
                     <RefreshCw size={12} className={loading ? "animate-spin" : ""} /> {loading ? '...' : 'Recalcular'}
                 </button>

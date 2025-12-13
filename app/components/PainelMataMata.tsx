@@ -151,10 +151,6 @@ export default function PainelMataMata({ campeonatoId, rodadasCorte, bloquearGer
             </div>
 
             <div className="flex gap-2 ml-auto items-center">
-                
-                {/* O BOTÃO JÁ INCLUI A LÓGICA DE REABRIR */}
-                <BotaoFinalizarCampeonato campeonatoId={campeonatoId} />
-
                 <button onClick={handleAvancar} className="h-[46px] bg-green-600 text-white px-5 rounded-lg font-bold uppercase text-xs hover:bg-green-500 transition shadow-lg shadow-green-900/20 flex items-center gap-2">
                     <PlayCircle className="w-4 h-4" /> Avançar
                 </button>

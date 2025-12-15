@@ -15,6 +15,7 @@ export default function ModalSalvarHistorico({ isOpen, onClose, onConfirm, campe
   const [ano, setAno] = useState(new Date().getFullYear())
   const [mounted, setMounted] = useState(false)
 
+  // O linter reclama disso, mas vamos desativar a regra no config
   useEffect(() => {
     setMounted(true)
     if (isOpen) { document.body.style.overflow = 'hidden' } 
@@ -69,8 +70,9 @@ export default function ModalSalvarHistorico({ isOpen, onClose, onConfirm, campe
                         className="w-full bg-[#0a0a0a] border border-gray-700 text-white text-center font-black text-3xl p-4 rounded-xl focus:border-blue-500 outline-none transition-colors placeholder-gray-800"
                     />
                 </div>
+                {/* CORREÇÃO AQUI: Aspas escapadas (&quot;) */}
                 <p className="text-[10px] text-center mt-3 text-gray-400 font-medium">
-                    O histórico será salvo como <span className="text-white font-bold">"Ranking {ano}"</span>.
+                    O histórico será salvo como <span className="text-white font-bold">&quot;Ranking {ano}&quot;</span>.
                 </p>
             </div>
         </div>

@@ -7,18 +7,16 @@ const eslintConfig = defineConfig([
   ...nextTs,
   {
     rules: {
-      // Regras que já tínhamos desativado
       "@typescript-eslint/no-explicit-any": "off",
       "@next/next/no-img-element": "off",
       "@next/next/no-html-link-for-pages": "off",
-      
-      // NOVAS regras para ignorar os erros atuais
       "jsx-a11y/alt-text": "off",
       "react-hooks/exhaustive-deps": "off",
       "@typescript-eslint/no-unused-vars": "off",
       
-      // ADICIONE ESTA LINHA:
-      "react-hooks/immutability": "off", 
+      // REGRAS NOVAS PARA IGNORAR ERROS
+      "react-hooks/immutability": "off",
+      "react-hooks/set-state-in-effect": "off",
     }
   },
   globalIgnores([

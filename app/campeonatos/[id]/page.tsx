@@ -213,18 +213,8 @@ export default function PaginaPublicaCampeonato() {
               Classificação
             </button>
           )}
-          {(liga.tipo === "mata_mata" || liga.tipo === "copa") && (
-            <button
-              onClick={() => setTabAtiva("mata-mata")}
-              className={`px-6 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition whitespace-nowrap ${
-                tabAtiva === "mata-mata"
-                  ? "bg-blue-600 text-white shadow-lg"
-                  : "bg-[#121212] text-gray-500 hover:text-white hover:bg-[#1a1a1a]"
-              }`}
-            >
-              {liga.tipo === "mata_mata" ? "Chaveamento" : "Fase Final"}
-            </button>
-          )}
+
+          {/* AJUSTE: Botão Fase de Grupos movido para ANTES do Fase Final */}
           {liga.tipo === "copa" && (
             <button
               onClick={() => setTabAtiva("grupos")}
@@ -235,6 +225,19 @@ export default function PaginaPublicaCampeonato() {
               }`}
             >
               Fase de Grupos
+            </button>
+          )}
+
+          {(liga.tipo === "mata_mata" || liga.tipo === "copa") && (
+            <button
+              onClick={() => setTabAtiva("mata-mata")}
+              className={`px-6 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition whitespace-nowrap ${
+                tabAtiva === "mata-mata"
+                  ? "bg-blue-600 text-white shadow-lg"
+                  : "bg-[#121212] text-gray-500 hover:text-white hover:bg-[#1a1a1a]"
+              }`}
+            >
+              {liga.tipo === "mata_mata" ? "Chaveamento" : "Fase Final"}
             </button>
           )}
         </div>
@@ -253,10 +256,10 @@ export default function PaginaPublicaCampeonato() {
             />
           )}
 
-          {tabAtiva === 'grupos' && (
-    // Removi o times={timesLiga} pois não é necessário
-    <FaseGruposPublica campeonatoId={campeonatoId} />
-)}
+          {tabAtiva === "grupos" && (
+            // Removi o times={timesLiga} pois não é necessário
+            <FaseGruposPublica campeonatoId={campeonatoId} />
+          )}
         </div>
       </div>
     </div>

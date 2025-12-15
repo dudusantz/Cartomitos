@@ -7,7 +7,7 @@ import { ChevronUp, ChevronDown, Zap, GripVertical } from 'lucide-react'
 
 interface Props {
   campeonatoId: number
-  onSucesso?: () => void // Agora é opcional, pois o próprio componente garante o reload
+  onSucesso?: () => void
 }
 
 export default function SorteioMataMata({ campeonatoId, onSucesso }: Props) {
@@ -37,9 +37,12 @@ export default function SorteioMataMata({ campeonatoId, onSucesso }: Props) {
   }
 
   async function handleGerarConfrontos() {
+      // TRAVA 1: Se já estiver carregando, aborta imediatamente o clique extra
+      if (loading) return; 
+      
       if (timesOrdenados.length < 2) return toast.error("É necessário pelo menos 2 times.");
       
-      setLoading(true)
+      setLoading(true) // Trava o botão
       
       const seeds = timesOrdenados.map(t => t.time_id)
 
@@ -49,18 +52,16 @@ export default function SorteioMataMata({ campeonatoId, onSucesso }: Props) {
       if (res.success) {
           toast.success("Chaveamento criado! Atualizando...")
           
-          // 1. Tenta chamar a função do pai se existir
           if (onSucesso) onSucesso()
 
-          // 2. FORÇA O RECARREGAMENTO DA PÁGINA (Solução Definitiva)
-          // Pequeno delay para o usuário ver o toast de sucesso antes de piscar a tela
+          // Mantemos o loading = true até a página recarregar para evitar cliques no limbo
           setTimeout(() => {
               window.location.reload()
           }, 1000)
           
       } else {
           toast.error(res.msg)
-          setLoading(false) // Só tira o loading se der erro
+          setLoading(false) // Destrava apenas se der erro (ex: "Jogos já existem")
       }
   }
 
@@ -99,14 +100,14 @@ export default function SorteioMataMata({ campeonatoId, onSucesso }: Props) {
                         <button 
                             onClick={() => moverTime(idx, 'cima')} 
                             className="p-1.5 bg-gray-800 hover:bg-blue-600 hover:text-white text-gray-400 rounded-md transition disabled:opacity-20"
-                            disabled={idx === 0}
+                            disabled={idx === 0 || loading}
                         >
                             <ChevronUp size={16} />
                         </button>
                         <button 
                             onClick={() => moverTime(idx, 'baixo')} 
                             className="p-1.5 bg-gray-800 hover:bg-blue-600 hover:text-white text-gray-400 rounded-md transition disabled:opacity-20"
-                            disabled={idx === timesOrdenados.length - 1}
+                            disabled={idx === timesOrdenados.length - 1 || loading}
                         >
                             <ChevronDown size={16} />
                         </button>
@@ -121,7 +122,7 @@ export default function SorteioMataMata({ campeonatoId, onSucesso }: Props) {
             className="w-full bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-400 hover:to-yellow-500 text-black font-black py-4 rounded-xl uppercase tracking-widest text-sm transition shadow-lg shadow-yellow-900/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
             {loading ? <Zap className="animate-spin" /> : <Zap fill="black" />}
-            {loading ? 'Gerando e Atualizando...' : '⚡ Gerar Chave Final'}
+            {loading ? 'Processando...' : '⚡ Gerar Chave Final'}
         </button>
     </div>
   )

@@ -31,7 +31,10 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
       try {
         const dadosGrupos = await buscarTabelaGrupos(campeonatoId);
         const dadosJogos = await listarPartidas(campeonatoId);
-        const jogosGrupos = dadosJogos.filter((j: any) => j.rodada <= 20);
+        
+        // CORREÇÃO: Limita estritamente à rodada 6 (padrão Libertadores/Champions)
+        // para não puxar jogos de mata-mata (R7, R8...) na tela de grupos.
+        const jogosGrupos = dadosJogos.filter((j: any) => j.rodada <= 6);
 
         // Salva estado inicial
         setDadosOriginais({ grupos: dadosGrupos, jogos: jogosGrupos });

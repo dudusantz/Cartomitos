@@ -7,7 +7,7 @@ import toast from 'react-hot-toast'
 import { 
   listarTimesDoCampeonato, listarTodosTimes, 
   atualizarConfiguracaoLiga, gerarMataMataCopa, buscarTabelaGrupos,
-  buscarPodium // <--- IMPORTAR ISTO
+  buscarPodium 
 } from '@/app/actions'
 import { supabase } from '@/lib/supabase'
 import ModalConfirmacao from '@/app/components/ModalConfirmacao'
@@ -36,7 +36,7 @@ export default function GerenciarLiga() {
   // Copa & Podium
   const [pote1, setPote1] = useState<any[]>([])
   const [pote2, setPote2] = useState<any[]>([])
-  const [podium, setPodium] = useState<any[]>([]) // <--- NOVO ESTADO
+  const [podium, setPodium] = useState<any[]>([]) 
 
   const [modalOpen, setModalOpen] = useState(false)
   const [modalConfig, setModalConfig] = useState<any>({})
@@ -143,15 +143,20 @@ export default function GerenciarLiga() {
                     {liga?.tipo === 'pontos_corridos' && (
                         <button onClick={() => setTabAtiva('classificacao')} className={`px-5 py-2.5 rounded-lg font-bold text-xs uppercase transition tracking-wider whitespace-nowrap ${tabAtiva === 'classificacao' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}>Tabela</button>
                     )}
+                    
+                    {/* CORREÇÃO: GRUPOS AGORA VEM ANTES DO MATA-MATA */}
+                    {liga?.tipo === 'copa' && (
+                        <button onClick={() => setTabAtiva('grupos')} className={`px-5 py-2.5 rounded-lg font-bold text-xs uppercase transition tracking-wider whitespace-nowrap ${tabAtiva === 'grupos' ? 'bg-yellow-600 text-black shadow-lg' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}>Grupos</button>
+                    )}
+
                     {(liga?.tipo === 'mata_mata' || liga?.tipo === 'copa') && (
                         <button onClick={() => setTabAtiva('jogos')} className={`px-5 py-2.5 rounded-lg font-bold text-xs uppercase transition tracking-wider whitespace-nowrap ${tabAtiva === 'jogos' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}>
                             {liga?.tipo === 'mata_mata' ? 'Chaveamento' : 'Mata-Mata'}
                         </button>
                     )}
-                    {liga?.tipo === 'copa' && (
-                        <button onClick={() => setTabAtiva('grupos')} className={`px-5 py-2.5 rounded-lg font-bold text-xs uppercase transition tracking-wider whitespace-nowrap ${tabAtiva === 'grupos' ? 'bg-yellow-600 text-black shadow-lg' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}>Grupos</button>
-                    )}
+                    
                     <button onClick={() => setTabAtiva('times')} className={`px-5 py-2.5 rounded-lg font-bold text-xs uppercase transition tracking-wider whitespace-nowrap ${tabAtiva === 'times' ? 'bg-gray-700 text-white shadow-lg' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}>Times</button>
+                    
                     {liga?.tipo !== 'pontos_corridos' && (
                         <button onClick={() => setTabAtiva('config')} className={`px-5 py-2.5 rounded-lg font-bold text-xs uppercase transition tracking-wider whitespace-nowrap ${tabAtiva === 'config' ? 'bg-gray-700 text-white shadow-lg' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}>Config</button>
                     )}
@@ -250,10 +255,9 @@ export default function GerenciarLiga() {
                                 </button>
                             )}
                         </div>
-                        {/* Potes (Ocultar se estiver finalizado pra limpar a tela? Ou manter? Vou manter para histórico) */}
+                        {/* Potes */}
                         {pote1.length > 0 && (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-gray-800">
-                                {/* ... (Renderização dos potes igual antes) ... */}
                                 <div className="bg-black/40 rounded-xl p-4 border border-gray-800/50">
                                     <div className="flex items-center gap-2 mb-4">
                                         <span className="bg-green-600 text-white text-[10px] font-bold px-2 py-0.5 rounded uppercase">Pote 1</span>

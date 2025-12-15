@@ -391,6 +391,20 @@ function getBracketOrder(n: number): number[] {
 }
 
 export async function gerarMataMataInteligente(campeonatoId: number, idsOrdenados: number[] = [], aleatorio: boolean = false) {
+  // TRAVA 2 (BACKEND): Verifica se JÁ EXISTEM jogos no campeonato.
+  // Isso impede que um "clique duplo" apague e recrie os jogos simultaneamente, gerando duplicatas.
+  const { count } = await supabase
+      .from('partidas')
+      .select('id', { count: 'exact', head: true })
+      .eq('campeonato_id', campeonatoId);
+  
+  if (count && count > 0) {
+      return { 
+          success: false, 
+          msg: "Já existem partidas criadas! Use o botão 'Resetar Liga' se quiser recomeçar do zero." 
+      };
+  }
+
   const timesNoBanco = await listarTimesDoCampeonato(campeonatoId);
   if (timesNoBanco.length < 2) return { success: false, msg: "Mínimo de 2 times." };
 
@@ -407,6 +421,7 @@ export async function gerarMataMataInteligente(campeonatoId: number, idsOrdenado
   }
 
   const numTimes = rankingInicial.length;
+  // Arredonda para a próxima potência de 2 (2, 4, 8, 16, 32...)
   const tamanhoChave = Math.pow(2, Math.ceil(Math.log2(numTimes)));
   
   const slots = new Array(tamanhoChave).fill(null);
@@ -417,7 +432,8 @@ export async function gerarMataMataInteligente(campeonatoId: number, idsOrdenado
   const bracketOrder = getBracketOrder(tamanhoChave).map(x => x - 1);
   const partidasParaSalvar = [];
 
-  await zerarJogos(campeonatoId);
+  // Removemos o 'zerarJogos(campeonatoId)' automático daqui.
+  // Agora a função só cria se estiver vazio, garantindo segurança.
 
   for (let i = 0; i < bracketOrder.length; i += 2) {
     const seedA = bracketOrder[i];
@@ -433,6 +449,7 @@ export async function gerarMataMataInteligente(campeonatoId: number, idsOrdenado
     } else if (!timeA && timeB) {
       partidasParaSalvar.push({ campeonato_id: campeonatoId, rodada: 1, time_casa: timeB, time_visitante: null, placar_casa: 1, placar_visitante: 0, status: 'bye' });
     } else {
+      // Cria IDA e VOLTA (Rodadas 1 e 2 do Mata-Mata interno)
       partidasParaSalvar.push({ campeonato_id: campeonatoId, rodada: 1, time_casa: timeB, time_visitante: timeA, status: 'agendado' });
       partidasParaSalvar.push({ campeonato_id: campeonatoId, rodada: 2, time_casa: timeA, time_visitante: timeB, status: 'agendado' });
     }
@@ -716,13 +733,30 @@ export async function excluirMataMata(campeonatoId: number, rodadaInicio: number
 }
 
 export async function gerarMataMataCopa(campeonatoId: number) {
+  // 1. Definição das rodadas
+  // Busca todas as rodadas para saber onde termina a fase de grupos
   const { data: jogos } = await supabase.from('partidas').select('rodada').eq('campeonato_id', campeonatoId);
   const rodadas = jogos?.map(j => j.rodada).filter(r => r <= 20) || [];
   const maxRodadaGrupos = rodadas.length > 0 ? Math.max(...rodadas) : 6;
   const inicioMataMata = maxRodadaGrupos + 1;
 
-  await excluirMataMata(campeonatoId, inicioMataMata);
+  // 2. TRAVA DE SEGURANÇA (NOVA)
+  // Verifica se já existem jogos de mata-mata criados.
+  // Se existirem, impede a criação duplicada causada por clique duplo.
+  const { count } = await supabase
+    .from('partidas')
+    .select('id', { count: 'exact', head: true })
+    .eq('campeonato_id', campeonatoId)
+    .gte('rodada', inicioMataMata);
 
+  if (count && count > 0) {
+    return { 
+      success: false, 
+      msg: "A Fase Final já foi gerada! Para recriar, use o botão de 'Limpar Mata-Mata' ou 'Resetar Liga' antes." 
+    };
+  }
+
+  // 3. Lógica Original de Geração
   const grupos = await buscarTabelaGrupos(campeonatoId);
   const letras = Object.keys(grupos).sort();
   if (letras.length === 0) return { success: false, msg: "Fase de grupos vazia." };
@@ -737,6 +771,7 @@ export async function gerarMataMataCopa(campeonatoId: number) {
 
   if (pot1.length < 2) return { success: false, msg: "Times insuficientes." };
 
+  // Ordena os primeiros colocados (Melhores campanhas)
   pot1.sort((a, b) => b.pts - a.pts || b.v - a.v || b.sp - a.sp || b.pp - a.pp);
 
   const numConfrontos = pot1.length; 
@@ -747,6 +782,7 @@ export async function gerarMataMataCopa(campeonatoId: number) {
   const seed2 = pot1[1]; 
   const outrosCabecas = pot1.slice(2);
 
+  // Define chaves para evitar que os melhores se cruzem cedo
   mandantes[0] = seed1;               
   mandantes[metadeBracket] = seed2;   
 
@@ -763,6 +799,7 @@ export async function gerarMataMataCopa(campeonatoId: number) {
   let sucesso = false;
   let tentativas = 0;
 
+  // Tenta encontrar oponentes do Pote 2 que não sejam do mesmo grupo
   while (!sucesso && tentativas < 1000) {
       tentativas++;
       const pool = [...pot2].sort(() => Math.random() - 0.5);
@@ -786,13 +823,14 @@ export async function gerarMataMataCopa(campeonatoId: number) {
       }
   }
 
-  if (!sucesso) return { success: false, msg: "Não foi possível gerar confrontos válidos." };
+  if (!sucesso) return { success: false, msg: "Não foi possível gerar confrontos válidos (trava de grupos)." };
 
   const partidasNovas: any[] = [];
   for (let i = 0; i < numConfrontos; i++) {
       const mandante = mandantes[i];  
       const visitante = oponentes[i]; 
 
+      // Jogo de IDA (Mando do 2º colocado)
       partidasNovas.push({ 
           campeonato_id: campeonatoId, 
           rodada: inicioMataMata, 
@@ -801,6 +839,7 @@ export async function gerarMataMataCopa(campeonatoId: number) {
           status: 'agendado' 
       });
 
+      // Jogo de VOLTA (Mando do 1º colocado)
       partidasNovas.push({ 
           campeonato_id: campeonatoId, 
           rodada: inicioMataMata + 1, 
@@ -812,6 +851,7 @@ export async function gerarMataMataCopa(campeonatoId: number) {
 
   const { error } = await supabase.from('partidas').insert(partidasNovas);
   if (error) return { success: false, msg: error.message };
+
   revalidatePath(`/campeonatos/${campeonatoId}`)
   return { success: true, msg: "Mata-mata sorteado com sucesso!" };
 }

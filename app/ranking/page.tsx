@@ -1,19 +1,21 @@
+import { cookies } from 'next/headers'
 import Link from 'next/link'
-import { buscarRankingCompleto } from '@/app/actions' // Caminho absoluto para evitar erros
-import { supabase } from '@/lib/supabase' // Importação correta para checar admin
-import BotaoSalvarRanking from '../components/BotaoSalvarRanking'
+import { buscarRankingCompleto } from '@/app/actions'
+import BotaoSalvarRanking from '@/app/components/BotaoSalvarRanking'
 
-export const revalidate = 60
+// Como usamos cookies(), a página se torna dinâmica por padrão.
+// 'force-dynamic' garante que sempre verifique o login atualizado.
+export const dynamic = 'force-dynamic'
 
 export default async function RankingGeral() {
   const ranking = await buscarRankingCompleto()
   
-  // Verifica se é admin usando o Supabase (mais seguro e consistente com o resto do app)
-  const { data: { session } } = await supabase.auth.getSession()
-  const isAdmin = session?.user?.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL
+  // CORREÇÃO: Verifica o cookie 'admin_session' definido no login manual
+  const cookieStore = await cookies()
+  const isAdmin = cookieStore.has('admin_session')
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white font-sans pb-20 selection:bg-cartola-gold selection:text-black">
+    <div className="min-h-screen bg-[#050505] text-white font-sans pb-20 selection:bg-yellow-500/30 selection:text-black">
       
       {/* --- HEADER --- */}
       <div className="relative pt-8 pb-20 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] bg-fixed border-b border-gray-800">
@@ -48,16 +50,18 @@ export default async function RankingGeral() {
              <div className="flex justify-center mt-8">
                 <BotaoSalvarRanking 
                     ranking={ranking}
-                    // ADICIONADO: Props obrigatórios para o salvamento funcionar
                     tipo="ranking"
                     tituloPadrao={`Ranking Geral ${new Date().getFullYear()}`}
+                    // Fallback para props antigos caso o componente ainda não tenha sido atualizado:
+                    campeao={ranking[0]?.time || ''}
+                    totalTimes={ranking.length}
                 />
              </div>
           )}
         </div>
       </div>
 
-      {/* --- LISTA DE TIMES (PÓDIO PRESERVADO) --- */}
+      {/* --- LISTA DE TIMES --- */}
       <div className="max-w-3xl mx-auto px-4 -mt-10 relative z-20 space-y-3">
         
         {ranking.map((time: any, index: number) => {

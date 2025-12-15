@@ -1,6 +1,6 @@
+import { cookies } from 'next/headers'
 import Link from 'next/link'
 import { listarAnosHistorico } from '@/app/actions'
-import { supabase } from '@/lib/supabase'
 import BotaoExcluirHistorico from '../components/BotaoExcluirHistorico'
 
 export const revalidate = 0
@@ -10,40 +10,38 @@ interface PageProps {
 }
 
 export default async function HistoricoPage({ searchParams }: PageProps) {
-  // 1. Pega os parâmetros da URL para saber se é Ranking ou Recordes
+  // 1. Pega os parâmetros da URL
   const s = await searchParams
   const tipo = (typeof s.tipo === 'string' && s.tipo === 'recordes') ? 'recordes' : 'ranking'
   
-  // 2. Busca os dados corretos
+  // 2. Busca os dados corretos do banco
   const anos = await listarAnosHistorico(tipo)
 
-  // 3. Verifica se é Admin
-  const { data: { session } } = await supabase.auth.getSession()
-  const isAdmin = session?.user?.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL
+  // 3. Verifica se é Admin (CORREÇÃO: Lendo o cookie de sessão)
+  const cookieStore = await cookies()
+  const isAdmin = cookieStore.has('admin_session')
 
   // 4. Configura textos e links dinamicamente
   const titulo = tipo === 'recordes' ? 'Galeria de Recordes' : 'Arquivo de Rankings'
   const descricao = tipo === 'recordes' ? 'Histórico das maiores pontuações.' : 'Rankings finalizados e salvos.'
   const icone = tipo === 'recordes' ? '🏅' : '🏆'
-  
-  // AQUI ESTÁ A CORREÇÃO DO BOTÃO VOLTAR:
   const linkVoltar = tipo === 'recordes' ? '/recordes' : '/ranking'
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white p-6 md:p-10 animate-fadeIn font-sans">
+    <div className="min-h-screen bg-[#050505] text-white p-6 md:p-10 animate-fadeIn font-sans selection:bg-blue-500/30">
       <div className="max-w-4xl mx-auto">
         
         {/* --- HEADER --- */}
-        <div className="flex items-center gap-6 mb-12 pb-8 border-b border-white/10">
+        <div className="flex flex-col md:flex-row items-start md:items-center gap-6 mb-12 pb-8 border-b border-white/10">
             <Link 
                 href={linkVoltar} 
-                className="bg-white/5 hover:bg-white/10 border border-white/5 p-3 rounded-xl text-gray-400 hover:text-white transition-all hover:scale-105 active:scale-95"
+                className="bg-white/5 hover:bg-white/10 border border-white/5 p-3 rounded-xl text-gray-400 hover:text-white transition-all hover:scale-105 active:scale-95 text-xs font-bold uppercase tracking-widest"
             >
                 ← Voltar
             </Link>
             <div>
                 <h1 className="text-3xl md:text-4xl font-black uppercase tracking-tighter flex items-center gap-3">
-                    <span className="text-blue-500">{icone}</span> {titulo}
+                    <span className="text-blue-500 text-2xl md:text-3xl">{icone}</span> {titulo}
                 </h1>
                 <p className="text-gray-500 text-sm font-bold uppercase tracking-widest mt-1">{descricao}</p>
             </div>
@@ -51,7 +49,7 @@ export default async function HistoricoPage({ searchParams }: PageProps) {
 
         {/* --- CONTEÚDO --- */}
         {anos.length === 0 ? (
-            // Empty State (Bonito)
+            // Empty State
             <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-[#121212] p-12 text-center shadow-2xl">
                 <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-full bg-gradient-to-b from-blue-600/5 to-transparent pointer-events-none" />
                 
@@ -74,7 +72,7 @@ export default async function HistoricoPage({ searchParams }: PageProps) {
                         href={linkVoltar}
                         className="px-8 py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold uppercase tracking-widest text-xs transition-all hover:scale-105 shadow-lg shadow-blue-900/20 border border-blue-500/50"
                     >
-                        {tipo === 'recordes' ? 'Salvar Recordes Agora' : 'Ver Ranking Atual'}
+                        {tipo === 'recordes' ? 'Ver Recordes Atuais' : 'Ver Ranking Atual'}
                     </Link>
                 </div>
             </div>
@@ -89,10 +87,10 @@ export default async function HistoricoPage({ searchParams }: PageProps) {
                         {/* Link Principal */}
                         <Link 
                             href={`/historico/${item.ano}?tipo=${tipo}`}
-                            className="flex-1 flex items-center justify-between p-6 pr-4"
+                            className="flex-1 flex flex-col md:flex-row items-center justify-between p-6 gap-4"
                         >
-                            <div className="flex items-center gap-5">
-                                <div className="w-14 h-14 bg-blue-500/10 text-blue-500 border border-blue-500/20 rounded-xl flex items-center justify-center font-black text-xl group-hover:bg-blue-600 group-hover:text-white group-hover:border-blue-500 transition-all">
+                            <div className="flex items-center gap-5 w-full md:w-auto">
+                                <div className="w-14 h-14 bg-blue-500/10 text-blue-500 border border-blue-500/20 rounded-xl flex items-center justify-center font-black text-xl group-hover:bg-blue-600 group-hover:text-white group-hover:border-blue-500 transition-all shrink-0">
                                     {item.ano}
                                 </div>
                                 <div>
@@ -104,14 +102,14 @@ export default async function HistoricoPage({ searchParams }: PageProps) {
                                     </p>
                                 </div>
                             </div>
-                            <div className="text-gray-600 group-hover:text-white transition-transform group-hover:translate-x-2 font-bold text-sm uppercase tracking-widest mr-2">
-                                Ver {tipo === 'recordes' ? 'Lista' : 'Tabela'} ➜
+                            <div className="text-gray-600 group-hover:text-white transition-transform group-hover:translate-x-2 font-bold text-xs uppercase tracking-widest flex items-center gap-1 self-end md:self-center">
+                                Ver {tipo === 'recordes' ? 'Lista' : 'Tabela'} <span>➜</span>
                             </div>
                         </Link>
 
-                        {/* Botão Excluir (Lixeira) */}
+                        {/* Botão Excluir (SÓ PARA ADMIN) */}
                         {isAdmin && (
-                            <div className="flex items-center justify-center border-l border-white/10 px-4 bg-red-500/5 hover:bg-red-500/10 transition-colors cursor-pointer">
+                            <div className="flex items-center justify-center border-l border-white/10 px-2 md:px-4 bg-red-500/5 hover:bg-red-500/10 transition-colors cursor-pointer">
                                 <BotaoExcluirHistorico ano={item.ano} tipo={tipo} />
                             </div>
                         )}

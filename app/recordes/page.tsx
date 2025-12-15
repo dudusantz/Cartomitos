@@ -1,17 +1,16 @@
-import { buscarTodosRecordes } from '@/app/actions'
-import Link from 'next/link'
 import { cookies } from 'next/headers'
-import BotaoSalvarRecordes from '@/app/components/BotaoSalvarRecordes' // Importa o componente com Modal
+import Link from 'next/link'
+import { buscarTodosRecordes } from '@/app/actions'
+import BotaoSalvarRecordes from '@/app/components/BotaoSalvarRecordes'
 import { Trophy, History, Crown } from 'lucide-react'
 
-// CORREÇÃO CRÍTICA: Força a renderização dinâmica.
-// Isso garante que o servidor leia os cookies (login de admin) em tempo real.
+// Renderização dinâmica para checar cookies em tempo real
 export const dynamic = 'force-dynamic'
 
 export default async function RecordesPage() {
   const recordes = await buscarTodosRecordes()
   
-  // 1. Verifica cookie de admin em tempo real
+  // Verifica se é admin lendo o cookie
   const cookieStore = await cookies()
   const isAdmin = cookieStore.has('admin_session')
 
@@ -45,7 +44,6 @@ export default async function RecordesPage() {
                     </Link>
 
                     {/* Botão Salvar (APENAS PARA ADMIN LOGADO e SE TIVER RECORDES) */}
-                    {/* Aqui passamos os dados atuais para o botão que abrirá o modal de confirmação */}
                     {isAdmin && recordes && recordes.length > 0 && (
                         <BotaoSalvarRecordes dados={recordes} />
                     )}

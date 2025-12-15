@@ -52,9 +52,6 @@ export default async function RankingGeral() {
                     ranking={ranking}
                     tipo="ranking"
                     tituloPadrao={`Ranking Geral ${new Date().getFullYear()}`}
-                    // Fallback para props antigos caso o componente ainda não tenha sido atualizado:
-                    campeao={ranking[0]?.time || ''}
-                    totalTimes={ranking.length}
                 />
              </div>
           )}

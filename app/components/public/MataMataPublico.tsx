@@ -12,41 +12,40 @@ interface Props {
 }
 
 export default function MataMataPublico({ campeonatoId, rodadasCorte }: Props) {
-  const [listaJogosRaw, setListaJogosRaw] = useState<any[]>([])
-  const [partidasAgrupadas, setPartidasAgrupadas] = useState<any[]>([])
+  const [listaJogosRaw, setListaJogosRaw] = useState<any[]>([]) // Dados originais do banco
+  const [partidasExibidas, setPartidasExibidas] = useState<any[]>([]) // Dados normalizados para o Bracket
   
   const [loading, setLoading] = useState(true)
   const [loadingLive, setLoadingLive] = useState(false)
   const [modoAoVivo, setModoAoVivo] = useState(false)
   
-  // Zoom
+  // Zoom e Drag
   const [escala, setEscala] = useState(0.9)
-  
-  // Drag
   const scrollRef = useRef<HTMLDivElement>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [startX, setStartX] = useState(0)
   const [scrollLeft, setScrollLeft] = useState(0)
 
   // =================================================================================
-  // 1. CARREGAMENTO INICIAL
+  // 1. CARREGAMENTO E NORMALIZAÇÃO
   // =================================================================================
   useEffect(() => {
     async function load() {
         try {
             const dados = await listarPartidas(campeonatoId)
+            const corte = Number(rodadasCorte) || 6
+
             if (dados && Array.isArray(dados)) {
-                const corte = Number(rodadasCorte) || 6
-                const apenasMataMata = dados.filter((p: any) => p.rodada > corte)
+                // Pega apenas jogos do Mata-Mata
+                const rawMataMata = dados.filter((p: any) => p.rodada > corte)
+                setListaJogosRaw(rawMataMata)
                 
-                setListaJogosRaw(apenasMataMata)
-                
-                // Processa dados originais do banco
-                const agrupados = processarConfrontos(apenasMataMata, corte, false)
-                setPartidasAgrupadas(agrupados)
+                // Gera a versão visual inicial
+                const normalizados = normalizarRodadas(rawMataMata, corte)
+                setPartidasExibidas(normalizados)
             }
         } catch (error) {
-            console.error("Erro ao carregar mata-mata:", error)
+            console.error(error)
         } finally {
             setLoading(false)
         }
@@ -54,115 +53,38 @@ export default function MataMataPublico({ campeonatoId, rodadasCorte }: Props) {
     load()
   }, [campeonatoId, rodadasCorte])
 
-  // =================================================================================
-  // 2. LÓGICA CORE: AGRUPAR JOGOS (IDA + VOLTA) E CALCULAR AGREGADO
-  // =================================================================================
-  function processarConfrontos(jogos: any[], corte: number, usarParciais: boolean) {
-      if (!jogos || jogos.length === 0) return []
+  // Função que remove "buracos" nas rodadas (ex: 1ª Fase vazia) e faz começar do 1
+  function normalizarRodadas(jogos: any[], corte: number) {
+      if (!jogos.length) return []
 
-      // Descobre a primeira rodada com times para ignorar preliminares vazias
+      // Descobre a primeira rodada que REALMENTE tem times definidos
       const rodadasComTimes = jogos
           .filter((p: any) => p.time_casa || p.time_visitante)
           .map((p: any) => p.rodada)
       
+      // Se não tiver times ainda, usa a próxima do corte
       const rodadaInicialReal = rodadasComTimes.length > 0 
           ? Math.min(...rodadasComTimes) 
           : (corte + 1)
 
-      const confrontosMap = new Map()
-      
-      // Ordena por rodada para processar Ida antes da Volta
-      const jogosOrdenados = [...jogos].sort((a:any, b:any) => a.rodada - b.rodada)
-
-      jogosOrdenados.forEach((jogo: any) => {
-          if (jogo.rodada < rodadaInicialReal) return
-
-          // Normaliza Rodada Visual
-          const rodadaRelativa = jogo.rodada - rodadaInicialReal
-          const faseVisual = Math.floor(rodadaRelativa / 2) + 1
-
-          // Chave única do confronto
-          const id1 = jogo.time_casa || 'def'
-          const id2 = jogo.time_visitante || 'def'
-          const timesChave = [id1, id2].sort().join('-')
-          const chaveUnica = (id1 === 'def' && id2 === 'def') 
-              ? `F${faseVisual}-GAME-${jogo.id}` 
-              : `F${faseVisual}-${timesChave}`
-
-          if (confrontosMap.has(chaveUnica)) {
-              // === JOGO DE VOLTA ===
-              const confronto = confrontosMap.get(chaveUnica)
-              
-              const placarCasaVolta = jogo.placar_casa ?? 0
-              const placarVisVolta = jogo.placar_visitante ?? 0
-
-              // Soma no Agregado (Invertendo mando se necessário)
-              if (jogo.time_casa === confronto.time_visitante) {
-                   confronto.placar_visitante += placarCasaVolta
-                   confronto.placar_casa += placarVisVolta
-              } else {
-                   confronto.placar_casa += placarCasaVolta
-                   confronto.placar_visitante += placarVisVolta
-              }
-
-              // SE ESTAMOS NO MODO AO VIVO E O JOGO DE VOLTA TEM PARCIAL:
-              // Finalizamos o confronto para mostrar quem está passando (Linha Verde)
-              if (usarParciais && jogo.is_parcial) {
-                  confronto.status = 'finalizado'
-              } 
-              // Se for status real do banco
-              else if (jogo.status === 'finalizado') {
-                  confronto.status = 'finalizado'
-                  confronto.desempate_casa = jogo.desempate_casa
-                  confronto.desempate_visitante = jogo.desempate_visitante
-              }
-
-          } else {
-              // === JOGO DE IDA (Novo Card) ===
-              
-              // Verifica se existe um jogo de volta agendado para este confronto
-              // (Para saber se é Jogo Único ou Ida)
-              const temVolta = jogosOrdenados.some((j:any) => 
-                  j.rodada > jogo.rodada && 
-                  ((j.time_casa === jogo.time_visitante && j.time_visitante === jogo.time_casa) ||
-                   (j.time_casa === jogo.time_casa && j.time_visitante === jogo.time_visitante))
-              );
-
-              let statusVisual = jogo.status;
-
-              // SE ESTAMOS NO MODO AO VIVO E O JOGO DE IDA TEM PARCIAL:
-              if (usarParciais && jogo.is_parcial) {
-                  if (temVolta) {
-                      // É jogo de IDA: Atualiza placar mas NÃO finaliza (não mostra quem passa)
-                      statusVisual = 'andamento' 
-                  } else {
-                      // É jogo ÚNICO (ex: Final): Finaliza para mostrar o campeão virtual
-                      statusVisual = 'finalizado'
-                  }
-              }
-
-              confrontosMap.set(chaveUnica, {
-                  ...jogo,
-                  rodada: faseVisual,
-                  placar_casa: jogo.placar_casa ?? 0,
-                  placar_visitante: jogo.placar_visitante ?? 0,
-                  status: statusVisual
-              })
-          }
-      })
-
-      return Array.from(confrontosMap.values())
+      // Filtra e Renumera: R7 vira R1, R8 vira R2, etc.
+      // Isso mantém Ida e Volta separados (R1 e R2), permitindo que o Bracket mostre "80 + 70"
+      return jogos
+          .filter((p: any) => p.rodada >= rodadaInicialReal)
+          .map((p: any) => ({
+              ...p,
+              rodada: p.rodada - rodadaInicialReal + 1
+          }))
   }
 
   // =================================================================================
-  // 3. AÇÃO "VER PARCIAIS AO VIVO"
+  // 2. LÓGICA AO VIVO
   // =================================================================================
   async function toggleAoVivo() {
     if (!modoAoVivo) {
         setLoadingLive(true)
         try {
-            // 1. Descobre a RODADA ATUAL (Menor rodada com jogos não finalizados)
-            // Isso evita pegar parciais para jogos futuros (Volta) quando ainda estamos na Ida
+            // 1. Identifica a RODADA ATUAL (Menor rodada não finalizada)
             const jogosPendentes = listaJogosRaw.filter(j => j.status !== 'finalizado' && j.status !== 'bye')
             
             if (jogosPendentes.length === 0) {
@@ -172,15 +94,13 @@ export default function MataMataPublico({ campeonatoId, rodadasCorte }: Props) {
             }
 
             const rodadaAtual = Math.min(...jogosPendentes.map(j => j.rodada))
-            
-            // 2. Busca parciais APENAS para a rodada atual
             const jogosDaRodada = jogosPendentes.filter(j => j.rodada === rodadaAtual)
             
+            // 2. Busca parciais
             const { jogos: parciais } = await buscarParciaisAoVivo(jogosDaRodada)
             
-            // 3. Mescla
+            // 3. Atualiza a lista RAW com as parciais e status simulado
             const listaComParciais = listaJogosRaw.map(jogo => {
-                // Só aplica parcial se for da rodada atual
                 if (jogo.rodada === rodadaAtual) {
                     const p = parciais?.find((x:any) => x.id === jogo.id)
                     if (p && p.is_parcial) {
@@ -188,19 +108,22 @@ export default function MataMataPublico({ campeonatoId, rodadasCorte }: Props) {
                             ...jogo, 
                             placar_casa: p.placar_casa, 
                             placar_visitante: p.placar_visitante, 
-                            is_parcial: true 
+                            is_parcial: true,
+                            // Força 'finalizado' SOMENTE NA MEMÓRIA para o Bracket calcular quem passa
+                            // e pintar a linha verde baseado no placar parcial + ida
+                            status: 'finalizado'
                         }
                     }
                 }
                 return jogo
             })
 
-            // 4. Reprocessa
-            const novosAgrupados = processarConfrontos(listaComParciais, Number(rodadasCorte)||6, true)
+            // 4. Normaliza novamente para exibir
+            const normalizados = normalizarRodadas(listaComParciais, Number(rodadasCorte)||6)
             
-            setPartidasAgrupadas(novosAgrupados)
+            setPartidasExibidas(normalizados)
             setModoAoVivo(true)
-            toast.success(`Parciais da Rodada ${rodadaAtual} carregadas!`)
+            toast.success(`Parciais da Rodada ${rodadaAtual} ativas!`)
 
         } catch (e) { 
             console.error(e)
@@ -208,14 +131,15 @@ export default function MataMataPublico({ campeonatoId, rodadasCorte }: Props) {
         }
         setLoadingLive(false)
     } else {
-        const agrupadosOriginal = processarConfrontos(listaJogosRaw, Number(rodadasCorte)||6, false)
-        setPartidasAgrupadas(agrupadosOriginal)
+        // RESET
+        const normalizados = normalizarRodadas(listaJogosRaw, Number(rodadasCorte)||6)
+        setPartidasExibidas(normalizados)
         setModoAoVivo(false)
     }
   }
 
   // =================================================================================
-  // 4. UI (ZOOM & DRAG)
+  // 3. UI (ZOOM & DRAG)
   // =================================================================================
   const handleMouseDown = (e: React.MouseEvent) => {
     if (!scrollRef.current) return;
@@ -239,7 +163,7 @@ export default function MataMataPublico({ campeonatoId, rodadasCorte }: Props) {
 
   if (loading) return <div className="text-center py-20 text-gray-500 animate-pulse">Carregando chaves...</div>
 
-  if (partidasAgrupadas.length === 0) {
+  if (partidasExibidas.length === 0) {
       return (
         <div className="flex flex-col items-center justify-center py-32 bg-[#121212] rounded-3xl border border-gray-800">
             <span className="text-5xl mb-4 opacity-20">⚔️</span>
@@ -308,7 +232,7 @@ export default function MataMataPublico({ campeonatoId, rodadasCorte }: Props) {
                     className="transition-transform duration-300 ease-out origin-left"
                     style={{ transform: `scale(${escala})` }}
                 >
-                    <MataMataBracket partidas={partidasAgrupadas} />
+                    <MataMataBracket partidas={partidasExibidas} />
                 </div>
             </div>
 

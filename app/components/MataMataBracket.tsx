@@ -58,11 +58,22 @@ export default function MataMataBracket({ partidas }: { partidas: Jogo[] }) {
   const baseRodada = rodadasNums[0];
   
   // Calcula o tamanho da árvore baseado na primeira fase
-  const confrontosFase1 = new Set();
-  partidas.filter(p => p.rodada === baseRodada || p.rodada === baseRodada + 1).forEach(j => {
-      const key = [j.time_casa, j.time_visitante].sort().join('-');
-      confrontosFase1.add(key);
+ const confrontosFase1 = new Set();
+
+partidas
+  .filter(
+    p => Number(p.rodada) === Number(baseRodada) ||
+         Number(p.rodada) === Number(baseRodada) + 1
+  )
+  .forEach(j => {
+    const key =
+      j.time_casa && j.time_visitante
+        ? [j.time_casa, j.time_visitante].sort().join('-')
+        : `jogo-${j.id}`;
+
+    confrontosFase1.add(key);
   });
+
   
   const numConfrontosIniciais = confrontosFase1.size;
   const totalFases = numConfrontosIniciais > 0 ? Math.ceil(Math.log2(numConfrontosIniciais)) + 1 : 0;

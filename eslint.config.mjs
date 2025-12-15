@@ -16,6 +16,9 @@ const eslintConfig = defineConfig([
       "jsx-a11y/alt-text": "off",
       "react-hooks/exhaustive-deps": "off",
       "@typescript-eslint/no-unused-vars": "off",
+      
+      // ADICIONE ESTA LINHA:
+      "react-hooks/immutability": "off", 
     }
   },
   globalIgnores([

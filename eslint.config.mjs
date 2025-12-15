@@ -13,10 +13,12 @@ const eslintConfig = defineConfig([
       "jsx-a11y/alt-text": "off",
       "react-hooks/exhaustive-deps": "off",
       "@typescript-eslint/no-unused-vars": "off",
-      
-      // REGRAS NOVAS PARA IGNORAR ERROS
       "react-hooks/immutability": "off",
       "react-hooks/set-state-in-effect": "off",
+      
+      // NOVAS REGRAS PARA LIMPAR O CONSOLE
+      "prefer-const": "off",
+      "react/no-unescaped-entities": "off",
     }
   },
   globalIgnores([

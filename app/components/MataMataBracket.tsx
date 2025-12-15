@@ -40,7 +40,17 @@ const GAP_HORIZ = 80;
 const GAP_VERT_BASE = 20;
 
 export default function MataMataBracket({ partidas }: { partidas: Jogo[] }) {
-  
+  // === CORREÇÃO: HOOKS MOVIDOS PARA O TOPO (ANTES DO RETURN) ===
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [startX, setStartX] = useState(0);
+  const [scrollLeftState, setScrollLeft] = useState(0);
+
+  const handleMouseDown = (e: React.MouseEvent) => { if (!containerRef.current) return; setIsDragging(true); setStartX(e.pageX - containerRef.current.offsetLeft); setScrollLeft(containerRef.current.scrollLeft); containerRef.current.style.cursor = 'grabbing'; };
+  const handleMouseUp = () => { setIsDragging(false); if (containerRef.current) containerRef.current.style.cursor = 'grab'; };
+  const handleMouseMove = (e: React.MouseEvent) => { if (!isDragging || !containerRef.current) return; e.preventDefault(); const x = e.pageX - containerRef.current.offsetLeft; const walk = (x - startX) * 1.5; containerRef.current.scrollLeft = scrollLeftState - walk; };
+  // ==============================================================
+
   const rodadasNums = [...new Set(partidas.map(p => p.rodada))].sort((a, b) => a - b);
   
   if (rodadasNums.length === 0) return <div className="text-center p-10 text-gray-500">Aguardando jogos...</div>;
@@ -175,9 +185,6 @@ export default function MataMataBracket({ partidas }: { partidas: Jogo[] }) {
       bracketColumns.push(colunaAtual);
   }
 
-  // ... (RESTO DO CÓDIGO DE DRAG & SCROLL E RENDERIZAÇÃO MANTIDO) ...
-  // ... (Só precisamos atualizar o BracketCard abaixo) ...
-
   let confrontoTerceiro: Confronto | null = null;
   if (totalFases >= 2) { 
       const ultimaFaseIndex = totalFases - 1;
@@ -208,14 +215,6 @@ export default function MataMataBracket({ partidas }: { partidas: Jogo[] }) {
           confrontoTerceiro = { uuid: `placeholder-3rd`, ida: fakeIda, volta: null, status: 'tbd', tipo: 'terceiro' };
       }
   }
-
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [isDragging, setIsDragging] = useState(false);
-  const [startX, setStartX] = useState(0);
-  const [scrollLeftState, setScrollLeft] = useState(0);
-  const handleMouseDown = (e: React.MouseEvent) => { if (!containerRef.current) return; setIsDragging(true); setStartX(e.pageX - containerRef.current.offsetLeft); setScrollLeft(containerRef.current.scrollLeft); containerRef.current.style.cursor = 'grabbing'; };
-  const handleMouseUp = () => { setIsDragging(false); if (containerRef.current) containerRef.current.style.cursor = 'grab'; };
-  const handleMouseMove = (e: React.MouseEvent) => { if (!isDragging || !containerRef.current) return; e.preventDefault(); const x = e.pageX - containerRef.current.offsetLeft; const walk = (x - startX) * 1.5; containerRef.current.scrollLeft = scrollLeftState - walk; };
 
   return (
     <div ref={containerRef} className="w-full h-[700px] overflow-auto bg-[#050505] border border-gray-800 rounded-xl relative select-none cursor-grab active:cursor-grabbing" onMouseDown={handleMouseDown} onMouseLeave={handleMouseUp} onMouseUp={handleMouseUp} onMouseMove={handleMouseMove}>
@@ -261,7 +260,7 @@ export default function MataMataBracket({ partidas }: { partidas: Jogo[] }) {
   )
 }
 
-// --- CARD DE JOGO ATUALIZADO ---
+// --- CARD DE JOGO (MANTIDO IGUAL) ---
 function BracketCard({ confronto }: { confronto: Confronto }) {
     const { ida, volta, status, tipo } = confronto;
     const isFinal = tipo === 'final';

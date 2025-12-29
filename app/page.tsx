@@ -9,7 +9,7 @@ export default async function Home() {
   const tabelaOficial = await buscarLigaOficial() || []
 
   return (
-    <div className="max-w-7xl mx-auto p-4 md:p-10 animate-fadeIn min-h-screen overflow-x-hidden">
+    <div className="max-w-7xl mx-auto p-4 md:p-10 animate-fadeIn min-h-screen">
         
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 relative z-0">
 
@@ -26,14 +26,14 @@ export default async function Home() {
                 </span>
               </div>
               
-              <div className="w-full overflow-x-auto custom-scrollbar">
-                  {/* ALTERADO: min-w-[700px] para ficar bem espaçoso igual PC */}
-                  <table className="w-full text-left border-collapse min-w-[700px]">
+              <div className="w-full overflow-x-auto">
+                  {/* min-w-[600px] garante que a tabela não quebre, mas cria scroll se precisar */}
+                  <table className="w-full text-left border-collapse min-w-[600px]">
                     <thead className="bg-[#0a0a0a] text-gray-500 text-[10px] uppercase font-bold tracking-widest">
                       <tr>
-                        <th className="p-5 w-[100px] text-center">Posição</th>
-                        <th className="p-5 w-auto">Clube</th>
-                        <th className="p-5 text-right w-[120px]">Pontuação</th>
+                        <th className="p-5 w-[15%] text-center">Posição</th>
+                        <th className="p-5 w-[55%]">Clube</th>
+                        <th className="p-5 text-right">Pontuação</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/[0.03]">
@@ -65,9 +65,8 @@ export default async function Home() {
                                         </div>
                                         
                                         <div className="flex flex-col gap-0.5">
-                                            {/* Removido max-w e truncate para mostrar nome completo */}
-                                            <div className={`font-bold text-sm whitespace-nowrap ${isLeader ? 'text-white' : 'text-gray-300'}`}>{time.time}</div>
-                                            <div className={`text-[10px] uppercase tracking-wider font-bold transition-colors whitespace-nowrap ${isLeader ? 'text-yellow-500/70' : 'text-gray-600 group-hover:text-gray-400'}`}>
+                                            <div className={`font-bold text-sm ${isLeader ? 'text-white' : 'text-gray-300'}`}>{time.time}</div>
+                                            <div className={`text-[10px] uppercase tracking-wider font-bold transition-colors ${isLeader ? 'text-yellow-500/70' : 'text-gray-600 group-hover:text-gray-400'}`}>
                                                 {time.cartoleiro}
                                             </div>
                                         </div>

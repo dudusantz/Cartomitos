@@ -22,55 +22,66 @@ export default function RootLayout({
         
         {/* --- NAVBAR --- */}
         <nav className="border-b border-white/5 bg-[#0a0a0a]/90 backdrop-blur-md sticky top-0 z-50">
-          <div className="max-w-7xl mx-auto px-4 h-20 flex items-center justify-between gap-3 overflow-hidden">
+          <div className="max-w-7xl mx-auto px-4 py-3 md:h-20 flex flex-col md:flex-row items-center justify-between gap-3 md:gap-0">
             
-            {/* LOGO - Shrink-0 impede que ela seja esmagada */}
-            <Link href="/" className="flex items-center gap-2 group shrink-0">
-                <div className="relative w-8 h-8 md:w-10 md:h-10 transition-transform group-hover:scale-110 duration-300">
-                    <Image 
-                        src="/logo.png" 
-                        alt="Logo" 
-                        width={40} 
-                        height={40}
-                        className="w-full h-full object-contain drop-shadow-[0_0_15px_rgba(234,179,8,0.4)]"
-                    />
-                </div>
-                {/* Texto visível em telas maiores ou oculto se preferir ganhar espaço. 
-                    Se quiser forçar aparecer no mobile, remova 'hidden lg:block' mas vai ocupar muito espaço.
-                    Vou deixar o ícone garantido e o texto em telas médias+ para não quebrar o layout. */}
-                <span className="font-black text-xl tracking-tighter hidden lg:block text-white">
-                    CARTO<span className="text-yellow-500">MITOS</span>
-                </span>
-            </Link>
+            {/* LINHA SUPERIOR (MOBILE): Logo + Admin */}
+            <div className="w-full md:w-auto flex items-center justify-between">
+                {/* LOGO */}
+                <Link href="/" className="flex items-center gap-2 group">
+                    <div className="relative w-8 h-8 md:w-10 md:h-10 transition-transform group-hover:scale-110 duration-300">
+                        <Image 
+                            src="/logo.png" 
+                            alt="Logo" 
+                            width={40} 
+                            height={40}
+                            className="w-full h-full object-contain drop-shadow-[0_0_15px_rgba(234,179,8,0.4)]"
+                        />
+                    </div>
+                    <span className="font-black text-lg md:text-xl tracking-tighter text-white">
+                        CARTO<span className="text-yellow-500">MITOS</span>
+                    </span>
+                </Link>
 
-            {/* MENU DE NAVEGAÇÃO - COM SCROLL HORIZONTAL SUAVE */}
-            {/* Aumentei o gap para gap-6 para não ficar espremido */}
-            <div className="flex-1 flex items-center justify-center overflow-x-auto no-scrollbar mask-gradient">
-                <div className="flex items-center gap-6 text-[11px] font-bold text-gray-400 uppercase tracking-widest whitespace-nowrap px-2">
-                  <Link href="/" className="hover:text-yellow-500 transition-colors py-2">
-                    Início
-                  </Link>
-                  <Link href="/campeonatos" className="hover:text-yellow-500 transition-colors py-2">
-                    Campeonatos
-                  </Link>
-                  <Link href="/campeoes" className="hover:text-yellow-500 transition-colors py-2">
-                    Galeria
-                  </Link>
+                {/* BOTÃO ADMIN (Visível aqui no Mobile) */}
+                <div className="md:hidden">
+                    <Link 
+                    href="/admin" 
+                    className="bg-gradient-to-r from-yellow-500 to-yellow-400 hover:from-yellow-400 hover:to-yellow-300 text-black px-4 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest shadow-lg shadow-yellow-500/20"
+                    >
+                    Admin
+                    </Link>
                 </div>
             </div>
 
-            {/* BOTÃO ADMIN */}
-            <Link 
-              href="/admin" 
-              className="shrink-0 bg-gradient-to-r from-yellow-500 to-yellow-400 hover:from-yellow-400 hover:to-yellow-300 text-black px-4 py-2 md:px-6 md:py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-yellow-500/20 transition-all hover:scale-105 active:scale-95"
-            >
-              Admin
-            </Link>
+            {/* LINHA INFERIOR (MOBILE) / CENTRO (PC): MENU */}
+            {/* No mobile, usa w-full e justify-center para espalhar os links */}
+            <div className="w-full md:w-auto flex items-center justify-center md:justify-end gap-6 md:gap-8 border-t border-white/5 md:border-none pt-2 md:pt-0">
+              <Link href="/" className="text-[11px] font-bold text-gray-400 hover:text-yellow-500 uppercase tracking-widest transition-colors">
+                Início
+              </Link>
+              <Link href="/campeonatos" className="text-[11px] font-bold text-gray-400 hover:text-yellow-500 uppercase tracking-widest transition-colors">
+                Campeonatos
+              </Link>
+              <Link href="/campeoes" className="text-[11px] font-bold text-gray-400 hover:text-yellow-500 uppercase tracking-widest transition-colors">
+                Galeria
+              </Link>
+            </div>
+
+            {/* BOTÃO ADMIN (Visível aqui no PC) */}
+            <div className="hidden md:block">
+                <Link 
+                href="/admin" 
+                className="bg-gradient-to-r from-yellow-500 to-yellow-400 hover:from-yellow-400 hover:to-yellow-300 text-black px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-yellow-500/20 transition-all hover:scale-105 active:scale-95"
+                >
+                Admin
+                </Link>
+            </div>
           </div>
         </nav>
 
         {/* CONTEÚDO */}
-        <main className="min-h-[calc(100vh-80px)]">
+        {/* Ajuste de altura mínima considerando que o header pode ser mais alto no mobile */}
+        <main className="min-h-[calc(100vh-100px)] md:min-h-[calc(100vh-80px)]">
             {children}
         </main>
 

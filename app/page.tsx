@@ -9,7 +9,6 @@ export default async function Home() {
   const tabelaOficial = await buscarLigaOficial() || []
 
   return (
-    // p-4 no mobile para ganhar espaço lateral
     <div className="max-w-7xl mx-auto p-4 md:p-10 animate-fadeIn min-h-screen overflow-x-hidden">
         
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 relative z-0">
@@ -28,12 +27,13 @@ export default async function Home() {
               </div>
               
               <div className="w-full overflow-x-auto custom-scrollbar">
-                  <table className="w-full text-left border-collapse min-w-[500px]">
+                  {/* ALTERADO: min-w-[700px] para ficar bem espaçoso igual PC */}
+                  <table className="w-full text-left border-collapse min-w-[700px]">
                     <thead className="bg-[#0a0a0a] text-gray-500 text-[10px] uppercase font-bold tracking-widest">
                       <tr>
-                        <th className="p-5 w-[15%] text-center">Posição</th>
-                        <th className="p-5 w-[55%]">Clube</th>
-                        <th className="p-5 text-right">Pontuação</th>
+                        <th className="p-5 w-[100px] text-center">Posição</th>
+                        <th className="p-5 w-auto">Clube</th>
+                        <th className="p-5 text-right w-[120px]">Pontuação</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/[0.03]">
@@ -59,14 +59,15 @@ export default async function Home() {
                                   </td>
                                   
                                   <td className="p-5">
-                                    <div className="flex items-center gap-4 md:gap-5">
+                                    <div className="flex items-center gap-5">
                                         <div className={`relative transition-all duration-500 shrink-0 ${isLeader ? 'scale-110 drop-shadow-[0_0_10px_rgba(234,179,8,0.4)]' : 'grayscale opacity-60 group-hover:grayscale-0 group-hover:opacity-100'}`}>
-                                            <img src={time.escudo} alt={time.time} className="w-10 h-10 md:w-12 md:h-12 object-contain" />
+                                            <img src={time.escudo} alt={time.time} className="w-12 h-12 object-contain" />
                                         </div>
                                         
-                                        <div className="flex flex-col gap-0.5 min-w-0">
-                                            <div className={`font-bold text-sm truncate max-w-[140px] sm:max-w-none ${isLeader ? 'text-white' : 'text-gray-300'}`}>{time.time}</div>
-                                            <div className={`text-[10px] uppercase tracking-wider font-bold transition-colors truncate max-w-[140px] sm:max-w-none ${isLeader ? 'text-yellow-500/70' : 'text-gray-600 group-hover:text-gray-400'}`}>
+                                        <div className="flex flex-col gap-0.5">
+                                            {/* Removido max-w e truncate para mostrar nome completo */}
+                                            <div className={`font-bold text-sm whitespace-nowrap ${isLeader ? 'text-white' : 'text-gray-300'}`}>{time.time}</div>
+                                            <div className={`text-[10px] uppercase tracking-wider font-bold transition-colors whitespace-nowrap ${isLeader ? 'text-yellow-500/70' : 'text-gray-600 group-hover:text-gray-400'}`}>
                                                 {time.cartoleiro}
                                             </div>
                                         </div>

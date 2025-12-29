@@ -22,11 +22,11 @@ export default function RootLayout({
         
         {/* --- NAVBAR --- */}
         <nav className="border-b border-white/5 bg-[#0a0a0a]/90 backdrop-blur-md sticky top-0 z-50">
-          <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+          <div className="max-w-7xl mx-auto px-3 md:px-6 h-20 flex items-center justify-between gap-2">
             
-            {/* LOGO */}
-            <Link href="/" className="flex items-center gap-3 group">
-                <div className="relative w-10 h-10 transition-transform group-hover:scale-110 duration-300">
+            {/* LOGO (Texto some no mobile para dar espaço aos menus) */}
+            <Link href="/" className="flex items-center gap-3 group shrink-0">
+                <div className="relative w-9 h-9 md:w-10 md:h-10 transition-transform group-hover:scale-110 duration-300">
                     <Image 
                         src="/logo.png" 
                         alt="Logo" 
@@ -35,25 +35,31 @@ export default function RootLayout({
                         className="w-full h-full object-contain drop-shadow-[0_0_15px_rgba(234,179,8,0.4)]"
                     />
                 </div>
-                <span className="font-black text-xl tracking-tighter hidden sm:block text-white">
+                <span className="font-black text-xl tracking-tighter hidden lg:block text-white">
                     CARTO<span className="text-yellow-500">MITOS</span>
                 </span>
             </Link>
 
-            {/* MENU DE NAVEGAÇÃO */}
-            <div className="hidden md:flex gap-8 text-[11px] font-bold text-gray-400 uppercase tracking-[0.15em]">
-              <Link href="/" className="hover:text-yellow-500 transition-colors py-2">Início</Link>
-              {/* Link atualizado para a lista de campeonatos */}
-              <Link href="/campeonatos" className="hover:text-yellow-500 transition-colors py-2">Campeonatos</Link>
-              <Link href="/campeoes" className="hover:text-yellow-500 transition-colors py-2">Galeria de Troféus</Link>
+            {/* MENU DE NAVEGAÇÃO - AGORA VISÍVEL NO MOBILE */}
+            {/* overflow-x-auto permite rolar se o celular for muito estreito */}
+            <div className="flex items-center gap-3 md:gap-8 text-[10px] md:text-[11px] font-bold text-gray-400 uppercase tracking-widest overflow-x-auto no-scrollbar whitespace-nowrap px-1">
+              <Link href="/" className="hover:text-yellow-500 transition-colors py-2">
+                Início
+              </Link>
+              <Link href="/campeonatos" className="hover:text-yellow-500 transition-colors py-2">
+                Campeonatos
+              </Link>
+              <Link href="/campeoes" className="hover:text-yellow-500 transition-colors py-2">
+                Galeria
+              </Link>
             </div>
 
             {/* BOTÃO ADMIN */}
             <Link 
               href="/admin" 
-              className="bg-gradient-to-r from-yellow-500 to-yellow-400 hover:from-yellow-400 hover:to-yellow-300 text-black px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-yellow-500/20 transition-all hover:scale-105 active:scale-95"
+              className="shrink-0 bg-gradient-to-r from-yellow-500 to-yellow-400 hover:from-yellow-400 hover:to-yellow-300 text-black px-4 py-2 md:px-6 md:py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-yellow-500/20 transition-all hover:scale-105 active:scale-95"
             >
-              Área Admin
+              Admin
             </Link>
           </div>
         </nav>

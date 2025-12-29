@@ -27,7 +27,7 @@ export default async function Home() {
               </div>
               
               <div className="w-full overflow-x-auto">
-                  <table className="w-full text-left border-collapse">
+                  <table className="w-full text-left border-collapse min-w-[500px]">
                     <thead className="bg-[#0a0a0a] text-gray-500 text-[10px] uppercase font-bold tracking-widest">
                       <tr>
                         <th className="p-5 w-[15%] text-center">Posição</th>

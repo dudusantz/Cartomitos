@@ -169,11 +169,15 @@ export default function TabelaPublica({ campeonatoId }: Props) {
       : 1;
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start animate-fadeIn">
+    // CORREÇÃO 1: Adicionado max-w-[100vw] e overflow-hidden para evitar scroll horizontal na página inteira
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start animate-fadeIn max-w-[100vw] overflow-hidden">
+      
       {/* ESQUERDA: CLASSIFICAÇÃO */}
-      <div className="lg:col-span-7">
+      {/* CORREÇÃO 2: min-w-0 evita que o grid exploda em telas pequenas */}
+      <div className="lg:col-span-7 min-w-0">
         <div className="bg-[#121212] border border-gray-800 rounded-3xl overflow-hidden shadow-2xl flex flex-col">
-          <div className="p-5 border-b border-gray-800 bg-[#0a0a0a] flex justify-between items-center">
+          {/* CORREÇÃO 3: Header flex-col no mobile para não encavalar texto */}
+          <div className="p-5 border-b border-gray-800 bg-[#0a0a0a] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <h2 className="text-lg font-black text-white uppercase tracking-widest flex items-center gap-2">
               <span className="text-xl">🏆</span> Classificação
             </h2>
@@ -266,8 +270,9 @@ export default function TabelaPublica({ campeonatoId }: Props) {
                             className="w-7 h-7 object-contain shrink-0 drop-shadow-md"
                           />
                           <div className="flex flex-col min-w-0 justify-center">
+                            {/* CORREÇÃO: Limite de largura no nome do time */}
                             <span
-                              className={`font-bold text-[11px] leading-tight group-hover:text-white transition ${
+                              className={`font-bold text-[11px] leading-tight group-hover:text-white transition truncate max-w-[120px] ${
                                 isG4 ? "text-gray-200" : "text-gray-400"
                               }`}
                             >
@@ -322,7 +327,7 @@ export default function TabelaPublica({ campeonatoId }: Props) {
         </div>
 
         {/* Legenda */}
-        <div className="flex gap-4 mt-4 px-2">
+        <div className="flex flex-wrap gap-4 mt-4 px-2">
           <div className="flex items-center gap-2 text-[10px] text-gray-500 font-bold uppercase tracking-wider">
             <span className="w-2 h-2 rounded-full bg-blue-500"></span> G4
           </div>
@@ -333,7 +338,8 @@ export default function TabelaPublica({ campeonatoId }: Props) {
       </div>
 
       {/* DIREITA: LISTA DE JOGOS */}
-      <div className="lg:col-span-5 space-y-6 sticky top-6">
+      {/* CORREÇÃO 4: min-w-0 aqui também */}
+      <div className="lg:col-span-5 space-y-6 sticky top-6 min-w-0">
         <div className="bg-[#121212] border border-gray-800 rounded-3xl p-5 shadow-xl">
           <div className="flex justify-between items-center mb-6">
             <span className="text-xs font-black text-white uppercase tracking-widest flex items-center gap-2">
@@ -411,7 +417,7 @@ export default function TabelaPublica({ campeonatoId }: Props) {
                   }`}
                 >
                   {isLive && (
-                    <div className="absolute top-2 right-2 flex items-center gap-1.5 bg-black/40 px-2 py-0.5 rounded-full border border-green-900/30 backdrop-blur-sm">
+                    <div className="absolute top-2 right-2 flex items-center gap-1.5 bg-black/40 px-2 py-0.5 rounded-full border border-green-900/30 backdrop-blur-sm z-10">
                       <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse shadow-[0_0_5px_rgba(34,197,94,0.8)]"></div>
                       <span className="text-[8px] font-bold text-green-500 uppercase tracking-wider">
                         Live
@@ -419,7 +425,7 @@ export default function TabelaPublica({ campeonatoId }: Props) {
                     </div>
                   )}
 
-                  <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 mt-1">
+                  <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 mt-1">
                     {/* MANDANTE */}
                     <div className="flex flex-col items-end gap-1 overflow-hidden">
                       <img
@@ -443,7 +449,7 @@ export default function TabelaPublica({ campeonatoId }: Props) {
 
                     {/* PLACAR */}
                     <div
-                      className={`flex flex-col items-center justify-center w-auto min-w-[80px] px-2 h-[36px] rounded-lg border font-mono text-sm font-black shadow-inner ${
+                      className={`flex flex-col items-center justify-center w-auto min-w-[70px] px-1 h-[36px] rounded-lg border font-mono text-sm font-black shadow-inner ${
                         isLive
                           ? "bg-green-900/10 border-green-500/30 text-green-400"
                           : temPlacar

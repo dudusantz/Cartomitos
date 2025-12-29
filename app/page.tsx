@@ -9,15 +9,18 @@ export default async function Home() {
   const tabelaOficial = await buscarLigaOficial() || []
 
   return (
-    <div className="max-w-7xl mx-auto p-6 md:p-10 animate-fadeIn min-h-screen">
+    // CORREÇÃO: p-4 no mobile, overflow-x-hidden para evitar scroll na página toda
+    <div className="max-w-7xl mx-auto p-4 md:p-10 animate-fadeIn min-h-screen overflow-x-hidden">
         
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 relative z-0">
 
           {/* === ESQUERDA: RANKING GERAL === */}
-          <div className="lg:col-span-2 space-y-8">
+          {/* CORREÇÃO: min-w-0 evita que o grid exploda lateralmente */}
+          <div className="lg:col-span-2 space-y-8 min-w-0">
             <section className="bg-[#121212] border border-white/5 rounded-3xl overflow-hidden shadow-2xl relative group">
               
-              <div className="bg-[#151515] p-6 flex justify-between items-center border-b border-white/5">
+              {/* CORREÇÃO: flex-col no mobile para o título não encavalar com o selo Top 5 */}
+              <div className="bg-[#151515] p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-white/5">
                 <h2 className="text-sm font-black flex items-center gap-3 text-white uppercase tracking-widest">
                   <span className="text-lg text-yellow-500">🏆</span> Ranking da Temporada
                 </h2>
@@ -26,7 +29,8 @@ export default async function Home() {
                 </span>
               </div>
               
-              <div className="w-full overflow-x-auto">
+              <div className="w-full overflow-x-auto custom-scrollbar">
+                  {/* CORREÇÃO: min-w-[500px] garante scroll horizontal na tabela */}
                   <table className="w-full text-left border-collapse min-w-[500px]">
                     <thead className="bg-[#0a0a0a] text-gray-500 text-[10px] uppercase font-bold tracking-widest">
                       <tr>
@@ -59,13 +63,13 @@ export default async function Home() {
                                   
                                   <td className="p-5">
                                     <div className="flex items-center gap-5">
-                                        <div className={`relative transition-all duration-500 ${isLeader ? 'scale-110 drop-shadow-[0_0_10px_rgba(234,179,8,0.4)]' : 'grayscale opacity-60 group-hover:grayscale-0 group-hover:opacity-100'}`}>
+                                        <div className={`relative transition-all duration-500 shrink-0 ${isLeader ? 'scale-110 drop-shadow-[0_0_10px_rgba(234,179,8,0.4)]' : 'grayscale opacity-60 group-hover:grayscale-0 group-hover:opacity-100'}`}>
                                             <img src={time.escudo} alt={time.time} className="w-12 h-12 object-contain" />
                                         </div>
                                         
-                                        <div className="flex flex-col gap-0.5">
-                                            <div className={`font-bold text-sm ${isLeader ? 'text-white' : 'text-gray-300'}`}>{time.time}</div>
-                                            <div className={`text-[10px] uppercase tracking-wider font-bold transition-colors ${isLeader ? 'text-yellow-500/70' : 'text-gray-600 group-hover:text-gray-400'}`}>
+                                        <div className="flex flex-col gap-0.5 min-w-0">
+                                            <div className={`font-bold text-sm truncate max-w-[150px] sm:max-w-none ${isLeader ? 'text-white' : 'text-gray-300'}`}>{time.time}</div>
+                                            <div className={`text-[10px] uppercase tracking-wider font-bold transition-colors truncate max-w-[150px] sm:max-w-none ${isLeader ? 'text-yellow-500/70' : 'text-gray-600 group-hover:text-gray-400'}`}>
                                                 {time.cartoleiro}
                                             </div>
                                         </div>
@@ -96,8 +100,9 @@ export default async function Home() {
             </section>
           </div>
 
-          {/* === DIREITA: RECORDES (AGORA O CARD TODO É CLICÁVEL) === */}
-          <div className="space-y-8" id="recordes">
+          {/* === DIREITA: RECORDES === */}
+          {/* CORREÇÃO: min-w-0 evita estouro */}
+          <div className="space-y-8 min-w-0" id="recordes">
             <Link href="/recordes" className="block group">
                 <div className="bg-[#121212] border border-white/5 rounded-3xl overflow-hidden shadow-2xl relative transition-all duration-300 hover:-translate-y-1 hover:border-blue-500/30 hover:shadow-blue-900/10">
                 
@@ -122,15 +127,14 @@ export default async function Home() {
                                 <div className={`font-black text-xl w-8 text-center ${index === 0 ? 'text-blue-500' : 'text-gray-700'}`}>
                                 {index + 1}
                                 </div>
-                                <img src={recorde.escudo} alt={recorde.time} className="w-10 h-10 object-contain mx-4 opacity-70 group-hover:opacity-100 transition-opacity" />
+                                <img src={recorde.escudo} alt={recorde.time} className="w-10 h-10 object-contain mx-4 opacity-70 group-hover:opacity-100 transition-opacity shrink-0" />
                                 <div className="flex-1 min-w-0">
                                     <div className="font-bold text-gray-200 text-xs truncate">{recorde.time}</div>
                                     <div className="text-[9px] text-gray-600 font-bold uppercase tracking-wide truncate">
                                         {recorde.liga} • R{recorde.rodada}
                                     </div>
                                 </div>
-                                <div className="text-right pl-3">
-                                    {/* CORREÇÃO AQUI: Mudado para toFixed(2) */}
+                                <div className="text-right pl-3 shrink-0">
                                     <div className="font-mono font-black text-green-500 text-sm">{Number(recorde.pontos).toFixed(2)}</div>
                                 </div>
                             </div>

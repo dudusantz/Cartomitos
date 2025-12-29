@@ -54,16 +54,17 @@ export default function RootLayout({
             </div>
 
             {/* LINHA INFERIOR (MOBILE) / CENTRO (PC): MENU */}
-            {/* No mobile, usa w-full e justify-center para espalhar os links */}
-            <div className="w-full md:w-auto flex items-center justify-center md:justify-end gap-6 md:gap-8 border-t border-white/5 md:border-none pt-2 md:pt-0">
+            {/* Usei gap-4 no mobile para caber "Galeria de Troféus" sem quebrar */}
+            <div className="w-full md:w-auto flex items-center justify-center md:justify-end gap-4 md:gap-8 border-t border-white/5 md:border-none pt-2 md:pt-0">
               <Link href="/" className="text-[11px] font-bold text-gray-400 hover:text-yellow-500 uppercase tracking-widest transition-colors">
                 Início
               </Link>
               <Link href="/campeonatos" className="text-[11px] font-bold text-gray-400 hover:text-yellow-500 uppercase tracking-widest transition-colors">
                 Campeonatos
               </Link>
+              {/* Texto completo restaurado */}
               <Link href="/campeoes" className="text-[11px] font-bold text-gray-400 hover:text-yellow-500 uppercase tracking-widest transition-colors">
-                Galeria
+                Galeria de Troféus
               </Link>
             </div>
 
@@ -80,7 +81,6 @@ export default function RootLayout({
         </nav>
 
         {/* CONTEÚDO */}
-        {/* Ajuste de altura mínima considerando que o header pode ser mais alto no mobile */}
         <main className="min-h-[calc(100vh-100px)] md:min-h-[calc(100vh-80px)]">
             {children}
         </main>

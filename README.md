@@ -1,36 +1,84 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# ⚽ Cartomitos
 
-## Getting Started
+**Cartomitos** é uma aplicação web desenvolvida para gerenciar ligas, campeonatos e preservar o histórico de estatísticas de ligas de Fantasy Football (focada em Cartola FC).
 
-First, run the development server:
+O sistema permite visualizar rankings, chaves de mata-mata, recordes históricos e possui uma área administrativa completa para gestão dos dados.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## 🚀 Tecnologias Utilizadas
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Este projeto foi desenvolvido com as tecnologias mais modernas do ecossistema React:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+-   **[Next.js 14+](https://nextjs.org/)** - Framework React (App Router)
+-   **[TypeScript](https://www.typescriptlang.org/)** - Tipagem estática
+-   **[Tailwind CSS](https://tailwindcss.com/)** - Estilização utilitária
+-   **[Supabase](https://supabase.com/)** - Banco de dados (PostgreSQL) e Autenticação
+-   **[Lucide React](https://lucide.dev/)** - Ícones
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## ✨ Funcionalidades
 
-## Learn More
+### Publico
+-   🏆 **Rankings e Tabelas:** Visualização de classificações de pontos corridos.
+-   ⚔️ **Mata-Mata:** Árvores de torneios (Brackets) visuais para campeonatos eliminatórios.
+-   📜 **Histórico:** Acesso aos dados e campeões de temporadas anteriores (organizado por ano).
+-   🏅 **Recordes e Campeões:** Hall da fama com os maiores pontuadores e vencedores.
 
-To learn more about Next.js, take a look at the following resources:
+### Administrativo (Área Restrita)
+-   🔒 Login seguro via Supabase Auth.
+-   ⚙️ Gerenciamento de Ligas e Times.
+-   ⚙️ Criação e atualização de Campeonatos.
+-   ⚙️ Sorteio e definição de chaves de Mata-mata.
+-   ⚙️ Ferramentas para salvar histórico e recordes.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 📦 Como rodar o projeto localmente
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Pré-requisitos
+-   Node.js instalado (versão 18 ou superior).
+-   Uma conta no Supabase (com um projeto criado).
 
-## Deploy on Vercel
+### Passo a passo
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+1.  **Clone o repositório:**
+    ```bash
+    git clone [https://github.com/dudusantz/cartomitos.git](https://github.com/dudusantz/cartomitos.git)
+    cd cartomitos
+    ```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+2.  **Instale as dependências:**
+    ```bash
+    npm install
+    # ou
+    yarn install
+    ```
+
+3.  **Configure as Variáveis de Ambiente:**
+    Crie um arquivo `.env.local` na raiz do projeto e adicione suas credenciais do Supabase:
+
+    ```env
+    NEXT_PUBLIC_SUPABASE_URL=sua_url_do_supabase_aqui
+    NEXT_PUBLIC_SUPABASE_ANON_KEY=sua_chave_anonima_aqui
+    ```
+
+4.  **Execute o servidor de desenvolvimento:**
+    ```bash
+    npm run dev
+    ```
+
+5.  **Acesse o projeto:**
+    Abra [http://localhost:3000](http://localhost:3000) no seu navegador.
+
+## 📂 Estrutura do Projeto
+
+-   `/app`: Páginas e rotas do Next.js (App Router).
+    -   `/admin`: Rotas protegidas para administração.
+    -   `/campeonatos`: Visualização de ligas e mata-mata.
+    -   `/historico`: Arquivos de anos anteriores.
+-   `/components`: Componentes reutilizáveis (UI, Modais, Tabelas).
+-   `/lib`: Configurações de serviços externos (Cliente Supabase).
+
+## 🤝 Contribuição
+
+Contribuições são bem-vindas! Sinta-se à vontade para abrir uma *issue* ou enviar um *pull request*.
+
+## 📝 Licença
+
+Este projeto está sob a licença MIT.

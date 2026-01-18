@@ -30,7 +30,7 @@ export default function RootLayout({
                 <Link href="/" className="flex items-center gap-2 group">
                     <div className="relative w-8 h-8 md:w-10 md:h-10 transition-transform group-hover:scale-110 duration-300">
                         <Image 
-                            src="/logo.png" 
+                            src="/logo-atual.png"
                             alt="Logo" 
                             width={40} 
                             height={40}

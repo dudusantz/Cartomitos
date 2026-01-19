@@ -51,7 +51,10 @@ export default function GerenciarLiga() {
   }, [tabAtiva, liga])
 
   async function carregarDados() {
+    // Busca os dados da liga
     const { data } = await supabase.from('campeonatos').select('*').eq('id', campeonatoId).single()
+    
+    // Atualiza os estados
     setLiga(data)
     setFinalUnica(data?.final_unica || false)
     
@@ -114,6 +117,19 @@ export default function GerenciarLiga() {
         textoBotao: 'Sim, Gerar'
     });
     setModalOpen(true);
+  }
+
+  // --- CORREÇÃO AQUI: TELA DE CARREGAMENTO ---
+  // Enquanto "liga" for null, mostramos um spinner em vez de tentar renderizar a página
+  if (!liga) {
+    return (
+      <div className="min-h-screen bg-[#050505] text-white flex items-center justify-center font-sans">
+         <div className="flex flex-col items-center gap-4 animate-fadeIn">
+             <div className="w-12 h-12 border-4 border-yellow-500/30 border-t-yellow-500 rounded-full animate-spin"></div>
+             <p className="text-xs font-bold uppercase tracking-widest text-gray-500">Carregando...</p>
+         </div>
+      </div>
+    )
   }
 
   return (

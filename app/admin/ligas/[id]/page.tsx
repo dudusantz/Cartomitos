@@ -241,10 +241,9 @@ export default function GerenciarLiga() {
 
             {/* PAINÉIS */}
             {tabAtiva === 'classificacao' && liga?.tipo === 'pontos_corridos' && (
-                <PainelPontosCorridos campeonatoId={campeonatoId} times={timesLiga} />
+                <PainelPontosCorridos campeonatoId={campeonatoId} />
             )}
 
-            {/* AQUI ESTÁ A CORREÇÃO: Adicionado rodadasCorte={0} */}
             {tabAtiva === 'jogos' && liga?.tipo === 'mata-mata' && (
                 <PainelMataMata key={mmKey} campeonatoId={campeonatoId} rodadasCorte={0} />
             )}

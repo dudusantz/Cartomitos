@@ -6,7 +6,6 @@ import { useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import {
   buscarPodium,
-  buscarTabelaGrupos,
   listarTimesDoCampeonato,
 } from "@/app/actions";
 import { Trophy, Calendar, Medal, ChevronLeft } from "lucide-react";
@@ -26,7 +25,7 @@ export default function PaginaPublicaCampeonato() {
   const [loading, setLoading] = useState(true);
 
   // Dados auxiliares para Copa
-  const [timesLiga, setTimesLiga] = useState<any[]>([]);
+  // const [timesLiga, setTimesLiga] = useState<any[]>([]); // Removido pois não estava sendo usado na renderização
 
   useEffect(() => {
     carregarDados();
@@ -49,14 +48,14 @@ export default function PaginaPublicaCampeonato() {
 
     // Busca times se for copa (para a fase de grupos)
     if (data?.tipo === "copa") {
-      const t = await listarTimesDoCampeonato(campeonatoId);
-      setTimesLiga(t);
+      await listarTimesDoCampeonato(campeonatoId);
+      // setTimesLiga(t);
     }
 
     // Define aba inicial padrão
     if (data) {
       if (data.tipo === "copa") setTabAtiva("grupos");
-      else if (data.tipo === "mata_mata") setTabAtiva("mata-mata");
+      else if (data.tipo === "mata-mata" || data.tipo === "mata_mata") setTabAtiva("mata-mata"); // Corrigido para aceitar ambos os formatos
       else setTabAtiva("tabela");
     }
     setLoading(false);
@@ -64,13 +63,13 @@ export default function PaginaPublicaCampeonato() {
 
   if (loading)
     return (
-      <div className="min-h-screen flex items-center justify-center text-gray-500">
+      <div className="min-h-screen flex items-center justify-center text-gray-500 bg-[#050505]">
         Carregando competição...
       </div>
     );
   if (!liga)
     return (
-      <div className="min-h-screen flex items-center justify-center text-white">
+      <div className="min-h-screen flex items-center justify-center text-white bg-[#050505]">
         Campeonato não encontrado.
       </div>
     );
@@ -214,7 +213,7 @@ export default function PaginaPublicaCampeonato() {
             </button>
           )}
 
-          {/* AJUSTE: Botão Fase de Grupos movido para ANTES do Fase Final */}
+          {/* Botão Fase de Grupos */}
           {liga.tipo === "copa" && (
             <button
               onClick={() => setTabAtiva("grupos")}
@@ -228,7 +227,7 @@ export default function PaginaPublicaCampeonato() {
             </button>
           )}
 
-          {(liga.tipo === "mata_mata" || liga.tipo === "copa") && (
+          {(liga.tipo === "mata-mata" || liga.tipo === "mata_mata" || liga.tipo === "copa") && (
             <button
               onClick={() => setTabAtiva("mata-mata")}
               className={`px-6 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition whitespace-nowrap ${
@@ -237,7 +236,7 @@ export default function PaginaPublicaCampeonato() {
                   : "bg-[#121212] text-gray-500 hover:text-white hover:bg-[#1a1a1a]"
               }`}
             >
-              {liga.tipo === "mata_mata" ? "Chaveamento" : "Fase Final"}
+              {liga.tipo.includes("mata") ? "Chaveamento" : "Fase Final"}
             </button>
           )}
         </div>
@@ -249,15 +248,14 @@ export default function PaginaPublicaCampeonato() {
           )}
 
           {tabAtiva === "mata-mata" && (
-            // MataMataPublico deve ser um componente que só exibe o Bracket sem controles de admin
             <MataMataPublico
               campeonatoId={campeonatoId}
-              rodadasCorte={liga.rodadas_corte}
+              // CORREÇÃO AQUI: Se for copa, corte é 6. Se não (mata-mata puro), é 0.
+              rodadasCorte={liga.tipo === "copa" ? 6 : 0}
             />
           )}
 
           {tabAtiva === "grupos" && (
-            // Removi o times={timesLiga} pois não é necessário
             <FaseGruposPublica campeonatoId={campeonatoId} />
           )}
         </div>

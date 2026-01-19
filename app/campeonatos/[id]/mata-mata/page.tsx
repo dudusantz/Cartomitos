@@ -4,8 +4,9 @@ import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from "@/lib/supabase"
-import { listarPartidas, buscarParciaisAoVivo } from "../../../actions"
+import { listarPartidas, buscarParciaisAoVivo } from "@/app/actions" // <--- CORRIGIDO: Caminho absoluto
 import MataMataBracket from '@/app/components/MataMataBracket'
+import { ChevronLeft } from 'lucide-react' // Adicionei ícone para consistência
 
 export default function PaginaMataMataPublica() {
   const { id } = useParams()
@@ -49,8 +50,7 @@ export default function PaginaMataMataPublica() {
 
     setLoadingLive(true)
     
-    // Busca parciais apenas dos jogos não finalizados (para economizar e ser mais rápido)
-    // Ou busca de todos da fase atual para garantir
+    // Busca parciais apenas dos jogos não finalizados
     const jogosParaAtualizar = partidasOriginais.filter(j => j.status !== 'finalizado' && j.status !== 'bye')
     
     const res = await buscarParciaisAoVivo(jogosParaAtualizar)
@@ -64,8 +64,7 @@ export default function PaginaMataMataPublica() {
                     ...original,
                     placar_casa: atualizado.placar_casa,
                     placar_visitante: atualizado.placar_visitante,
-                    // Mantemos o status original ou forçamos um visual de 'em andamento'?
-                    // O Bracket usa o placar para definir vencedor, então só o placar basta.
+                    // O Bracket usa o placar para definir vencedor visualmente
                 }
             }
             return original
@@ -79,23 +78,23 @@ export default function PaginaMataMataPublica() {
   }
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-cartola-gold selection:text-black pb-20">
+    <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-yellow-500 selection:text-black pb-20">
       
       {/* --- CABEÇALHO --- */}
       <div className="relative border-b border-gray-800/60 pt-10 pb-8 px-6 bg-gradient-to-b from-gray-900/50 to-black">
         <div className="max-w-7xl mx-auto relative z-10">
           <Link href={`/campeonatos/${id}`} className="inline-flex items-center gap-2 text-gray-500 hover:text-white text-xs font-bold uppercase tracking-widest transition mb-6">
-            <span>←</span> Voltar ao Início
+            <ChevronLeft size={14} /> Voltar ao Início
           </Link>
           
           <div className="flex flex-col md:flex-row justify-between items-end gap-6">
             <div>
               <div className="flex items-center gap-3 mb-1">
-                <span className="text-cartola-gold font-bold tracking-[0.2em] text-[10px] uppercase">
+                <span className="text-yellow-500 font-bold tracking-[0.2em] text-[10px] uppercase border border-yellow-500/20 px-2 py-0.5 rounded">
                   Mata-Mata Oficial
                 </span>
               </div>
-              <h1 className="text-4xl md:text-6xl font-black text-white tracking-tighter">
+              <h1 className="text-3xl md:text-5xl font-black text-white tracking-tighter">
                 {liga?.nome || 'Carregando...'}
               </h1>
             </div>
@@ -143,10 +142,10 @@ export default function PaginaMataMataPublica() {
       </div>
 
       {/* --- CONTEÚDO PRINCIPAL (BRACKET) --- */}
-      <main className="w-full overflow-hidden">
+      <main className="w-full overflow-hidden px-4">
         {loading ? (
             <div className="flex justify-center items-center h-64">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-cartola-gold"></div>
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-yellow-500"></div>
             </div>
         ) : partidasDisplay.length === 0 ? (
             <div className="max-w-4xl mx-auto mt-20 text-center p-10 border border-gray-800 border-dashed rounded-2xl bg-[#111]">

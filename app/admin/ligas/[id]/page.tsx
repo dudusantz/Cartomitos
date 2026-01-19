@@ -10,7 +10,7 @@ import {
   buscarPodium 
 } from '@/app/actions'
 import { supabase } from '@/lib/supabase'
-import { ModalConfirmacao } from '@/app/components/ModalConfirmacao' // <--- CORREÇÃO AQUI (COM CHAVES)
+import { ModalConfirmacao } from '@/app/components/ModalConfirmacao'
 import BotaoFinalizarCampeonato from '@/app/components/BotaoFinalizarCampeonato'
 import { Trophy, Calendar, Medal } from 'lucide-react'
 
@@ -72,7 +72,7 @@ export default function GerenciarLiga() {
     if (!redirFeito && data) {
         if (data.tipo === 'copa') setTabAtiva('grupos');
         else if (data.tipo === 'pontos_corridos') setTabAtiva('classificacao');
-        else if (data.tipo === 'mata-mata') setTabAtiva('jogos'); // corrigido de 'mata_mata' para 'mata-mata'
+        else if (data.tipo === 'mata-mata') setTabAtiva('jogos');
         setRedirFeito(true); 
     }
   }
@@ -245,7 +245,7 @@ export default function GerenciarLiga() {
             )}
 
             {tabAtiva === 'jogos' && liga?.tipo === 'mata-mata' && (
-                <PainelMataMata key={mmKey} campeonatoId={campeonatoId} />
+                <PainelMataMata key={mmKey} campeonatoId={campeonatoId} rodadasCorte={0} />
             )}
 
             {tabAtiva === 'jogos' && liga?.tipo === 'copa' && (
@@ -303,14 +303,21 @@ export default function GerenciarLiga() {
                         )}
                     </div>
                     
-                    <PainelMataMata key={mmKey} campeonatoId={campeonatoId} isCopa={true} />
+                    <PainelMataMata key={mmKey} campeonatoId={campeonatoId} rodadasCorte={6} bloquearGerador={true} isCopa={true} />
                 </div>
             )}
 
             {tabAtiva === 'grupos' && <PainelFaseGrupos campeonatoId={campeonatoId} />}
 
             {tabAtiva === 'times' && (
-                <PainelTimes campeonatoId={campeonatoId} ativo={liga.ativo} />
+                // CORREÇÃO: Passando as props obrigatórias para PainelTimes
+                <PainelTimes 
+                    campeonatoId={campeonatoId} 
+                    ativo={liga.ativo}
+                    timesLiga={timesLiga}
+                    todosTimes={todosTimes}
+                    aoAtualizar={carregarDados}
+                />
             )}
 
             {tabAtiva === 'config' && (

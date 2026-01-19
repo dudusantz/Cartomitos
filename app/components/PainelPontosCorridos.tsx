@@ -5,16 +5,16 @@ import toast from 'react-hot-toast'
 import { 
   gerarJogosPontosCorridos, atualizarRodadaPontosCorridos, 
   buscarTabelaPontosCorridos, zerarJogos, atualizarPlacarManual, listarPartidas, recalcularTabelaPontosCorridos 
-} from '../actions'
-import ModalConfirmacao from './ModalConfirmacao'
+} from '@/app/actions' // Ajustei para usar @/app/actions para garantir o caminho correto
+import { ModalConfirmacao } from './ModalConfirmacao' // <--- CORREÇÃO AQUI (COM CHAVES)
 import { Trophy, RefreshCw, Trash2, Save, X, Calendar, PlayCircle } from 'lucide-react'
 
 interface Props {
   campeonatoId: number
-  times: any[]
+  times?: any[] // Deixei opcional para evitar erros se não for passado em algum lugar
 }
 
-export default function PainelPontosCorridos({ campeonatoId, times }: Props) {
+export default function PainelPontosCorridos({ campeonatoId, times = [] }: Props) {
   const [tabela, setTabela] = useState<any[]>([])
   const [jogos, setJogos] = useState<any[]>([])
   const [rodadaView, setRodadaView] = useState(1)
@@ -69,7 +69,16 @@ export default function PainelPontosCorridos({ campeonatoId, times }: Props) {
   const totalRodadas = jogos.length > 0 ? Math.max(...jogos.map(j => j.rodada)) : 1
 
   function confirm(titulo: string, msg: string, action: () => void) {
-    setModalConfig({ titulo, mensagem: msg, onConfirm: () => { action(); setModalOpen(false) }, tipo: 'info' })
+    setModalConfig({ 
+        titulo, 
+        descricao: msg, // Ajustado de 'mensagem' para 'descricao' conforme a prop do componente Modal
+        onConfirm: async () => { 
+            await action(); 
+            setModalOpen(false) 
+        }, 
+        corBotao: 'blue',
+        textoBotao: 'Confirmar'
+    })
     setModalOpen(true)
   }
 
@@ -140,7 +149,15 @@ export default function PainelPontosCorridos({ campeonatoId, times }: Props) {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-fadeIn items-start pb-20">
-      <ModalConfirmacao isOpen={modalOpen} {...modalConfig} onCancel={() => setModalOpen(false)} />
+      <ModalConfirmacao 
+          isOpen={modalOpen} 
+          onClose={() => setModalOpen(false)}
+          onConfirm={modalConfig.onConfirm}
+          titulo={modalConfig.titulo || ""}
+          descricao={modalConfig.descricao || ""} // Corrigido para 'descricao'
+          corBotao={modalConfig.corBotao || "blue"}
+          textoBotao={modalConfig.textoBotao || "Confirmar"}
+      />
       
       {/* MODAL DE EDIÇÃO */}
       {editingId && (
@@ -272,7 +289,6 @@ export default function PainelPontosCorridos({ campeonatoId, times }: Props) {
                 <button onClick={handleAtualizarRodada} disabled={loading} className="bg-blue-600 hover:bg-blue-500 text-white px-4 rounded-lg text-[10px] font-bold uppercase transition disabled:opacity-50">{loading ? <RefreshCw className="animate-spin w-4 h-4"/> : 'Atualizar'}</button>
             </div>
             
-            {/* AQUI ESTÁ A CORREÇÃO: Removemos max-h e overflow-y para os jogos fluírem naturalmente */}
             <div className="space-y-3">
                 {jogosDaRodada.length === 0 && <div className="text-center text-gray-600 text-xs py-10 border border-dashed border-gray-800 rounded-xl">Sem jogos.</div>}
                 {jogosDaRodada.map(j => {

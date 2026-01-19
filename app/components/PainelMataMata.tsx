@@ -7,9 +7,9 @@ import {
   listarPartidas, 
   excluirMataMata, 
   atualizarPlacarManual 
-} from '../actions'
+} from '@/app/actions' // Usei @/app/actions para garantir o caminho absoluto correto
 import MataMataBracket from './MataMataBracket'
-import ModalConfirmacao from './ModalConfirmacao'
+import { ModalConfirmacao } from './ModalConfirmacao' // <--- CORRIGIDO: Importação com chaves
 import SorteioMataMata from './admin/SorteioMataMata'
 import { RefreshCw, Trash2, Trophy, Save, Edit3, Eye, Shield } from 'lucide-react'
 
@@ -17,6 +17,7 @@ interface Props {
   campeonatoId: number
   rodadasCorte: number
   bloquearGerador?: boolean 
+  isCopa?: boolean // Adicionado para compatibilidade caso seja passado
 }
 
 export default function PainelMataMata({ campeonatoId, rodadasCorte, bloquearGerador = false }: Props) {
@@ -46,6 +47,8 @@ export default function PainelMataMata({ campeonatoId, rodadasCorte, bloquearGer
     
     setPartidas(jogosMataMata)
     
+    // Se não tem jogos e o gerador não está bloqueado (ex: Mata-Mata puro), mostra sorteio.
+    // Se for Copa, o bloqueio vem true, então não mostra sorteio aqui (fica na aba anterior).
     if (jogosMataMata.length === 0) {
         setModoSorteio(!bloquearGerador)
     } else {
@@ -83,16 +86,17 @@ export default function PainelMataMata({ campeonatoId, rodadasCorte, bloquearGer
   async function handleLimpar() {
     setModalConfig({ 
         titulo: "Limpar Mata-Mata", 
-        mensagem: "Isso apagará TODOS os jogos desta fase. Tem certeza?", 
+        descricao: "Isso apagará TODOS os jogos desta fase. Tem certeza?", 
         onConfirm: async () => {
             const res = await excluirMataMata(campeonatoId, rodadasCorte + 1)
             if(res.success) { 
                 toast.success(res.msg); 
-                window.location.reload(); // Recarrega também ao limpar para evitar bugs visuais
+                window.location.reload(); // Recarrega para evitar bugs visuais
             }
             setModalOpen(false)
         }, 
-        tipo: 'perigo' 
+        corBotao: 'red',
+        textoBotao: 'Sim, Limpar'
     })
     setModalOpen(true)
   }
@@ -106,7 +110,7 @@ export default function PainelMataMata({ campeonatoId, rodadasCorte, bloquearGer
         <div className="flex flex-col items-center justify-center py-12 border border-dashed border-gray-800 rounded-2xl bg-white/5 animate-fadeIn">
             <div className="text-4xl mb-4 text-gray-700"><Trophy size={48} /></div>
             <h3 className="text-white font-bold text-lg">Aguardando Fase de Grupos</h3>
-            <p className="text-gray-500 text-sm mt-2 max-w-md text-center">O chaveamento aparecerá aqui automaticamente.</p>
+            <p className="text-gray-500 text-sm mt-2 max-w-md text-center">O chaveamento aparecerá aqui automaticamente após ser gerado.</p>
         </div>
       )
   }
@@ -119,12 +123,11 @@ export default function PainelMataMata({ campeonatoId, rodadasCorte, bloquearGer
                 <p className="text-gray-500 text-xs mb-4">Configure os potes abaixo para gerar os confrontos.</p>
             </div>
             
-            {/* AQUI ESTÁ A CORREÇÃO: Força o reload da página ao terminar o sorteio */}
             <SorteioMataMata 
                 campeonatoId={campeonatoId} 
                 onSucesso={() => {
                     toast.success("Chaves geradas! Atualizando página...");
-                    setTimeout(() => window.location.reload(), 1000); // Pequeno delay para o toast aparecer
+                    setTimeout(() => window.location.reload(), 1000);
                 }} 
             />
         </div>
@@ -133,7 +136,15 @@ export default function PainelMataMata({ campeonatoId, rodadasCorte, bloquearGer
 
   return (
     <div className="animate-fadeIn space-y-6">
-        <ModalConfirmacao isOpen={modalOpen} {...modalConfig} onCancel={() => setModalOpen(false)} />
+        <ModalConfirmacao 
+            isOpen={modalOpen} 
+            onClose={() => setModalOpen(false)}
+            onConfirm={modalConfig.onConfirm}
+            titulo={modalConfig.titulo || ""}
+            descricao={modalConfig.descricao || ""}
+            corBotao={modalConfig.corBotao || "blue"}
+            textoBotao={modalConfig.textoBotao || "Confirmar"}
+        />
         
         {/* === BARRA DE CONTROLE === */}
         <div className="bg-[#121212] p-5 rounded-xl border border-gray-800 flex flex-wrap gap-4 items-end shadow-lg relative overflow-hidden">
@@ -242,8 +253,8 @@ function CardPartidaEditavel({ partida, todosJogos, onUpdate }: { partida: any, 
     const jogoIda = todosJogos.find(p => p.rodada === partida.rodada - 1 && (p.time_casa === partida.time_visitante || p.time_casa === partida.time_casa));
     const jogoVolta = todosJogos.find(p => p.rodada === partida.rodada + 1 && (p.time_casa === partida.time_visitante || p.time_casa === partida.time_casa));
 
-    const isJogoIda = !!jogoVolta; 
-    const isJogoUnico = !jogoIda && !jogoVolta; 
+    // const isJogoIda = !!jogoVolta; 
+    // const isJogoUnico = !jogoIda && !jogoVolta; 
     const isJogoVolta = !!jogoIda;
 
     let isEmpateAgregado = false;
@@ -252,7 +263,7 @@ function CardPartidaEditavel({ partida, todosJogos, onUpdate }: { partida: any, 
     const pC_Atual = casa === '' ? 0 : Number(casa);
     const pV_Atual = visitante === '' ? 0 : Number(visitante);
 
-    if (isJogoUnico) {
+    if (!jogoIda && !jogoVolta) { // Jogo Único
         if (casa !== '' && visitante !== '' && pC_Atual === pV_Atual) {
             isEmpateAgregado = true;
         }

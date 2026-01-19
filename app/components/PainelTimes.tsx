@@ -2,14 +2,15 @@
 
 import { useState } from 'react'
 import toast from 'react-hot-toast'
-import { adicionarTimeAoCampeonato, removerTimeDaLiga } from '../actions'
-import ModalConfirmacao from './ModalConfirmacao'
+import { adicionarTimeAoCampeonato, removerTimeDaLiga } from '@/app/actions'
+import { ModalConfirmacao } from './ModalConfirmacao' // <--- IMPORT CORRIGIDO (COM CHAVES)
 
 interface Props {
   campeonatoId: number
   timesLiga: any[]
   todosTimes: any[]
   aoAtualizar: () => void // Função para recarregar dados na página pai
+  ativo?: boolean // Adicionado opcional para compatibilidade
 }
 
 export default function PainelTimes({ campeonatoId, timesLiga, todosTimes, aoAtualizar }: Props) {
@@ -19,6 +20,7 @@ export default function PainelTimes({ campeonatoId, timesLiga, todosTimes, aoAtu
   const [loading, setLoading] = useState(false)
 
   // Filtra times que AINDA NÃO estão na liga
+  // O filtro verifica se o ID do time não está presente na lista de participantes
   const timesDisponiveis = todosTimes.filter(
     t => !timesLiga.some(participante => participante.time_id === t.id)
   )
@@ -64,10 +66,11 @@ export default function PainelTimes({ campeonatoId, timesLiga, todosTimes, aoAtu
       <ModalConfirmacao 
         isOpen={modalOpen} 
         titulo="Remover Time" 
-        mensagem="Tem certeza que deseja remover este time do campeonato? Isso apagará o histórico dele nesta liga."
-        tipo="perigo"
+        descricao="Tem certeza que deseja remover este time do campeonato? Isso apagará o histórico dele nesta liga."
+        corBotao="red"
+        textoBotao={loading ? "Removendo..." : "Remover"}
         onConfirm={handleRemove} 
-        onCancel={() => setModalOpen(false)} 
+        onClose={() => setModalOpen(false)} 
       />
 
       {/* COLUNA ESQUERDA: BANCO DE TIMES (ADICIONAR) */}
@@ -137,10 +140,12 @@ export default function PainelTimes({ campeonatoId, timesLiga, todosTimes, aoAtu
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                     {timesLiga.map(item => {
                         const time = item.times; // Acesso seguro ao objeto time
+                        if (!time) return null;
+                        
                         return (
-                        <div key={item.id} className="relative group bg-[#0a0a0a] border border-gray-800 p-5 rounded-2xl flex flex-col items-center gap-3 hover:border-gray-600 transition-all hover:-translate-y-1 hover:shadow-xl">
+                        <div key={time.id} className="relative group bg-[#0a0a0a] border border-gray-800 p-5 rounded-2xl flex flex-col items-center gap-3 hover:border-gray-600 transition-all hover:-translate-y-1 hover:shadow-xl">
                             
-                            {/* Botão de Remover (Posição Absoluta corrigida para não bugar layout) */}
+                            {/* Botão de Remover */}
                             <button 
                                 onClick={(e) => { e.stopPropagation(); confirmarRemocao(time.id); }}
                                 className="absolute top-2 right-2 w-7 h-7 bg-gray-800 text-gray-500 hover:bg-red-500 hover:text-white rounded-lg flex items-center justify-center transition-colors z-10"

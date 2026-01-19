@@ -5,15 +5,15 @@ import toast from 'react-hot-toast'
 import { 
   sortearGrupos, gerarJogosFaseGrupos, buscarTabelaGrupos, 
   atualizarRodadaGrupos, listarPartidas, atualizarPlacarManual 
-} from '../actions'
-import ModalConfirmacao from './ModalConfirmacao'
+} from '@/app/actions' // Usei @/app/actions para garantir o caminho
+import { ModalConfirmacao } from './ModalConfirmacao' // <--- CORREÇÃO: Import com chaves
 
 interface Props {
   campeonatoId: number
-  times: any[]
+  times?: any[] // Deixei opcional para evitar erro se não for passado
 }
 
-export default function PainelFaseGrupos({ campeonatoId, times }: Props) {
+export default function PainelFaseGrupos({ campeonatoId, times = [] }: Props) {
   const [grupos, setGrupos] = useState<any>({})
   const [jogos, setJogos] = useState<any[]>([])
   const [rodadaView, setRodadaView] = useState(1)
@@ -56,6 +56,7 @@ export default function PainelFaseGrupos({ campeonatoId, times }: Props) {
     const jogosGrupos = dadosJogos.filter((j: any) => {
         const gCasa = mapaGrupos[j.time_casa]
         const gVis = mapaGrupos[j.time_visitante]
+        // Filtra jogos onde ambos os times são do mesmo grupo e a rodada é <= 20 (trava de segurança)
         return gCasa && gVis && gCasa === gVis && j.rodada <= 20
     })
     
@@ -82,9 +83,10 @@ export default function PainelFaseGrupos({ campeonatoId, times }: Props) {
   function confirm(titulo: string, msg: string, action: () => void) {
     setModalConfig({ 
         titulo, 
-        mensagem: msg, 
-        onConfirm: () => { action(); setModalOpen(false); }, 
-        tipo: 'info' 
+        descricao: msg, // Corrigido para 'descricao' conforme o componente Modal
+        onConfirm: async () => { await action(); setModalOpen(false); }, 
+        corBotao: 'blue',
+        textoBotao: 'Confirmar'
     })
     setModalOpen(true)
   }
@@ -121,7 +123,7 @@ export default function PainelFaseGrupos({ campeonatoId, times }: Props) {
         const ids = slice.map((t: any) => t.time_id)
         if (ids.length > 0) potes.push(ids)
     }
-    confirm("Confirmar Sorteio", `Grupos atuais serão apagados. Confirmar?`, async () => {
+    confirm("Confirmar Sorteio", `Grupos atuais serão apagados e novos serão gerados. Confirmar?`, async () => {
         const res = await sortearGrupos(campeonatoId, timesPorPote, potes)
         if(res.success) { toast.success(res.msg); await carregarDados() } else { toast.error(res.msg) }
     })
@@ -129,9 +131,9 @@ export default function PainelFaseGrupos({ campeonatoId, times }: Props) {
 
   async function handleGerarJogos() {
     if(jogos.length > 0) {
-        confirm("Regerar Jogos", "Apagar e recriar jogos?", async () => executarGeracaoJogos())
+        confirm("Regerar Jogos", "Isso apagará os jogos existentes e recriará a tabela. Tem certeza?", async () => executarGeracaoJogos())
     } else {
-        confirm("Gerar Jogos", "Criar confrontos?", async () => executarGeracaoJogos())
+        confirm("Gerar Jogos", "Criar confrontos de ida e volta para os grupos?", async () => executarGeracaoJogos())
     }
   }
 
@@ -160,12 +162,20 @@ export default function PainelFaseGrupos({ campeonatoId, times }: Props) {
   const totalRodadas = jogos.length > 0 ? Math.max(...jogos.map(j => j.rodada)) : 1
 
   // =====================================================================
-  // TELA DE SORTEIO (SEEDS) - MANTIDA IGUAL
+  // TELA DE SORTEIO (SEEDS)
   // =====================================================================
   if (!grupos || Object.keys(grupos).length === 0) {
       return (
         <div className="flex flex-col items-center animate-fadeIn py-4">
-            <ModalConfirmacao isOpen={modalOpen} {...modalConfig} onCancel={() => setModalOpen(false)} />
+            <ModalConfirmacao 
+                isOpen={modalOpen} 
+                onClose={() => setModalOpen(false)}
+                onConfirm={modalConfig.onConfirm}
+                titulo={modalConfig.titulo || ""}
+                descricao={modalConfig.descricao || ""}
+                corBotao={modalConfig.corBotao || "blue"}
+                textoBotao={modalConfig.textoBotao || "Confirmar"}
+            />
             <div className="text-center mb-6">
                 <h3 className="text-xl font-bold text-white">Definição dos Potes (Seeds)</h3>
                 <p className="text-gray-500 text-xs mt-1">Use as setas para organizar os times. O Pote 1 contém os cabeças de chave.</p>
@@ -208,7 +218,15 @@ export default function PainelFaseGrupos({ campeonatoId, times }: Props) {
   // =====================================================================
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-fadeIn items-start">
-      <ModalConfirmacao isOpen={modalOpen} {...modalConfig} onCancel={() => setModalOpen(false)} />
+      <ModalConfirmacao 
+          isOpen={modalOpen} 
+          onClose={() => setModalOpen(false)}
+          onConfirm={modalConfig.onConfirm}
+          titulo={modalConfig.titulo || ""}
+          descricao={modalConfig.descricao || ""}
+          corBotao={modalConfig.corBotao || "blue"}
+          textoBotao={modalConfig.textoBotao || "Confirmar"}
+      />
       
       {/* Modal Edição */}
       {editingId && (
@@ -236,7 +254,7 @@ export default function PainelFaseGrupos({ campeonatoId, times }: Props) {
                 <span className="text-sm font-black text-white uppercase tracking-widest">Fase de Grupos</span>
             </div>
             <div className="flex gap-3">
-                <button onClick={() => confirm("Re-sortear", "Deseja voltar para a tela de definição de potes?", abrirTelaSorteio)} className="bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition">Re-sortear</button>
+                <button onClick={() => confirm("Re-sortear", "Deseja voltar para a tela de definição de potes? Isso apagará os grupos atuais.", abrirTelaSorteio)} className="bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition">Re-sortear</button>
                 {jogos.length === 0 ? (
                     <button onClick={handleGerarJogos} className="bg-green-600 hover:bg-green-500 text-white px-5 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition shadow-lg shadow-green-900/20 animate-pulse">Gerar Jogos Agora</button>
                 ) : (
@@ -307,7 +325,7 @@ export default function PainelFaseGrupos({ campeonatoId, times }: Props) {
         </div>
       </div>
 
-      {/* COLUNA 2: JOGOS (NOVO DESIGN) */}
+      {/* COLUNA 2: JOGOS */}
       <div className="lg:col-span-1 space-y-6">
          <div className="bg-[#121212] border border-gray-800 rounded-3xl p-6 sticky top-6 shadow-xl h-fit">
             
@@ -349,12 +367,12 @@ export default function PainelFaseGrupos({ campeonatoId, times }: Props) {
                         onClick={() => { setEditingId(j.id); setTempCasa(j.placar_casa); setTempVisitante(j.placar_visitante); }} 
                         className="bg-gradient-to-br from-[#121212] to-[#0a0a0a] border border-gray-800/60 rounded-2xl p-4 cursor-pointer hover:border-gray-600 hover:to-[#151515] transition-all group relative overflow-hidden shadow-lg"
                     >
-                        {/* Indicador de Status (bolinha verde se finalizado) */}
+                        {/* Indicador de Status */}
                         {jaFoi && <div className="absolute top-2 right-2 w-1.5 h-1.5 bg-green-500 rounded-full shadow-[0_0_6px_rgba(34,197,94,0.8)]"></div>}
 
                         <div className="grid grid-cols-[1fr_auto_1fr] gap-4 items-center">
                             
-                            {/* Mandante (Alinhado à direita) */}
+                            {/* Mandante */}
                             <div className="flex flex-col items-end gap-1.5 overflow-hidden">
                                 <img src={casa?.escudo || '/shield-placeholder.png'} className={`w-8 h-8 object-contain drop-shadow-md transition-transform group-hover:scale-110 ${!vCasa && jaFoi && !empate ? 'opacity-60 grayscale' : ''}`} />
                                 <span className={`text-[10px] font-bold text-right leading-tight w-full truncate ${vCasa ? 'text-green-400' : 'text-gray-400 group-hover:text-gray-200'}`}>
@@ -362,7 +380,7 @@ export default function PainelFaseGrupos({ campeonatoId, times }: Props) {
                                 </span>
                             </div>
                             
-                            {/* Placar Centralizado */}
+                            {/* Placar */}
                             <div className={`
                                 flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg border font-mono font-black text-sm min-w-[70px] shadow-inner
                                 ${jaFoi ? 'bg-black/40 border-gray-700 text-white' : 'bg-black/20 border-gray-800 text-gray-600'}
@@ -372,7 +390,7 @@ export default function PainelFaseGrupos({ campeonatoId, times }: Props) {
                                 <span className={vVis ? 'text-green-400' : ''}>{j.placar_visitante ?? '-'}</span>
                             </div>
                             
-                            {/* Visitante (Alinhado à esquerda) */}
+                            {/* Visitante */}
                             <div className="flex flex-col items-start gap-1.5 overflow-hidden">
                                 <img src={visitante?.escudo || '/shield-placeholder.png'} className={`w-8 h-8 object-contain drop-shadow-md transition-transform group-hover:scale-110 ${!vVis && jaFoi && !empate ? 'opacity-60 grayscale' : ''}`} />
                                 <span className={`text-[10px] font-bold text-left leading-tight w-full truncate ${vVis ? 'text-green-400' : 'text-gray-400 group-hover:text-gray-200'}`}>

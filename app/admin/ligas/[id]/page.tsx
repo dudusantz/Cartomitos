@@ -10,7 +10,7 @@ import {
   buscarPodium 
 } from '@/app/actions'
 import { supabase } from '@/lib/supabase'
-import ModalConfirmacao from '@/app/components/ModalConfirmacao'
+import { ModalConfirmacao } from '@/app/components/ModalConfirmacao' // <--- CORREÇÃO AQUI (COM CHAVES)
 import BotaoFinalizarCampeonato from '@/app/components/BotaoFinalizarCampeonato'
 import { Trophy, Calendar, Medal } from 'lucide-react'
 
@@ -72,7 +72,7 @@ export default function GerenciarLiga() {
     if (!redirFeito && data) {
         if (data.tipo === 'copa') setTabAtiva('grupos');
         else if (data.tipo === 'pontos_corridos') setTabAtiva('classificacao');
-        else if (data.tipo === 'mata_mata') setTabAtiva('jogos');
+        else if (data.tipo === 'mata-mata') setTabAtiva('jogos'); // corrigido de 'mata_mata' para 'mata-mata'
         setRedirFeito(true); 
     }
   }
@@ -100,7 +100,7 @@ export default function GerenciarLiga() {
   async function handleGerarCopa() {
     setModalConfig({
         titulo: "Gerar Chave Final",
-        mensagem: "O sistema usará as regras: 1º vs 2º, trava de grupos e melhores campanhas em lados opostos. Confirmar?",
+        descricao: "O sistema usará as regras: 1º vs 2º, trava de grupos e melhores campanhas em lados opostos. Confirmar?",
         onConfirm: async () => {
             const res = await gerarMataMataCopa(campeonatoId);
             if (res.success) {
@@ -110,14 +110,23 @@ export default function GerenciarLiga() {
                 setModalOpen(false);
             } else { toast.error(res.msg); }
         },
-        tipo: 'info'
+        corBotao: 'green',
+        textoBotao: 'Sim, Gerar'
     });
     setModalOpen(true);
   }
 
   return (
     <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-yellow-500/30">
-        <ModalConfirmacao isOpen={modalOpen} {...modalConfig} onCancel={() => setModalOpen(false)} />
+        <ModalConfirmacao 
+            isOpen={modalOpen} 
+            onClose={() => setModalOpen(false)}
+            onConfirm={modalConfig.onConfirm}
+            titulo={modalConfig.titulo || ""}
+            descricao={modalConfig.descricao || ""}
+            corBotao={modalConfig.corBotao || "blue"}
+            textoBotao={modalConfig.textoBotao || "Confirmar"}
+        />
 
         {/* HEADER */}
         <div className="p-8 border-b border-gray-800 bg-[#080808]">
@@ -144,14 +153,13 @@ export default function GerenciarLiga() {
                         <button onClick={() => setTabAtiva('classificacao')} className={`px-5 py-2.5 rounded-lg font-bold text-xs uppercase transition tracking-wider whitespace-nowrap ${tabAtiva === 'classificacao' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}>Tabela</button>
                     )}
                     
-                    {/* CORREÇÃO: GRUPOS AGORA VEM ANTES DO MATA-MATA */}
                     {liga?.tipo === 'copa' && (
                         <button onClick={() => setTabAtiva('grupos')} className={`px-5 py-2.5 rounded-lg font-bold text-xs uppercase transition tracking-wider whitespace-nowrap ${tabAtiva === 'grupos' ? 'bg-yellow-600 text-black shadow-lg' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}>Grupos</button>
                     )}
 
-                    {(liga?.tipo === 'mata_mata' || liga?.tipo === 'copa') && (
+                    {(liga?.tipo === 'mata-mata' || liga?.tipo === 'copa') && (
                         <button onClick={() => setTabAtiva('jogos')} className={`px-5 py-2.5 rounded-lg font-bold text-xs uppercase transition tracking-wider whitespace-nowrap ${tabAtiva === 'jogos' ? 'bg-blue-600 text-white shadow-lg' : 'text-gray-500 hover:text-white hover:bg-white/5'}`}>
-                            {liga?.tipo === 'mata_mata' ? 'Chaveamento' : 'Mata-Mata'}
+                            {liga?.tipo === 'mata-mata' ? 'Chaveamento' : 'Mata-Mata'}
                         </button>
                     )}
                     
@@ -231,13 +239,13 @@ export default function GerenciarLiga() {
                 </div>
             )}
 
-            {/* PAINÉIS EXISTENTES... */}
+            {/* PAINÉIS */}
             {tabAtiva === 'classificacao' && liga?.tipo === 'pontos_corridos' && (
-                <PainelPontosCorridos campeonatoId={campeonatoId} times={timesLiga} />
+                <PainelPontosCorridos campeonatoId={campeonatoId} />
             )}
 
-            {tabAtiva === 'jogos' && liga?.tipo === 'mata_mata' && (
-                <PainelMataMata key={mmKey} campeonatoId={campeonatoId} rodadasCorte={0} bloquearGerador={false} />
+            {tabAtiva === 'jogos' && liga?.tipo === 'mata-mata' && (
+                <PainelMataMata key={mmKey} campeonatoId={campeonatoId} />
             )}
 
             {tabAtiva === 'jogos' && liga?.tipo === 'copa' && (
@@ -248,7 +256,6 @@ export default function GerenciarLiga() {
                                 <h3 className="text-xl font-bold text-white uppercase tracking-wider mb-2">Fase Final</h3>
                                 <p className="text-gray-400 text-xs">Regras: 1º vs 2º Colocado.</p>
                             </div>
-                            {/* Só mostra o botão se estiver ATIVO */}
                             {liga?.ativo && (
                                 <button onClick={handleGerarCopa} className="bg-gradient-to-r from-yellow-600 to-yellow-500 hover:from-yellow-500 hover:to-yellow-400 text-black px-6 py-4 rounded-xl text-xs font-black uppercase transition shadow-lg shadow-yellow-900/20 tracking-widest flex items-center gap-2">
                                     <span>⚡</span> Gerar Chave Final
@@ -296,14 +303,14 @@ export default function GerenciarLiga() {
                         )}
                     </div>
                     
-                    <PainelMataMata key={mmKey} campeonatoId={campeonatoId} rodadasCorte={6} bloquearGerador={true} />
+                    <PainelMataMata key={mmKey} campeonatoId={campeonatoId} isCopa={true} />
                 </div>
             )}
 
-            {tabAtiva === 'grupos' && <PainelFaseGrupos campeonatoId={campeonatoId} times={timesLiga} />}
+            {tabAtiva === 'grupos' && <PainelFaseGrupos campeonatoId={campeonatoId} />}
 
             {tabAtiva === 'times' && (
-                <PainelTimes campeonatoId={campeonatoId} timesLiga={timesLiga} todosTimes={todosTimes} aoAtualizar={carregarDados} />
+                <PainelTimes campeonatoId={campeonatoId} ativo={liga.ativo} />
             )}
 
             {tabAtiva === 'config' && (

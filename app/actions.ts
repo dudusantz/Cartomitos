@@ -1323,23 +1323,27 @@ export async function atualizarTodosDadosTimes() {
   let sucesso = 0;
   let falha = 0;
 
-  // 2. Percorrer cada time e buscar dados atualizados
-  // Usamos um loop for...of para não sobrecarregar a API com muitas requisições simultâneas
+  // 2. Percorrer cada time e buscar dados atualizados pelo ID (que nunca muda)
   for (const time of times) {
     try {
-      const dadosNovos = await fetchCartola(`https://api.cartola.globo.com/time/id/${time.time_id_cartola}`);
+      const respostaApi = await fetchCartola(`https://api.cartola.globo.com/time/id/${time.time_id_cartola}`);
       
-      if (dadosNovos && dadosNovos.time_id) {
+      // === CORREÇÃO AQUI ===
+      // A API retorna os dados dentro da propriedade 'time'.
+      // Antes estava pegando direto de 'respostaApi', por isso dava erro.
+      const dadosReais = respostaApi?.time; 
+
+      if (dadosReais && dadosReais.time_id) {
         await supabase.from('times').update({
-          nome: dadosNovos.nome,
-          nome_cartola: dadosNovos.nome_cartola,
-          escudo: dadosNovos.url_escudo_png,
-          slug: dadosNovos.slug
+          nome: dadosReais.nome,
+          nome_cartola: dadosReais.nome_cartola,
+          escudo: dadosReais.url_escudo_png,
+          slug: dadosReais.slug // Isso garante que o link novo seja salvo
         }).eq('id', time.id);
         
         sucesso++;
       } else {
-        console.error(`Falha ao buscar time: ${time.nome}`);
+        console.error(`Falha ao buscar time: ${time.nome} (API retornou vazio)`);
         falha++;
       }
     } catch (error) {
@@ -1348,12 +1352,12 @@ export async function atualizarTodosDadosTimes() {
     }
   }
 
-  // 3. Atualizar as páginas
+  // 3. Atualizar as páginas para mostrar os nomes novos
   revalidatePath('/admin/times');
   revalidatePath('/ranking');
 
   return { 
     success: true, 
-    msg: `Atualização concluída! ${sucesso} atualizados, ${falha} falhas.` 
+    msg: `Atualização concluída! ${sucesso} times atualizados, ${falha} falhas.` 
   };
 }

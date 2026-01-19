@@ -44,30 +44,49 @@ export async function buscarTimeCartola(termo: string) {
 }
 
 export async function salvarTime(prevState: { success: boolean, msg: string }, formData: FormData) {
-    const termo = formData.get('termo') as string;
-    if (!termo) return { success: false, msg: 'O campo de busca não pode estar vazio.' };
+  const termo = formData.get('termo') as string;
+  if (!termo) return { success: false, msg: 'O campo de busca não pode estar vazio.' };
 
-    const resultados = await buscarTimeCartola(termo);
-    if (resultados.length === 0) return { success: false, msg: `Nenhum time encontrado para o termo: "${termo}"` };
+  const resultados = await buscarTimeCartola(termo);
+  if (resultados.length === 0) return { success: false, msg: `Nenhum time encontrado para o termo: "${termo}"` };
 
-    const timeToSave = resultados[0];
-    
-    const { data: existe } = await supabase.from('times').select('id').eq('time_id_cartola', timeToSave.time_id).single();
-    if (existe) return { success: false, msg: `O time "${timeToSave.nome}" já está cadastrado!` };
-    
-    const { error } = await supabase.from('times').insert([{
+  const timeToSave = resultados[0];
+  
+  // 1. Verifica se o time já existe no seu banco
+  const { data: existe } = await supabase.from('times').select('id').eq('time_id_cartola', timeToSave.time_id).single();
+  
+  if (existe) {
+    // === MUDANÇA AQUI: ATUALIZAR EM VEZ DE BLOQUEAR ===
+    // Se o time já existe, atualizamos o nome, escudo e slug com os dados novos da API
+    const { error } = await supabase.from('times').update({
         nome: timeToSave.nome,
         nome_cartola: timeToSave.nome_cartola,
         escudo: timeToSave.url_escudo_png,
-        slug: timeToSave.slug,
-        time_id_cartola: timeToSave.time_id
-    }]);
-    
+        slug: timeToSave.slug
+    }).eq('id', existe.id);
+
     if (!error) {
         revalidatePath('/admin/times');
         revalidatePath('/ranking');
+        return { success: true, msg: `Dados do "${timeToSave.nome}" atualizados com sucesso!` };
     }
-    return { success: !error, msg: error ? error.message : `Time "${timeToSave.nome}" salvo com sucesso!` };
+    return { success: false, msg: error.message };
+  }
+  
+  // 2. Se não existe, cria um novo (Lógica antiga)
+  const { error } = await supabase.from('times').insert([{
+      nome: timeToSave.nome,
+      nome_cartola: timeToSave.nome_cartola,
+      escudo: timeToSave.url_escudo_png,
+      slug: timeToSave.slug,
+      time_id_cartola: timeToSave.time_id
+  }]);
+  
+  if (!error) {
+      revalidatePath('/admin/times');
+      revalidatePath('/ranking');
+  }
+  return { success: !error, msg: error ? error.message : `Time "${timeToSave.nome}" salvo com sucesso!` };
 }
 
 export async function criarCampeonato(nome: string, ano: number, tipo: string) {
@@ -1291,4 +1310,50 @@ export async function salvarRankingAtual(ano: number) {
         console.error("Erro ao salvar ranking:", error);
         return { success: false, msg: "Falha interna ao salvar ranking." };
     }
+}
+
+export async function atualizarTodosDadosTimes() {
+  // 1. Buscar todos os times salvos no banco
+  const { data: times } = await supabase.from('times').select('id, time_id_cartola, nome');
+  
+  if (!times || times.length === 0) {
+    return { success: false, msg: "Nenhum time encontrado no banco de dados." };
+  }
+
+  let sucesso = 0;
+  let falha = 0;
+
+  // 2. Percorrer cada time e buscar dados atualizados
+  // Usamos um loop for...of para não sobrecarregar a API com muitas requisições simultâneas
+  for (const time of times) {
+    try {
+      const dadosNovos = await fetchCartola(`https://api.cartola.globo.com/time/id/${time.time_id_cartola}`);
+      
+      if (dadosNovos && dadosNovos.time_id) {
+        await supabase.from('times').update({
+          nome: dadosNovos.nome,
+          nome_cartola: dadosNovos.nome_cartola,
+          escudo: dadosNovos.url_escudo_png,
+          slug: dadosNovos.slug
+        }).eq('id', time.id);
+        
+        sucesso++;
+      } else {
+        console.error(`Falha ao buscar time: ${time.nome}`);
+        falha++;
+      }
+    } catch (error) {
+      console.error(`Erro ao atualizar time ${time.nome}:`, error);
+      falha++;
+    }
+  }
+
+  // 3. Atualizar as páginas
+  revalidatePath('/admin/times');
+  revalidatePath('/ranking');
+
+  return { 
+    success: true, 
+    msg: `Atualização concluída! ${sucesso} atualizados, ${falha} falhas.` 
+  };
 }

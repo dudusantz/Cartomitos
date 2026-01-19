@@ -241,9 +241,10 @@ export default function GerenciarLiga() {
 
             {/* PAINÉIS */}
             {tabAtiva === 'classificacao' && liga?.tipo === 'pontos_corridos' && (
-                <PainelPontosCorridos campeonatoId={campeonatoId} />
+                <PainelPontosCorridos campeonatoId={campeonatoId} times={timesLiga} />
             )}
 
+            {/* AQUI ESTÁ A CORREÇÃO: Adicionado rodadasCorte={0} */}
             {tabAtiva === 'jogos' && liga?.tipo === 'mata-mata' && (
                 <PainelMataMata key={mmKey} campeonatoId={campeonatoId} rodadasCorte={0} />
             )}
@@ -307,13 +308,12 @@ export default function GerenciarLiga() {
                 </div>
             )}
 
-            {tabAtiva === 'grupos' && <PainelFaseGrupos campeonatoId={campeonatoId} />}
+            {tabAtiva === 'grupos' && <PainelFaseGrupos campeonatoId={campeonatoId} times={timesLiga} />}
 
             {tabAtiva === 'times' && (
-                // CORREÇÃO: Passando as props obrigatórias para PainelTimes
                 <PainelTimes 
                     campeonatoId={campeonatoId} 
-                    ativo={liga.ativo}
+                    ativo={liga.ativo} 
                     timesLiga={timesLiga}
                     todosTimes={todosTimes}
                     aoAtualizar={carregarDados}

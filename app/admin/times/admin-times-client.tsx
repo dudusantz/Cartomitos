@@ -1,15 +1,15 @@
-// app/admin/times/admin-times-client.tsx
 'use client'
 
-import { useState, useActionState } from 'react'; // <--- IMPORTAÇÃO CORRIGIDA (Vem do 'react')
-import { useFormStatus } from 'react-dom'; 
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { 
-    salvarTime,
+    buscarTimeCartola,
+    salvarTimePorId, 
     removerTime,
 } from '@/app/actions';
+import { Search, Plus, Trash2, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 
-// Define o tipo para o objeto Time
+// Tipos
 interface Time {
     id: number;
     time_id_cartola: number;
@@ -18,8 +18,15 @@ interface Time {
     slug: string;
 }
 
+interface ResultadoBusca {
+    time_id: number;
+    nome: string;
+    nome_cartola: string;
+    url_escudo_png: string;
+}
+
 // ======================================================================================
-// COMPONENTE: Modal de Confirmação (Estilo Ultra Dark)
+// COMPONENTE: Modal de Confirmação
 // ======================================================================================
 interface ModalProps {
     show: boolean;
@@ -32,41 +39,26 @@ function ConfirmacaoExclusaoModal({ show, timeNome, onConfirm, onCancel }: Modal
     if (!show) return null;
 
     return (
-        // Overlay escuro
-        <div className="fixed inset-0 bg-black bg-opacity-95 z-50 flex items-center justify-center p-4">
-            {/* Modal Box */}
-            <div className="bg-gray-950 p-8 rounded-xl shadow-2xl border border-red-600/50 w-full max-w-md">
-                
-                {/* Título de Aviso */}
-                <h3 className="text-2xl font-black mb-4 text-red-500 border-b border-gray-800 pb-3 flex items-center uppercase tracking-wider">
-                    <svg className="w-6 h-6 mr-3 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.398 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-                    AÇÃO CRÍTICA
+        <div className="fixed inset-0 bg-black bg-opacity-95 z-50 flex items-center justify-center p-4 backdrop-blur-sm animate-fadeIn">
+            <div className="bg-gray-950 p-8 rounded-2xl shadow-2xl border border-red-600/30 w-full max-w-md relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-red-600 to-red-900"></div>
+                <h3 className="text-2xl font-black mb-4 text-red-500 flex items-center gap-3 uppercase tracking-wider">
+                    <Trash2 className="w-6 h-6" />
+                    Excluir Time?
                 </h3>
-                
-                {/* Texto Aprimorado */}
                 <p className="text-gray-300 text-base mb-6 leading-relaxed">
-                    Confirme a remoção do time 
-                    <span className="font-extrabold text-yellow-500 underline"> {timeNome}</span>.
+                    Você tem certeza que deseja remover o time <strong className="text-white text-lg block mt-1">{timeNome}</strong>?
                 </p>
-                <div className="text-red-300 text-sm italic border-l-4 border-red-500 pl-3 py-2 bg-gray-900 rounded-md">
-                    <p className="font-bold">CONSEQUÊNCIA:</p>
-                    <p className="text-xs mt-1">Este time será permanentemente excluído do banco de dados e removido de todas as ligas e históricos de pontuação.</p>
+                <div className="bg-red-950/30 border border-red-900/50 rounded-lg p-4 mb-8">
+                    <p className="text-red-400 text-xs font-bold uppercase mb-1">Atenção</p>
+                    <p className="text-red-300/80 text-sm">Isso removerá o time de todas as ligas e apagará o histórico de pontuações dele.</p>
                 </div>
-
-                {/* Botões */}
-                <div className="flex justify-end space-x-4 mt-8">
-                    <button
-                        onClick={onCancel}
-                        className="bg-gray-700 hover:bg-gray-600 text-white font-semibold py-2 px-5 rounded-md transition-colors text-sm"
-                    >
-                        Manter (Cancelar)
+                <div className="flex justify-end gap-3">
+                    <button onClick={onCancel} className="px-5 py-2.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 font-bold text-sm transition-colors">
+                        Cancelar
                     </button>
-                    <button
-                        onClick={onConfirm}
-                        // Botão de Exclusão com foco e sombra
-                        className="bg-red-600 hover:bg-red-700 text-white font-extrabold py-2 px-5 rounded-md transition-colors text-sm shadow-xl shadow-red-900/50"
-                    >
-                        EXCLUIR AGORA
+                    <button onClick={onConfirm} className="px-5 py-2.5 rounded-lg bg-red-600 hover:bg-red-500 text-white font-bold text-sm shadow-lg shadow-red-900/20 transition-all hover:scale-105">
+                        Sim, Excluir
                     </button>
                 </div>
             </div>
@@ -75,62 +67,138 @@ function ConfirmacaoExclusaoModal({ show, timeNome, onConfirm, onCancel }: Modal
 }
 
 // ======================================================================================
-// Componente auxiliar para o formulário (Client-Side)
+// NOVO COMPONENTE: Painel de Busca e Adição
 // ======================================================================================
-function FormularioAdicionar() {
-    const initialState = { success: true, msg: '' };
-    
-    // <--- USO CORRIGIDO: useActionState
-    const [state, formAction] = useActionState(salvarTime, initialState);
+function PainelBusca({ onTimeAdicionado }: { onTimeAdicionado: (time: Time) => void }) {
+    const [termo, setTermo] = useState('');
+    const [resultados, setResultados] = useState<ResultadoBusca[]>([]);
+    const [buscando, setBuscando] = useState(false);
+    const [adicionandoId, setAdicionandoId] = useState<number | null>(null);
+    const [mensagem, setMensagem] = useState<{ tipo: 'sucesso' | 'erro', texto: string } | null>(null);
 
-    const SubmitButton = () => {
-        const { pending } = useFormStatus();
-        return (
-            <button
-                type="submit"
-                disabled={pending}
-                // Botão principal Yellow-500 com efeito "brilhante" (shadow)
-                className="w-full bg-yellow-500 hover:bg-yellow-400 text-gray-950 font-extrabold py-3 px-4 rounded-lg transition-colors disabled:bg-gray-700 disabled:text-gray-400 disabled:cursor-not-allowed shadow-xl shadow-yellow-700/50"
-            >
-                {pending ? 'Buscando e Salvando...' : 'ADICIONAR TIME'}
-            </button>
-        );
+    const handleBuscar = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!termo.trim()) return;
+
+        setBuscando(true);
+        setMensagem(null);
+        setResultados([]);
+
+        const res = await buscarTimeCartola(termo);
+        setResultados(res || []);
+        setBuscando(false);
+
+        if (!res || res.length === 0) {
+            setMensagem({ tipo: 'erro', texto: 'Nenhum time encontrado.' });
+        }
+    };
+
+    const handleAdicionar = async (timeId: number) => {
+        setAdicionandoId(timeId);
+        setMensagem(null);
+        
+        // Chama a nova função que salva pelo ID
+        const res = await salvarTimePorId(timeId);
+        
+        if (res.success && res.time) {
+            setMensagem({ tipo: 'sucesso', texto: res.msg });
+            // Atualiza a lista principal imediatamente
+            onTimeAdicionado(res.time);
+            // Remove o time da lista de resultados visualmente
+            setResultados(prev => prev.filter(t => t.time_id !== timeId));
+        } else {
+            setMensagem({ tipo: 'erro', texto: res.msg || 'Erro desconhecido' });
+        }
+        setAdicionandoId(null);
     };
 
     return (
-        <form action={formAction} className="space-y-5">
-            
-            <input
-                type="text"
-                name="termo"
-                placeholder="Nome do Time ou Cartoleiro..."
-                required
-                // Input com foco em Yellow-500 e fundo muito escuro
-                className="w-full p-3 border border-gray-700 rounded-lg bg-black/30 text-white placeholder-gray-500 focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
-            />
-            
-            <SubmitButton />
+        <div className="space-y-6">
+            {/* Barra de Pesquisa */}
+            <form onSubmit={handleBuscar} className="relative group">
+                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    {buscando ? <Loader2 className="w-5 h-5 text-yellow-500 animate-spin" /> : <Search className="w-5 h-5 text-gray-500 group-focus-within:text-yellow-500 transition-colors" />}
+                </div>
+                <input
+                    type="text"
+                    value={termo}
+                    onChange={(e) => setTermo(e.target.value)}
+                    placeholder="Digite o nome do time..."
+                    className="w-full pl-12 pr-32 py-4 bg-black/40 border border-gray-800 rounded-xl text-white placeholder-gray-500 focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500 outline-none transition-all text-lg"
+                />
+                <button 
+                    type="submit" 
+                    disabled={buscando || !termo.trim()}
+                    className="absolute right-2 top-2 bottom-2 bg-yellow-500 hover:bg-yellow-400 text-black font-bold px-6 rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    Buscar
+                </button>
+            </form>
 
-            {state.msg && (
-                <p className={`text-sm font-medium p-3 rounded-lg text-center ${state.success ? 'bg-green-900/40 text-green-400' : 'bg-red-900/40 text-red-400'}`}>
-                    {state.msg}
-                </p>
+            {/* Mensagens de Feedback */}
+            {mensagem && (
+                <div className={`p-4 rounded-xl flex items-center gap-3 animate-fadeIn ${mensagem.tipo === 'sucesso' ? 'bg-green-900/20 text-green-400 border border-green-900/50' : 'bg-red-900/20 text-red-400 border border-red-900/50'}`}>
+                    {mensagem.tipo === 'sucesso' ? <CheckCircle className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
+                    <span className="font-medium">{mensagem.texto}</span>
+                </div>
             )}
-        </form>
+
+            {/* Lista de Resultados da Busca */}
+            {resultados.length > 0 && (
+                <div className="space-y-2 animate-fadeIn">
+                    <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3 pl-1">Resultados Encontrados ({resultados.length})</h3>
+                    <div className="max-h-[300px] overflow-y-auto pr-2 space-y-2 custom-scrollbar">
+                        {resultados.map((time) => (
+                            <div key={time.time_id} className="flex items-center justify-between p-3 bg-gray-900/50 border border-gray-800 rounded-xl hover:bg-gray-800 transition-colors group">
+                                <div className="flex items-center gap-4">
+                                    <img src={time.url_escudo_png} alt={time.nome} className="w-12 h-12 object-contain" />
+                                    <div>
+                                        <h4 className="font-bold text-white text-base group-hover:text-yellow-500 transition-colors">{time.nome}</h4>
+                                        <p className="text-gray-500 text-xs">{time.nome_cartola}</p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => handleAdicionar(time.time_id)}
+                                    disabled={adicionandoId === time.time_id}
+                                    className="bg-gray-800 hover:bg-green-600 text-white p-2.5 rounded-lg transition-all disabled:opacity-50 border border-gray-700 hover:border-green-500"
+                                    title="Adicionar Time"
+                                >
+                                    {adicionandoId === time.time_id ? (
+                                        <Loader2 className="w-5 h-5 animate-spin" />
+                                    ) : (
+                                        <Plus className="w-5 h-5" />
+                                    )}
+                                </button>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+        </div>
     );
 }
 
-
 // ======================================================================================
-// Componente Client-Side principal
+// COMPONENTE PRINCIPAL
 // ======================================================================================
 export default function AdminTimesClient({ initialTimes }: { initialTimes: Time[] }) {
     const router = useRouter();
     const [times, setTimes] = useState(initialTimes);
     const [loadingId, setLoadingId] = useState<number | null>(null);
-    
     const [showModal, setShowModal] = useState(false);
     const [timeParaExcluir, setTimeParaExcluir] = useState<{ id: number, nome: string } | null>(null);
+
+    // Função que atualiza a lista automaticamente quando um time é adicionado
+    const atualizarLista = (novoTime: Time) => {
+        setTimes(prev => {
+            // Verifica se o time já está na lista para não duplicar visualmente
+            if (prev.some(t => t.time_id_cartola === novoTime.time_id_cartola)) {
+                return prev.map(t => t.time_id_cartola === novoTime.time_id_cartola ? novoTime : t);
+            }
+            return [novoTime, ...prev];
+        });
+        router.refresh(); // Garante que o servidor também saiba da atualização
+    };
 
     const handleClickRemover = (timeIdCartola: number, timeNome: string) => {
         setTimeParaExcluir({ id: timeIdCartola, nome: timeNome });
@@ -139,111 +207,89 @@ export default function AdminTimesClient({ initialTimes }: { initialTimes: Time[
     
     const handleConfirmExclusao = async () => {
         if (!timeParaExcluir) return;
-
         setShowModal(false);
         setLoadingId(timeParaExcluir.id);
 
         const result = await removerTime(timeParaExcluir.id);
-
         setLoadingId(null);
         setTimeParaExcluir(null);
 
         if (result.success) {
             setTimes(prev => prev.filter(time => time.time_id_cartola !== timeParaExcluir.id));
-            alert(result.msg);
         } else {
             alert(`Falha ao excluir: ${result.msg}`);
         }
     }
 
-    const handleCancelExclusao = () => {
-        setShowModal(false);
-        setTimeParaExcluir(null);
-    }
-
-
     return (
-        <>
-            <div className="w-full max-w-lg">
+        <div className="max-w-6xl mx-auto w-full">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-8">
+                <button onClick={() => router.back()} className="text-gray-400 hover:text-white flex items-center gap-2 transition-colors font-medium text-sm uppercase tracking-widest">
+                    ← Voltar
+                </button>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
                 
-                {/* Cabeçalho da Página com Botão Voltar */}
-                <div className="flex justify-between items-center mb-6">
-                    <button
-                        onClick={() => router.back()}
-                        // Botão Voltar com Ícone
-                        className="flex items-center text-yellow-500 hover:text-yellow-400 transition-colors font-bold text-base uppercase tracking-wider"
-                    >
-                        <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
-                        VOLTAR
-                    </button>
-                    {/* Aqui ficaria o título principal da página, que já está na page.tsx */}
+                {/* COLUNA 1: Pesquisa */}
+                <div className="bg-gray-950 p-6 rounded-2xl border border-gray-800 shadow-2xl relative overflow-hidden">
+                    <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-yellow-600 to-yellow-400"></div>
+                    <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+                        <Search className="w-5 h-5 text-yellow-500" />
+                        Pesquisar & Adicionar
+                    </h2>
+                    <PainelBusca onTimeAdicionado={atualizarLista} />
                 </div>
 
-                {/* Card de Cadastro (Painel de Alto Contraste) */}
-                <div 
-                    className="
-                        bg-gray-950 p-6 rounded-xl w-full mb-8 
-                        border border-yellow-500/30 shadow-xl shadow-black/70
-                    "
-                >
-                    <h2 className="text-xl font-bold mb-4 text-yellow-500 border-b border-gray-800 pb-2 uppercase tracking-wider">
-                        Painel de Cadastro de Times
-                    </h2>
-                    <FormularioAdicionar />
-                </div>
-                
-                {/* Seção da Lista de Times */}
-                <div className="mt-4 w-full">
-                    <h2 className="text-xl font-bold mb-4 text-gray-300 border-b border-gray-800 pb-2 uppercase tracking-wider">
-                        Times Cadastrados ({times.length})
-                    </h2>
+                {/* COLUNA 2: Lista de Cadastrados */}
+                <div className="bg-gray-950 p-6 rounded-2xl border border-gray-800 shadow-2xl">
+                    <div className="flex justify-between items-center mb-6">
+                        <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                            <CheckCircle className="w-5 h-5 text-green-500" />
+                            Times na Base
+                        </h2>
+                        <span className="bg-gray-800 text-gray-300 text-xs font-bold px-3 py-1 rounded-full">
+                            {times.length}
+                        </span>
+                    </div>
                     
                     {times.length === 0 ? (
-                        <div className="bg-gray-900 p-4 rounded-lg text-center border border-gray-800">
-                            <p className="text-gray-400">Nenhum time cadastrado.</p>
+                        <div className="text-center py-10 text-gray-500 border-2 border-dashed border-gray-800 rounded-xl">
+                            Nenhum time cadastrado ainda.
                         </div>
                     ) : (
-                        <ul className="space-y-3">
+                        <div className="space-y-3 max-h-[600px] overflow-y-auto custom-scrollbar pr-2">
                             {times.map((time) => (
-                                // Cartão de lista em alto contraste
-                                <li key={time.id} className="flex justify-between items-center p-3 bg-gray-950 border border-gray-800 rounded-lg shadow-lg hover:bg-black/50 transition-colors duration-200">
-                                    <div className="flex items-center gap-3 min-w-0">
-                                        {/* Escudo com borda fina de destaque */}
-                                        <img 
-                                            src={time.escudo} 
-                                            alt={time.nome} 
-                                            className="w-10 h-10 object-contain rounded-full border border-yellow-500/30 p-0.5 bg-black flex-shrink-0" 
-                                        />
+                                <div key={time.id} className="flex justify-between items-center p-3 bg-black/40 border border-gray-800/50 rounded-xl hover:border-gray-700 transition-all group">
+                                    <div className="flex items-center gap-3 overflow-hidden">
+                                        <img src={time.escudo} alt={time.nome} className="w-10 h-10 object-contain" />
                                         <div className="min-w-0">
-                                            {/* Nome do Time em destaque */}
-                                            <div className="font-semibold text-base text-white truncate">{time.nome}</div>
-                                            {/* Detalhe do ID do Cartola */}
-                                            <div className="text-xs text-gray-400">ID: {time.time_id_cartola}</div>
+                                            <p className="font-bold text-gray-200 truncate text-sm group-hover:text-white transition-colors">{time.nome}</p>
+                                            <p className="text-xs text-gray-500">ID: {time.time_id_cartola}</p>
                                         </div>
                                     </div>
                                     <button
                                         onClick={() => handleClickRemover(time.time_id_cartola, time.nome)}
                                         disabled={loadingId === time.time_id_cartola}
-                                        // Botão de exclusão
-                                        className={`bg-red-600 hover:bg-red-700 text-white font-bold py-1 px-3 rounded-md text-sm transition-colors disabled:bg-gray-700 disabled:text-gray-400 disabled:cursor-not-allowed`}
+                                        className="text-gray-500 hover:text-red-500 p-2 rounded-lg hover:bg-red-500/10 transition-colors"
+                                        title="Remover"
                                     >
-                                        {loadingId === time.time_id_cartola ? '...' : 'Excluir'}
+                                        {loadingId === time.time_id_cartola ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                                     </button>
-                                </li>
+                                </div>
                             ))}
-                        </ul>
+                        </div>
                     )}
                 </div>
-
             </div>
 
-            {/* Renderiza o Modal de Confirmação */}
             <ConfirmacaoExclusaoModal 
                 show={showModal}
                 timeNome={timeParaExcluir?.nome || ''}
                 onConfirm={handleConfirmExclusao}
-                onCancel={handleCancelExclusao}
+                onCancel={() => setShowModal(false)}
             />
-        </>
+        </div>
     );
 }

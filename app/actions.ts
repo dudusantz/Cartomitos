@@ -1361,3 +1361,52 @@ export async function atualizarTodosDadosTimes() {
     msg: `Atualização concluída! ${sucesso} times atualizados, ${falha} falhas.` 
   };
 }
+
+export async function salvarTimePorId(timeId: number) {
+  try {
+    // Busca os dados detalhados do time pelo ID
+    const dados = await fetchCartola(`https://api.cartola.globo.com/time/id/${timeId}`);
+    const timeToSave = dados?.time;
+
+    if (!timeToSave) return { success: false, msg: 'Erro: Time não encontrado na API do Cartola.' };
+
+    // Verifica se já existe
+    const { data: existe } = await supabase.from('times').select('id').eq('time_id_cartola', timeToSave.time_id).single();
+
+    let timeSalvo;
+
+    if (existe) {
+        // Atualiza
+        const { data, error } = await supabase.from('times').update({
+            nome: timeToSave.nome,
+            nome_cartola: timeToSave.nome_cartola,
+            escudo: timeToSave.url_escudo_png,
+            slug: timeToSave.slug
+        }).eq('id', existe.id).select().single();
+
+        if (error) return { success: false, msg: error.message };
+        timeSalvo = data;
+    } else {
+        // Cria novo
+        const { data, error } = await supabase.from('times').insert([{
+            nome: timeToSave.nome,
+            nome_cartola: timeToSave.nome_cartola,
+            escudo: timeToSave.url_escudo_png,
+            slug: timeToSave.slug,
+            time_id_cartola: timeToSave.time_id
+        }]).select().single();
+
+        if (error) return { success: false, msg: error.message };
+        timeSalvo = data;
+    }
+
+    revalidatePath('/admin/times');
+    revalidatePath('/ranking');
+    
+    // Retornamos o time salvo para a tela atualizar sozinha
+    return { success: true, msg: `Time "${timeToSave.nome}" salvo com sucesso!`, time: timeSalvo };
+
+  } catch (error: any) {
+    return { success: false, msg: "Erro interno: " + error.message };
+  }
+}

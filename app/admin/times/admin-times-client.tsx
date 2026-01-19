@@ -1,8 +1,8 @@
 // app/admin/times/admin-times-client.tsx
 'use client'
 
-import { useState } from 'react';
-import { useFormStatus, useFormState } from 'react-dom'; 
+import { useState, useActionState } from 'react'; // <--- IMPORTAÇÃO CORRIGIDA (Vem do 'react')
+import { useFormStatus } from 'react-dom'; 
 import { useRouter } from 'next/navigation';
 import { 
     salvarTime,
@@ -79,7 +79,9 @@ function ConfirmacaoExclusaoModal({ show, timeNome, onConfirm, onCancel }: Modal
 // ======================================================================================
 function FormularioAdicionar() {
     const initialState = { success: true, msg: '' };
-    const [state, formAction] = useFormState(salvarTime, initialState);
+    
+    // <--- USO CORRIGIDO: useActionState
+    const [state, formAction] = useActionState(salvarTime, initialState);
 
     const SubmitButton = () => {
         const { pending } = useFormStatus();

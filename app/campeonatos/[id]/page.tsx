@@ -18,12 +18,14 @@ import FaseGruposPublica from "@/app/components/public/FaseGruposPublica";
 export default function PaginaPublicaCampeonato() {
   const { id } = useParams();
 
-  // === MUDANÇA AQUI: Extração Inteligente do ID ===
-  // Funciona para "/campeonatos/5" e para "/campeonatos/brasileirao-2025-5"
-  const rawId = Array.isArray(id) ? id[0] : id; // Garante que é uma string
-  const parts = rawId.split('-');               // Quebra o texto nos hifens
-  const lastPart = parts[parts.length - 1];     // Pega sempre a última parte
-  const campeonatoId = Number(lastPart);        // Converte para número
+  // === CORREÇÃO AQUI ===
+  // Adicionamos "|| ''" no final para garantir que sempre seja uma string
+  // Isso evita o erro "possibly undefined"
+  const rawId = (Array.isArray(id) ? id[0] : id) || ''; 
+  
+  const parts = rawId.split('-');               
+  const lastPart = parts[parts.length - 1];     
+  const campeonatoId = Number(lastPart);        
 
   const [liga, setLiga] = useState<any>(null);
   const [tabAtiva, setTabAtiva] = useState("tabela");
@@ -31,9 +33,9 @@ export default function PaginaPublicaCampeonato() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Só carrega se o ID for válido
-    if (!isNaN(campeonatoId)) {
-        carregarDados();
+    // Verifica se temos um ID válido antes de buscar
+    if (campeonatoId && !isNaN(campeonatoId)) {
+      carregarDados();
     }
   }, [campeonatoId]);
 

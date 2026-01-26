@@ -17,18 +17,24 @@ import FaseGruposPublica from "@/app/components/public/FaseGruposPublica";
 
 export default function PaginaPublicaCampeonato() {
   const { id } = useParams();
-  const campeonatoId = Number(id);
+
+  // === MUDANÇA AQUI: Extração Inteligente do ID ===
+  // Funciona para "/campeonatos/5" e para "/campeonatos/brasileirao-2025-5"
+  const rawId = Array.isArray(id) ? id[0] : id; // Garante que é uma string
+  const parts = rawId.split('-');               // Quebra o texto nos hifens
+  const lastPart = parts[parts.length - 1];     // Pega sempre a última parte
+  const campeonatoId = Number(lastPart);        // Converte para número
 
   const [liga, setLiga] = useState<any>(null);
   const [tabAtiva, setTabAtiva] = useState("tabela");
   const [podium, setPodium] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Dados auxiliares para Copa
-  // const [timesLiga, setTimesLiga] = useState<any[]>([]); // Removido pois não estava sendo usado na renderização
-
   useEffect(() => {
-    carregarDados();
+    // Só carrega se o ID for válido
+    if (!isNaN(campeonatoId)) {
+        carregarDados();
+    }
   }, [campeonatoId]);
 
   async function carregarDados() {
@@ -49,13 +55,12 @@ export default function PaginaPublicaCampeonato() {
     // Busca times se for copa (para a fase de grupos)
     if (data?.tipo === "copa") {
       await listarTimesDoCampeonato(campeonatoId);
-      // setTimesLiga(t);
     }
 
     // Define aba inicial padrão
     if (data) {
       if (data.tipo === "copa") setTabAtiva("grupos");
-      else if (data.tipo === "mata-mata" || data.tipo === "mata_mata") setTabAtiva("mata-mata"); // Corrigido para aceitar ambos os formatos
+      else if (data.tipo === "mata-mata" || data.tipo === "mata_mata") setTabAtiva("mata-mata");
       else setTabAtiva("tabela");
     }
     setLoading(false);
@@ -250,7 +255,7 @@ export default function PaginaPublicaCampeonato() {
           {tabAtiva === "mata-mata" && (
             <MataMataPublico
               campeonatoId={campeonatoId}
-              // CORREÇÃO AQUI: Se for copa, corte é 6. Se não (mata-mata puro), é 0.
+              // CORREÇÃO: Se for copa, corte é 6. Se não (mata-mata puro), é 0.
               rodadasCorte={liga.tipo === "copa" ? 6 : 0}
             />
           )}

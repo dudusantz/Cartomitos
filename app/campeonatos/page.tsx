@@ -5,6 +5,19 @@ import { Trophy, Calendar } from 'lucide-react'
 // Atualiza a cada 5 segundos
 export const revalidate = 5
 
+// Função auxiliar para gerar a URL amigável (ex: /campeonatos/brasileirao-2025-5)
+function gerarSlug(nome: string, id: number) {
+  const slug = nome
+    .toLowerCase()
+    .normalize("NFD") // Separa os acentos
+    .replace(/[\u0300-\u036f]/g, "") // Remove os acentos
+    .replace(/[^\w\s-]/g, "") // Remove caracteres especiais
+    .trim()
+    .replace(/\s+/g, "-"); // Troca espaços por hífens
+  
+  return `${slug}-${id}`;
+}
+
 export default async function CampeonatosPage() {
   const campeonatos = await listarCampeonatos()
 
@@ -38,7 +51,10 @@ export default async function CampeonatosPage() {
           {campeonatos.map((camp: any) => {
             const isPontos = camp.tipo === 'pontos_corridos';
             const isMata = camp.tipo === 'mata_mata';
-            const isFinalizado = !camp.ativo; // Verifica se está inativo
+            const isFinalizado = !camp.ativo;
+            
+            // Gera o link amigável usando a função auxiliar
+            const linkAmigavel = `/campeonatos/${gerarSlug(camp.nome, camp.id)}`;
             
             // Estilos dinâmicos
             let themeColor = 'text-gray-400 border-gray-700 bg-gray-800/50';
@@ -60,7 +76,7 @@ export default async function CampeonatosPage() {
 
             return (
                 <Link 
-                  href={`/campeonatos/${camp.id}`} 
+                  href={linkAmigavel} 
                   key={camp.id}
                   className="group relative block h-full"
                 >

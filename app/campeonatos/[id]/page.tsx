@@ -1,272 +1,236 @@
-"use client";
+'use client'
 
-import { useState, useEffect } from "react";
-import Link from "next/link";
-import { useParams } from "next/navigation";
-import { supabase } from "@/lib/supabase";
-import {
-  buscarPodium,
-  listarTimesDoCampeonato,
-} from "@/app/actions";
-import { Trophy, Calendar, Medal, ChevronLeft } from "lucide-react";
+import { useState, useEffect } from 'react'
+import { useParams, useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { supabase } from '@/lib/supabase'
+import { buscarPodium } from '@/app/actions'
 
-// Componentes Públicos (Read-Only)
-import TabelaPublica from "@/app/components/public/TabelaPublica";
-import MataMataPublico from "@/app/components/public/MataMataPublico";
-import FaseGruposPublica from "@/app/components/public/FaseGruposPublica";
+// Ícones
+import { Trophy, ArrowLeft, Crown, DollarSign, Calendar } from 'lucide-react'
+
+// Componentes Públicos
+import TabelaPublica from '@/app/components/public/TabelaPublica'
+import MataMataPublico from '@/app/components/public/MataMataPublico'
+import FaseGruposPublica from '@/app/components/public/FaseGruposPublica'
+import TabelaGridPublica from '@/app/components/public/TabelaGridPublica' 
 
 export default function PaginaPublicaCampeonato() {
-  const { id } = useParams();
-
-  // === CORREÇÃO AQUI ===
-  // Adicionamos "|| ''" no final para garantir que sempre seja uma string
-  // Isso evita o erro "possibly undefined"
-  const rawId = (Array.isArray(id) ? id[0] : id) || ''; 
+  const params = useParams()
+  const router = useRouter()
   
-  const parts = rawId.split('-');               
-  const lastPart = parts[parts.length - 1];     
-  const campeonatoId = Number(lastPart);        
+  const rawId = (Array.isArray(params.id) ? params.id[0] : params.id) || '';
+  const parts = rawId.split('-');
+  const id = Number(parts[parts.length - 1]);
 
-  const [liga, setLiga] = useState<any>(null);
-  const [tabAtiva, setTabAtiva] = useState("tabela");
-  const [podium, setPodium] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [campeonato, setCampeonato] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState<'classificacao' | 'fase_final' | 'grupos' | 'grid'>('classificacao')
+  const [podium, setPodium] = useState<any[]>([])
 
   useEffect(() => {
-    // Verifica se temos um ID válido antes de buscar
-    if (campeonatoId && !isNaN(campeonatoId)) {
-      carregarDados();
+    async function load() {
+      if (!id || isNaN(id)) return
+      
+      const { data: camp } = await supabase
+        .from('campeonatos')
+        .select('*')
+        .eq('id', id)
+        .single()
+      
+      if (!camp) {
+          router.push('/campeonatos')
+          return
+      }
+      
+      setCampeonato(camp)
+
+      // ABA INICIAL
+      if (camp.tipo === 'mata_mata' || camp.tipo === 'mata-mata') {
+          setActiveTab('fase_final')
+      } else if (camp.tipo === 'copa') {
+          setActiveTab('grupos')
+      } else if (camp.tipo === 'grid') { 
+          setActiveTab('grid')
+      } else {
+          setActiveTab('classificacao')
+      }
+
+      if (camp.ativo === false) {
+          const p = await buscarPodium(id)
+          setPodium(p)
+      }
+
+      setLoading(false)
     }
-  }, [campeonatoId]);
+    load()
+  }, [id, router])
 
-  async function carregarDados() {
-    setLoading(true);
-    const { data } = await supabase
-      .from("campeonatos")
-      .select("*")
-      .eq("id", campeonatoId)
-      .single();
-    setLiga(data);
+  if (loading) return (
+    <div className="min-h-screen bg-[#121212] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-2">
+            <Trophy className="animate-bounce text-yellow-500" size={32} />
+            <span className="text-gray-500 font-bold uppercase text-xs tracking-widest">Carregando Competição...</span>
+        </div>
+    </div>
+  )
 
-    // Se estiver finalizado, busca o pódio
-    if (data && !data.ativo) {
-      const p = await buscarPodium(campeonatoId);
-      setPodium(p);
-    }
-
-    // Busca times se for copa (para a fase de grupos)
-    if (data?.tipo === "copa") {
-      await listarTimesDoCampeonato(campeonatoId);
-    }
-
-    // Define aba inicial padrão
-    if (data) {
-      if (data.tipo === "copa") setTabAtiva("grupos");
-      else if (data.tipo === "mata-mata" || data.tipo === "mata_mata") setTabAtiva("mata-mata");
-      else setTabAtiva("tabela");
-    }
-    setLoading(false);
-  }
-
-  if (loading)
-    return (
-      <div className="min-h-screen flex items-center justify-center text-gray-500 bg-[#050505]">
-        Carregando competição...
-      </div>
-    );
-  if (!liga)
-    return (
-      <div className="min-h-screen flex items-center justify-center text-white bg-[#050505]">
-        Campeonato não encontrado.
-      </div>
-    );
-
-  const isFinalizado = !liga.ativo;
+  const isFinalizado = campeonato.ativo === false;
+  const isPaga = campeonato.is_paga === true;
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white font-sans pb-20">
-      {/* HEADER SIMPLES */}
-      <div className="border-b border-gray-800 bg-[#0a0a0a]">
-        <div className="max-w-6xl mx-auto px-6 py-8">
-          <Link
-            href="/campeonatos"
-            className="inline-flex items-center gap-2 text-xs font-bold text-gray-500 hover:text-white mb-4 uppercase tracking-widest transition-colors"
-          >
-            <ChevronLeft size={14} /> Voltar para Ligas
-          </Link>
+    <div className="min-h-screen bg-[#121212] text-gray-100 animate-fadeIn pb-20 font-sans">
+      
+      {/* === HERO HEADER === */}
+      <div className="relative bg-[#0a0a0a] border-b border-gray-800 pt-8 pb-12 px-6 overflow-hidden">
+        <div className="absolute inset-0 bg-[url('/bg-grid.svg')] opacity-10"></div>
+        {/* MUDANÇA: COR DO BRILHO (Dourado se pago/grid) */}
+        <div className={`absolute top-0 right-0 w-[500px] h-[500px] rounded-full blur-[120px] -translate-y-1/2 translate-x-1/3 pointer-events-none transition-colors duration-700 ${isPaga ? 'bg-yellow-600/10' : 'bg-blue-600/10'}`}></div>
 
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <span
-                  className={`text-[10px] font-black uppercase tracking-widest border px-2 py-0.5 rounded text-gray-400 border-gray-700`}
-                >
-                  {liga.tipo.replace("_", " ")}
-                </span>
-                {isFinalizado && (
-                  <span className="text-[10px] font-bold bg-red-500/20 text-red-400 px-2 py-0.5 rounded uppercase tracking-wider">
-                    Encerrado
-                  </span>
+        <div className="max-w-7xl mx-auto relative z-10">
+            <Link href="/campeonatos" className="inline-flex items-center gap-2 text-xs font-bold text-gray-500 hover:text-white mb-6 uppercase tracking-widest transition-colors">
+                <ArrowLeft size={14} /> Voltar para Ligas
+            </Link>
+
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+                <div>
+                    <div className="flex flex-wrap items-center gap-3 mb-3">
+                        <span className="flex items-center gap-1 text-gray-400 font-bold font-mono text-xs tracking-widest bg-white/5 px-2 py-1 rounded border border-white/10">
+                            <Calendar size={10} />
+                            {campeonato.ano}
+                        </span>
+                        
+                        <span className={`text-[10px] font-black uppercase tracking-widest border px-2 py-1 rounded ${isPaga ? 'text-yellow-400 border-yellow-500/20 bg-yellow-500/10' : 'text-blue-400 border-blue-500/20 bg-blue-500/10'}`}>
+                            {campeonato.tipo.replace('_', ' ')}
+                        </span>
+
+                        {/* MUDANÇA: BADGE DOURADO */}
+                        {isPaga && (
+                            <span className="text-yellow-400 font-bold text-[10px] uppercase tracking-widest bg-yellow-500/10 px-2 py-1 rounded border border-yellow-500/20 flex items-center gap-1 shadow-[0_0_10px_rgba(234,179,8,0.2)]">
+                                <DollarSign size={10} /> Liga Paga
+                            </span>
+                        )}
+
+                        {isFinalizado && (
+                            <span className="text-red-400 font-bold text-[10px] uppercase tracking-widest bg-red-500/10 px-2 py-1 rounded border border-red-500/20 flex items-center gap-1">
+                                <Trophy size={10} /> Encerrado
+                            </span>
+                        )}
+                    </div>
+                    
+                    <h1 className="text-3xl md:text-5xl lg:text-6xl font-black text-white uppercase tracking-tighter leading-none">
+                        {campeonato.nome}
+                    </h1>
+                </div>
+
+                {/* === PÓDIO === */}
+                {isFinalizado && podium.length > 0 && (
+                    <div className="flex items-end gap-3 md:gap-4 bg-white/[0.03] p-4 rounded-2xl border border-white/5 shadow-2xl backdrop-blur-sm mt-4 md:mt-0">
+                        {podium[1] && (
+                            <div className="flex flex-col items-center">
+                                <img src={podium[1].escudo} className="w-8 h-8 md:w-10 md:h-10 object-contain mb-1 opacity-80" alt="2º Lugar" />
+                                <div className="h-6 w-8 md:h-8 md:w-10 bg-gray-400/20 rounded-t-lg flex items-center justify-center border-t border-gray-400/30">
+                                    <span className="text-[10px] md:text-xs font-bold text-gray-400">2</span>
+                                </div>
+                            </div>
+                        )}
+                        {podium[0] && (
+                            <div className="flex flex-col items-center relative -top-2">
+                                <Crown size={14} className="text-yellow-400 mb-1 animate-bounce" />
+                                <img src={podium[0].escudo} className="w-12 h-12 md:w-14 md:h-14 object-contain mb-2 drop-shadow-[0_0_10px_rgba(234,179,8,0.3)]" alt="Campeão" />
+                                <div className="h-10 w-10 md:h-12 md:w-12 bg-yellow-500/20 rounded-t-lg flex items-center justify-center border-t border-yellow-500/30 relative overflow-hidden">
+                                    <div className="absolute inset-0 bg-gradient-to-t from-yellow-500/10 to-transparent"></div>
+                                    <span className="text-sm md:text-lg font-black text-yellow-500">1</span>
+                                </div>
+                            </div>
+                        )}
+                        {podium[2] && (
+                            <div className="flex flex-col items-center">
+                                <img src={podium[2].escudo} className="w-8 h-8 md:w-10 md:h-10 object-contain mb-1 opacity-60" alt="3º Lugar" />
+                                <div className="h-4 w-8 md:h-6 md:w-10 bg-orange-700/20 rounded-t-lg flex items-center justify-center border-t border-orange-700/30">
+                                    <span className="text-[10px] md:text-xs font-bold text-orange-700">3</span>
+                                </div>
+                            </div>
+                        )}
+                    </div>
                 )}
-              </div>
-              <h1 className="text-3xl md:text-5xl font-black tracking-tighter text-white">
-                {liga.nome}
-              </h1>
             </div>
-            <div className="text-gray-500 font-mono font-bold text-sm">
-              Temporada {liga.ano}
-            </div>
-          </div>
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-6 py-8">
-        {/* === CARD DE CAMPEÕES (PÓDIO) === */}
-        {isFinalizado && podium.length > 0 && (
-          <div className="mb-12 bg-gradient-to-br from-[#151515] to-black border border-yellow-500/20 rounded-3xl p-8 relative overflow-hidden shadow-2xl">
-            <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none">
-              <Trophy size={200} />
-            </div>
+      {/* === NAVEGAÇÃO (TABS) === */}
+      <div className="border-b border-gray-800 bg-[#0f0f0f] sticky top-0 z-40 shadow-xl">
+        <div className="max-w-7xl mx-auto px-6 flex gap-8 overflow-x-auto no-scrollbar">
+            
+            {campeonato.tipo === 'pontos_corridos' && (
+                <button 
+                    onClick={() => setActiveTab('classificacao')}
+                    className={`py-4 text-xs font-bold uppercase tracking-widest border-b-2 transition-colors whitespace-nowrap ${activeTab === 'classificacao' ? 'border-blue-500 text-blue-500' : 'border-transparent text-gray-500 hover:text-white'}`}
+                >
+                    Tabela
+                </button>
+            )}
 
-            <div className="flex flex-col items-center justify-center relative z-10">
-              <div className="flex items-center gap-2 mb-8 text-yellow-500/80">
-                <Trophy size={16} />
-                <span className="text-xs font-bold uppercase tracking-[0.2em]">
-                  Classificação Final
-                </span>
-              </div>
+            {/* MUDANÇA: ABA GRID DOURADA */}
+            {campeonato.tipo === 'grid' && (
+                <button 
+                    onClick={() => setActiveTab('grid')}
+                    className={`py-4 text-xs font-bold uppercase tracking-widest border-b-2 transition-colors whitespace-nowrap ${activeTab === 'grid' ? 'border-yellow-500 text-yellow-500' : 'border-transparent text-gray-500 hover:text-white'}`}
+                >
+                    Ranking Geral
+                </button>
+            )}
 
-              <div className="flex flex-wrap justify-center items-end gap-4 md:gap-12">
-                {/* 2º Lugar */}
-                {podium[1] && (
-                  <div className="flex flex-col items-center order-2 md:order-1">
-                    <div className="mb-3 relative">
-                      <div className="w-20 h-20 rounded-full bg-[#1a1a1a] border-2 border-gray-500 flex items-center justify-center p-3 shadow-lg">
-                        <img
-                          src={podium[1].escudo}
-                          className="w-full h-full object-contain"
-                        />
-                      </div>
-                      <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-gray-600 text-white text-[10px] font-black px-2 py-0.5 rounded-full">
-                        2º
-                      </div>
-                    </div>
-                    <span className="text-gray-400 font-bold text-sm max-w-[120px] text-center truncate">
-                      {podium[1].nome}
-                    </span>
-                  </div>
-                )}
+            {campeonato.tipo === 'copa' && (
+                <button 
+                    onClick={() => setActiveTab('grupos')}
+                    className={`py-4 text-xs font-bold uppercase tracking-widest border-b-2 transition-colors whitespace-nowrap ${activeTab === 'grupos' ? 'border-orange-500 text-orange-500' : 'border-transparent text-gray-500 hover:text-white'}`}
+                >
+                    Fase de Grupos
+                </button>
+            )}
 
-                {/* 1º Lugar */}
-                {podium[0] && (
-                  <div className="flex flex-col items-center order-1 md:order-2 mb-6 md:mb-0 scale-110">
-                    <Medal
-                      className="text-yellow-400 mb-2 animate-bounce"
-                      size={24}
-                    />
-                    <div className="mb-3 relative">
-                      <div className="w-28 h-28 rounded-full bg-gradient-to-b from-yellow-500/20 to-black border-4 border-yellow-500 flex items-center justify-center p-4 shadow-[0_0_40px_rgba(234,179,8,0.2)]">
-                        <img
-                          src={podium[0].escudo}
-                          className="w-full h-full object-contain"
-                        />
-                      </div>
-                      <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-yellow-500 text-black text-xs font-black px-3 py-0.5 rounded-full uppercase tracking-wider">
-                        Campeão
-                      </div>
-                    </div>
-                    <span className="text-white font-black text-lg max-w-[150px] text-center truncate">
-                      {podium[0].nome}
-                    </span>
-                  </div>
-                )}
-
-                {/* 3º Lugar */}
-                {podium[2] && (
-                  <div className="flex flex-col items-center order-3">
-                    <div className="mb-3 relative">
-                      <div className="w-16 h-16 rounded-full bg-[#1a1a1a] border-2 border-orange-700 flex items-center justify-center p-3 shadow-lg">
-                        <img
-                          src={podium[2].escudo}
-                          className="w-full h-full object-contain"
-                        />
-                      </div>
-                      <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-orange-800 text-white text-[10px] font-black px-2 py-0.5 rounded-full">
-                        3º
-                      </div>
-                    </div>
-                    <span className="text-gray-500 font-bold text-xs max-w-[100px] text-center truncate">
-                      {podium[2].nome}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* === NAVEGAÇÃO DE ABAS === */}
-        <div className="flex gap-2 mb-8 overflow-x-auto pb-2">
-          {liga.tipo === "pontos_corridos" && (
-            <button
-              onClick={() => setTabAtiva("tabela")}
-              className={`px-6 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition whitespace-nowrap ${
-                tabAtiva === "tabela"
-                  ? "bg-blue-600 text-white shadow-lg"
-                  : "bg-[#121212] text-gray-500 hover:text-white hover:bg-[#1a1a1a]"
-              }`}
-            >
-              Classificação
-            </button>
-          )}
-
-          {/* Botão Fase de Grupos */}
-          {liga.tipo === "copa" && (
-            <button
-              onClick={() => setTabAtiva("grupos")}
-              className={`px-6 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition whitespace-nowrap ${
-                tabAtiva === "grupos"
-                  ? "bg-yellow-600 text-black shadow-lg"
-                  : "bg-[#121212] text-gray-500 hover:text-white hover:bg-[#1a1a1a]"
-              }`}
-            >
-              Fase de Grupos
-            </button>
-          )}
-
-          {(liga.tipo === "mata-mata" || liga.tipo === "mata_mata" || liga.tipo === "copa") && (
-            <button
-              onClick={() => setTabAtiva("mata-mata")}
-              className={`px-6 py-3 rounded-xl text-xs font-bold uppercase tracking-wider transition whitespace-nowrap ${
-                tabAtiva === "mata-mata"
-                  ? "bg-blue-600 text-white shadow-lg"
-                  : "bg-[#121212] text-gray-500 hover:text-white hover:bg-[#1a1a1a]"
-              }`}
-            >
-              {liga.tipo.includes("mata") ? "Chaveamento" : "Fase Final"}
-            </button>
-          )}
+            {(campeonato.tipo === 'mata_mata' || campeonato.tipo === 'mata-mata' || campeonato.tipo === 'copa') && (
+                <button 
+                    onClick={() => setActiveTab('fase_final')}
+                    className={`py-4 text-xs font-bold uppercase tracking-widest border-b-2 transition-colors whitespace-nowrap ${activeTab === 'fase_final' ? 'border-purple-500 text-purple-500' : 'border-transparent text-gray-500 hover:text-white'}`}
+                >
+                    {campeonato.tipo === 'copa' ? 'Fase Final' : 'Chaveamento'}
+                </button>
+            )}
         </div>
+      </div>
 
-        {/* === CONTEÚDO DAS ABAS === */}
-        <div className="animate-fadeIn">
-          {tabAtiva === "tabela" && liga.tipo === "pontos_corridos" && (
-            <TabelaPublica campeonatoId={campeonatoId} />
+      {/* === CONTEÚDO DAS ABAS === */}
+      <div className="max-w-7xl mx-auto p-6 md:p-10 min-h-[400px]">
+          
+          {activeTab === 'classificacao' && (
+              <div className="animate-fadeIn">
+                <TabelaPublica campeonatoId={id} />
+              </div>
           )}
-
-          {tabAtiva === "mata-mata" && (
-            <MataMataPublico
-              campeonatoId={campeonatoId}
-              // CORREÇÃO: Se for copa, corte é 6. Se não (mata-mata puro), é 0.
-              rodadasCorte={liga.tipo === "copa" ? 6 : 0}
-            />
+          
+          {activeTab === 'grid' && (
+              <div className="animate-fadeIn">
+                <TabelaGridPublica campeonatoId={id} />
+              </div>
           )}
-
-          {tabAtiva === "grupos" && (
-            <FaseGruposPublica campeonatoId={campeonatoId} />
+          
+          {activeTab === 'grupos' && (
+              <div className="animate-fadeIn">
+                <FaseGruposPublica campeonatoId={id} />
+              </div>
           )}
-        </div>
+          
+          {activeTab === 'fase_final' && (
+              <div className="animate-fadeIn">
+                <MataMataPublico 
+                    campeonatoId={id} 
+                    rodadasCorte={campeonato.tipo === 'copa' ? 6 : 0}
+                />
+              </div>
+          )}
       </div>
     </div>
-  );
+  )
 }

@@ -66,11 +66,12 @@ export default function TabelaPublica({ campeonatoId }: Props) {
     try {
       // 1. Busca parciais dos jogos abertos da rodada
       const jogosParaAtualizar = dadosOriginais.jogos.filter(
-        (j: any) => j.status !== "finalizado" && j.rodada === rodadaView,
+        (j: any) => j.status !== "finalizado" && j.rodada === rodadaView
       );
 
-      const { jogos: parciais } =
-        await buscarParciaisAoVivo(jogosParaAtualizar);
+      const { jogos: parciais } = await buscarParciaisAoVivo(
+        jogosParaAtualizar
+      );
 
       // 2. Mescla parciais na lista de jogos
       const novosJogos = dadosOriginais.jogos.map((jogo) => {
@@ -98,7 +99,7 @@ export default function TabelaPublica({ campeonatoId }: Props) {
               j.is_parcial &&
               j.rodada === rodadaView &&
               (j.time_casa === time.time_id ||
-                j.time_visitante === time.time_id),
+                j.time_visitante === time.time_id)
           );
 
           let pts = 0,
@@ -167,14 +168,20 @@ export default function TabelaPublica({ campeonatoId }: Props) {
       ? Math.max(...dadosOriginais.jogos.map((j) => j.rodada))
       : 1;
 
+  // === HELPER: Formata decimais se necessário ===
+  const formatDecimal = (val: number) => {
+    if (val === undefined || val === null) return 0;
+    // Se tiver decimal, mostra 1 casa (ex: 45.5). Se for inteiro, mostra normal (ex: 45)
+    return val % 1 !== 0 ? val.toFixed(1) : val;
+  };
+
   return (
-    // CORREÇÃO 1: Adicionado max-w-[100vw] e overflow-hidden para evitar scroll horizontal na página inteira
+    // Container Principal: evita scroll horizontal na página toda
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start animate-fadeIn max-w-[100vw] overflow-hidden">
+      
       {/* ESQUERDA: CLASSIFICAÇÃO */}
-      {/* CORREÇÃO 2: min-w-0 evita que o grid exploda em telas pequenas */}
       <div className="lg:col-span-7 min-w-0">
         <div className="bg-[#121212] border border-gray-800 rounded-3xl overflow-hidden shadow-2xl flex flex-col">
-          {/* CORREÇÃO 3: Header flex-col no mobile para não encavalar texto */}
           <div className="p-5 border-b border-gray-800 bg-[#0a0a0a] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
             <h2 className="text-lg font-black text-white uppercase tracking-widest flex items-center gap-2">
               <span className="text-xl">🏆</span> Classificação
@@ -197,30 +204,17 @@ export default function TabelaPublica({ campeonatoId }: Props) {
                   <th className="text-center w-[6%]">V</th>
                   <th className="text-center w-[6%]">E</th>
                   <th className="text-center w-[6%]">D</th>
-                  <th
-                    className="text-center w-[8%] text-gray-400"
-                    title="Pontos Pró"
-                  >
-                    PP
-                  </th>
-                  <th
-                    className="text-center w-[8%] text-gray-400"
-                    title="Pontos Contra"
-                  >
-                    PC
-                  </th>
-                  <th className="text-center w-[8%] text-white" title="Saldo">
-                    SP
-                  </th>
+                  <th className="text-center w-[8%] text-gray-400" title="Pontos Pró">PP</th>
+                  <th className="text-center w-[8%] text-gray-400" title="Pontos Contra">PC</th>
+                  <th className="text-center w-[8%] text-white" title="Saldo">SP</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-800/40">
                 {tabelaExibida.map((t, i) => {
                   const isG4 = i < 4;
-                  const isZ4 =
-                    i >= tabelaExibida.length - 4 && tabelaExibida.length > 4;
+                  const isZ4 = i >= tabelaExibida.length - 4 && tabelaExibida.length > 4;
                   const time = Array.isArray(t.times) ? t.times[0] : t.times;
-                  const diff = t.posOriginal - (i + 1); // Diferença de posição
+                  const diff = t.posOriginal - (i + 1);
 
                   return (
                     <tr
@@ -228,34 +222,15 @@ export default function TabelaPublica({ campeonatoId }: Props) {
                       className="group hover:bg-white/[0.02] transition-colors h-11 relative"
                     >
                       <td className="pl-4 text-center relative">
-                        {/* Barra lateral colorida para G4/Z4 */}
-                        {isG4 && (
-                          <div className="absolute left-0 top-1 bottom-1 w-0.5 bg-blue-500 rounded-r"></div>
-                        )}
-                        {isZ4 && (
-                          <div className="absolute left-0 top-1 bottom-1 w-0.5 bg-red-500 rounded-r"></div>
-                        )}
+                        {isG4 && <div className="absolute left-0 top-1 bottom-1 w-0.5 bg-blue-500 rounded-r"></div>}
+                        {isZ4 && <div className="absolute left-0 top-1 bottom-1 w-0.5 bg-red-500 rounded-r"></div>}
 
                         <div className="flex flex-col items-center justify-center h-full">
-                          <span
-                            className={`font-black text-xs ${
-                              isG4
-                                ? "text-blue-400"
-                                : isZ4
-                                  ? "text-red-500"
-                                  : "text-gray-500"
-                            }`}
-                          >
+                          <span className={`font-black text-xs ${isG4 ? "text-blue-400" : isZ4 ? "text-red-500" : "text-gray-500"}`}>
                             {i + 1}º
                           </span>
-
-                          {/* Indicador de subida/descida no Ao Vivo */}
                           {modoAoVivo && diff !== 0 && (
-                            <span
-                              className={`text-[8px] font-bold leading-none mt-0.5 ${
-                                diff > 0 ? "text-green-500" : "text-red-500"
-                              }`}
-                            >
+                            <span className={`text-[8px] font-bold leading-none mt-0.5 ${diff > 0 ? "text-green-500" : "text-red-500"}`}>
                               {diff > 0 ? "▲" : "▼"} {Math.abs(diff)}
                             </span>
                           )}
@@ -268,12 +243,8 @@ export default function TabelaPublica({ campeonatoId }: Props) {
                             className="w-7 h-7 object-contain shrink-0 drop-shadow-md"
                           />
                           <div className="flex flex-col min-w-0 justify-center">
-                            {/* CORREÇÃO: Limite de largura no nome do time */}
-                            <span
-                              className={`font-bold text-[11px] leading-tight group-hover:text-white transition whitespace-nowrap ${
-                                isG4 ? "text-gray-200" : "text-gray-400"
-                              }`}
-                            >
+                            {/* NOME DO TIME: Whitespace-nowrap para não cortar nomes grandes */}
+                            <span className={`font-bold text-[11px] leading-tight group-hover:text-white transition whitespace-nowrap ${isG4 ? "text-gray-200" : "text-gray-400"}`}>
                               {time?.nome}
                             </span>
                             {modoAoVivo && t.ptsExtra > 0 && (
@@ -284,37 +255,30 @@ export default function TabelaPublica({ campeonatoId }: Props) {
                           </div>
                         </div>
                       </td>
+                      
+                      {/* PONTOS (FORMATADOS) */}
                       <td className="text-center font-black text-sm text-white bg-white/[0.02]">
-                        {t.pts}
+                        {formatDecimal(t.pts)}
                       </td>
-                      <td className="text-center text-gray-500 font-mono">
-                        {t.pj}
-                      </td>
-                      <td className="text-center text-gray-500 font-mono">
-                        {t.v}
-                      </td>
-                      <td className="text-center text-gray-500 font-mono">
-                        {t.e}
-                      </td>
-                      <td className="text-center text-gray-500 font-mono">
-                        {t.d}
-                      </td>
+                      
+                      <td className="text-center text-gray-500 font-mono">{t.pj}</td>
+                      <td className="text-center text-gray-500 font-mono">{t.v}</td>
+                      <td className="text-center text-gray-500 font-mono">{t.e}</td>
+                      <td className="text-center text-gray-500 font-mono">{t.d}</td>
+                      
+                      {/* PONTOS PRÓ (FORMATADOS) */}
                       <td className="text-center text-gray-400 font-mono">
-                        {t.gp}
+                        {formatDecimal(t.gp)}
                       </td>
+                      
+                      {/* PONTOS CONTRA (FORMATADOS) */}
                       <td className="text-center text-gray-400 font-mono">
-                        {t.gc}
+                        {formatDecimal(t.gc)}
                       </td>
-                      <td
-                        className={`text-center font-mono font-bold ${
-                          t.sg > 0
-                            ? "text-green-500"
-                            : t.sg < 0
-                              ? "text-red-500"
-                              : "text-gray-500"
-                        }`}
-                      >
-                        {t.sg}
+                      
+                      {/* SALDO (FORMATADO) */}
+                      <td className={`text-center font-mono font-bold ${t.sg > 0 ? "text-green-500" : t.sg < 0 ? "text-red-500" : "text-gray-500"}`}>
+                        {formatDecimal(t.sg)}
                       </td>
                     </tr>
                   );
@@ -336,7 +300,6 @@ export default function TabelaPublica({ campeonatoId }: Props) {
       </div>
 
       {/* DIREITA: LISTA DE JOGOS */}
-      {/* CORREÇÃO 4: min-w-0 aqui também */}
       <div className="lg:col-span-5 space-y-6 sticky top-6 min-w-0">
         <div className="bg-[#121212] border border-gray-800 rounded-3xl p-5 shadow-xl">
           <div className="flex justify-between items-center mb-6">
@@ -355,9 +318,7 @@ export default function TabelaPublica({ campeonatoId }: Props) {
                 R{rodadaView}
               </span>
               <button
-                onClick={() =>
-                  setRodadaView((r) => Math.min(totalRodadas, r + 1))
-                }
+                onClick={() => setRodadaView((r) => Math.min(totalRodadas, r + 1))}
                 className="w-7 h-7 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800 rounded transition disabled:opacity-30"
               >
                 ›
@@ -375,11 +336,7 @@ export default function TabelaPublica({ campeonatoId }: Props) {
                 : "bg-blue-600 text-white border-transparent hover:bg-blue-500 shadow-blue-900/20"
             }`}
           >
-            {loading
-              ? "..."
-              : modoAoVivo
-                ? "Encerrar Transmissão"
-                : "Acompanhar em Tempo Real"}
+            {loading ? "..." : modoAoVivo ? "Encerrar Transmissão" : "Acompanhar em Tempo Real"}
           </button>
 
           <div className="space-y-3">
@@ -391,17 +348,12 @@ export default function TabelaPublica({ campeonatoId }: Props) {
 
             {jogosDaRodada.map((j) => {
               const casa = Array.isArray(j.casa) ? j.casa[0] : j.casa;
-              const visitante = Array.isArray(j.visitante)
-                ? j.visitante[0]
-                : j.visitante;
-
+              const visitante = Array.isArray(j.visitante) ? j.visitante[0] : j.visitante;
               const isLive = j.is_parcial === true;
               const finalizado = j.status === "finalizado";
               const temPlacar = finalizado || isLive;
-
               const c = j.placar_casa ?? 0;
               const v = j.placar_visitante ?? 0;
-
               const cWin = temPlacar && c > v;
               const vWin = temPlacar && v > c;
 
@@ -409,17 +361,13 @@ export default function TabelaPublica({ campeonatoId }: Props) {
                 <div
                   key={j.id}
                   className={`relative bg-gradient-to-br from-[#151515] to-[#0a0a0a] border p-4 rounded-2xl transition-all shadow-lg overflow-hidden group ${
-                    isLive
-                      ? "border-green-500/40 shadow-[0_0_15px_rgba(34,197,94,0.1)]"
-                      : "border-gray-800/60 hover:border-gray-700"
+                    isLive ? "border-green-500/40 shadow-[0_0_15px_rgba(34,197,94,0.1)]" : "border-gray-800/60 hover:border-gray-700"
                   }`}
                 >
                   {isLive && (
                     <div className="absolute top-2 right-2 flex items-center gap-1.5 bg-black/40 px-2 py-0.5 rounded-full border border-green-900/30 backdrop-blur-sm z-10">
                       <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse shadow-[0_0_5px_rgba(34,197,94,0.8)]"></div>
-                      <span className="text-[8px] font-bold text-green-500 uppercase tracking-wider">
-                        Live
-                      </span>
+                      <span className="text-[8px] font-bold text-green-500 uppercase tracking-wider">Live</span>
                     </div>
                   )}
 
@@ -428,41 +376,19 @@ export default function TabelaPublica({ campeonatoId }: Props) {
                     <div className="flex flex-col items-end gap-1 overflow-hidden">
                       <img
                         src={casa?.escudo || "/shield-placeholder.png"}
-                        className={`w-8 h-8 object-contain drop-shadow-md transition-transform group-hover:scale-110 ${
-                          !cWin && temPlacar && c !== v
-                            ? "grayscale opacity-60"
-                            : ""
-                        }`}
+                        className={`w-8 h-8 object-contain drop-shadow-md transition-transform group-hover:scale-110 ${!cWin && temPlacar && c !== v ? "grayscale opacity-60" : ""}`}
                       />
-                      <span
-                        className={`text-[10px] font-bold uppercase leading-tight text-right truncate w-full ${
-                          cWin
-                            ? "text-green-400"
-                            : "text-gray-400 group-hover:text-gray-200"
-                        }`}
-                      >
+                      <span className={`text-[10px] font-bold uppercase leading-tight text-right truncate w-full ${cWin ? "text-green-400" : "text-gray-400 group-hover:text-gray-200"}`}>
                         {casa?.nome}
                       </span>
                     </div>
 
                     {/* PLACAR */}
-                    <div
-                      className={`flex flex-col items-center justify-center w-auto min-w-[70px] px-1 h-[36px] rounded-lg border font-mono text-sm font-black shadow-inner ${
-                        isLive
-                          ? "bg-green-900/10 border-green-500/30 text-green-400"
-                          : temPlacar
-                            ? "bg-black/40 border-gray-700 text-white"
-                            : "bg-black/20 border-gray-800 text-gray-600"
-                      }`}
-                    >
+                    <div className={`flex flex-col items-center justify-center w-auto min-w-[70px] px-1 h-[36px] rounded-lg border font-mono text-sm font-black shadow-inner ${isLive ? "bg-green-900/10 border-green-500/30 text-green-400" : temPlacar ? "bg-black/40 border-gray-700 text-white" : "bg-black/20 border-gray-800 text-gray-600"}`}>
                       <div className="flex items-center gap-1">
-                        <span className={cWin ? "text-green-400" : ""}>
-                          {j.placar_casa ?? "-"}
-                        </span>
+                        <span className={cWin ? "text-green-400" : ""}>{j.placar_casa ?? "-"}</span>
                         <span className="text-[10px] opacity-50 mx-0.5">:</span>
-                        <span className={vWin ? "text-green-400" : ""}>
-                          {j.placar_visitante ?? "-"}
-                        </span>
+                        <span className={vWin ? "text-green-400" : ""}>{j.placar_visitante ?? "-"}</span>
                       </div>
                     </div>
 
@@ -470,19 +396,9 @@ export default function TabelaPublica({ campeonatoId }: Props) {
                     <div className="flex flex-col items-start gap-1 overflow-hidden">
                       <img
                         src={visitante?.escudo || "/shield-placeholder.png"}
-                        className={`w-8 h-8 object-contain drop-shadow-md transition-transform group-hover:scale-110 ${
-                          !vWin && temPlacar && c !== v
-                            ? "grayscale opacity-60"
-                            : ""
-                        }`}
+                        className={`w-8 h-8 object-contain drop-shadow-md transition-transform group-hover:scale-110 ${!vWin && temPlacar && c !== v ? "grayscale opacity-60" : ""}`}
                       />
-                      <span
-                        className={`text-[10px] font-bold uppercase leading-tight text-left truncate w-full ${
-                          vWin
-                            ? "text-green-400"
-                            : "text-gray-400 group-hover:text-gray-200"
-                        }`}
-                      >
+                      <span className={`text-[10px] font-bold uppercase leading-tight text-left truncate w-full ${vWin ? "text-green-400" : "text-gray-400 group-hover:text-gray-200"}`}>
                         {visitante?.nome}
                       </span>
                     </div>

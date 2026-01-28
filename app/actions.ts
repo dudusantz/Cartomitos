@@ -89,8 +89,17 @@ export async function salvarTime(prevState: { success: boolean, msg: string }, f
   return { success: !error, msg: error ? error.message : `Time "${timeToSave.nome}" salvo com sucesso!` };
 }
 
-export async function criarCampeonato(nome: string, ano: number, tipo: string) {
-  const { error } = await supabase.from('campeonatos').insert([{ nome, ano, tipo, ativo: true, final_unica: false }])
+export async function criarCampeonato(nome: string, ano: number, tipo: string, isPaga: boolean, usarDecimais: boolean) {
+  const { error } = await supabase.from('campeonatos').insert([{ 
+      nome, 
+      ano, 
+      tipo, 
+      ativo: true, 
+      final_unica: false, 
+      is_paga: isPaga,
+      usar_decimais: usarDecimais // Agora a variável existe!
+  }])
+  
   if (!error) {
     revalidatePath('/admin/ligas')
     revalidatePath('/campeonatos')
@@ -98,8 +107,15 @@ export async function criarCampeonato(nome: string, ano: number, tipo: string) {
   return { success: !error, msg: error ? error.message : 'Criado!' }
 }
 
-export async function atualizarCampeonato(id: number, nome: string, ano: number, tipo: string) {
-  const { error } = await supabase.from('campeonatos').update({ nome, ano, tipo }).eq('id', id)
+export async function atualizarCampeonato(id: number, nome: string, ano: number, tipo: string, isPaga: boolean, usarDecimais: boolean) {
+  const { error } = await supabase.from('campeonatos').update({ 
+      nome, 
+      ano, 
+      tipo, 
+      is_paga: isPaga,
+      usar_decimais: usarDecimais // Agora a variável existe!
+  }).eq('id', id)
+  
   if (!error) {
     revalidatePath('/admin/ligas')
     revalidatePath('/campeonatos')
@@ -230,7 +246,7 @@ export async function zerarJogos(campeonatoId: number) {
   return { success: true }
 }
 
-async function atualizarJogoIndividual(jogo: any, rodadaCartola: number) {
+async function atualizarJogoIndividual(jogo: any, rodadaCartola: number, usarDecimais: boolean = false) {
     if (!rodadaCartola || rodadaCartola <= 0) return;
     try {
         const [resCasa, resVis] = await Promise.all([
@@ -241,9 +257,15 @@ async function atualizarJogoIndividual(jogo: any, rodadaCartola: number) {
         const ptsCasa = resCasa?.pontos || 0;
         const ptsVis = resVis?.pontos || 0;
 
+        const placarC = usarDecimais ? ptsCasa : Math.floor(ptsCasa);
+        const placarV = usarDecimais ? ptsVis : Math.floor(ptsVis);
+
         await supabase.from('partidas').update({
-            pontos_reais_casa: ptsCasa, placar_casa: Math.floor(ptsCasa),
-            pontos_reais_visitante: ptsVis, placar_visitante: Math.floor(ptsVis), status: 'finalizado'
+            pontos_reais_casa: ptsCasa, 
+            placar_casa: placarC, // 2. Use a variável calculada (placarC), NÃO o Math.floor fixo
+            pontos_reais_visitante: ptsVis, 
+            placar_visitante: placarV, // 2. Use a variável calculada (placarV)
+            status: 'finalizado'
         }).eq('id', jogo.id);
     } catch (e) { console.error("Erro ao atualizar jogo individual", e); }
 }
@@ -278,6 +300,10 @@ export async function atualizarPlacarManual(
   
   if (tipo === 'mata-mata' || (tipo === 'copa' && data.rodada > 20)) {
       await verificarEAvancarFase(data.campeonato_id, data.rodada);
+  }
+
+  if (tipo === 'grid') {
+      await recalcularTabelaGrid(data.campeonato_id);
   }
 
   revalidatePath(`/campeonatos/${data.campeonato_id}`)
@@ -337,14 +363,20 @@ export async function gerarJogosPontosCorridos(campeonatoId: number) {
 }
 
 export async function atualizarRodadaPontosCorridos(campeonatoId: number, rodadaLiga: number, rodadaCartola: number) {
+    // 1. MUDANÇA NO SELECT: Adicionei ", campeonato:campeonatos(usar_decimais)" no final da string
     const { data: partidas } = await supabase.from('partidas')
-      .select('*, casa:times!partidas_time_casa_fkey(*), visitante:times!partidas_time_visitante_fkey(*)')
+      .select('*, casa:times!partidas_time_casa_fkey(*), visitante:times!partidas_time_visitante_fkey(*), campeonato:campeonatos(usar_decimais)')
       .eq('campeonato_id', campeonatoId).eq('rodada', rodadaLiga).order('id');
 
     if (!partidas || partidas.length === 0) return { success: false, msg: "Sem jogos nesta rodada." };
 
+    // 2. NOVA LINHA: Descobre se deve usar decimais
+    const p = partidas as any[];
+    const usarDecimais = partidas[0].campeonato?.usar_decimais === true;
+
     for (const jogo of partidas) {
-        await atualizarJogoIndividual(jogo, rodadaCartola);
+        // 3. MUDANÇA NO LOOP: Passar "usarDecimais" como terceiro parâmetro
+        await atualizarJogoIndividual(jogo, rodadaCartola, usarDecimais);
     }
 
     await recalcularTabelaPontosCorridos(campeonatoId);
@@ -482,8 +514,9 @@ export async function gerarMataMataInteligente(campeonatoId: number, idsOrdenado
 }
 
 export async function atualizarRodadaMataMata(campeonatoId: number, fase: number, rodadaIda: number, rodadaVolta: number) {
+  // 1. Busca usar_decimais
   const { data: partidas } = await supabase.from('partidas')
-    .select('*, casa:times!partidas_time_casa_fkey(*), visitante:times!partidas_time_visitante_fkey(*)')
+    .select('*, casa:times!partidas_time_casa_fkey(*), visitante:times!partidas_time_visitante_fkey(*), campeonato:campeonatos(usar_decimais)')
     .eq('campeonato_id', campeonatoId)
     .in('rodada', [fase, fase + 1]) 
     .neq('status', 'bye')
@@ -491,12 +524,16 @@ export async function atualizarRodadaMataMata(campeonatoId: number, fase: number
 
   if (!partidas || partidas.length === 0) return { success: false, msg: "Sem jogos nesta fase." };
   
+  const p = partidas as any[];
+  const usarDecimais = partidas[0].campeonato?.usar_decimais === true;
+
   for (const jogo of partidas) {
       let r = 0;
       if (jogo.rodada === fase) r = rodadaIda;
       else if (jogo.rodada === fase + 1) r = rodadaVolta;
 
-      if (r > 0) await atualizarJogoIndividual(jogo, r); 
+      // 2. Passa o parâmetro
+      if (r > 0) await atualizarJogoIndividual(jogo, r, usarDecimais); 
   }
 
   await verificarEAvancarFase(campeonatoId, fase);
@@ -696,14 +733,19 @@ export async function gerarJogosFaseGrupos(campeonatoId: number) {
 }
 
 export async function atualizarRodadaGrupos(campeonatoId: number, rodadaLiga: number, rodadaCartola: number) {
+  // 1. Busca usar_decimais
   const { data: partidas } = await supabase.from('partidas')
-    .select('*, casa:times!partidas_time_casa_fkey(*), visitante:times!partidas_time_visitante_fkey(*)')
+    .select('*, casa:times!partidas_time_casa_fkey(*), visitante:times!partidas_time_visitante_fkey(*), campeonato:campeonatos(usar_decimais)')
     .eq('campeonato_id', campeonatoId).eq('rodada', rodadaLiga).order('id');
 
   if (!partidas || partidas.length === 0) return { success: false, msg: "Sem jogos." };
 
+  const p = partidas as any[];
+  const usarDecimais = partidas[0].campeonato?.usar_decimais === true;
+
   for (const jogo of partidas) {
-      await atualizarJogoIndividual(jogo, rodadaCartola);
+      // 2. Passa o parâmetro
+      await atualizarJogoIndividual(jogo, rodadaCartola, usarDecimais);
   }
   await recalcularTabelaPontosCorridos(campeonatoId);
   revalidatePath(`/campeonatos/${campeonatoId}`)
@@ -880,7 +922,7 @@ export async function gerarMataMataCopa(campeonatoId: number) {
 // ==============================================================================
 
 export async function buscarRankingCompleto() {
-  const { data: ligas } = await supabase.from('campeonatos').select('id').eq('tipo', 'pontos_corridos').eq('ativo', true)
+  const { data: ligas } = await supabase.from('campeonatos').select('id').eq('tipo', 'pontos_corridos').eq('ativo', true).eq('is_paga', false)
   if (!ligas || ligas.length === 0) return []
 
   const idsLigas = ligas.map(l => l.id)
@@ -989,12 +1031,13 @@ export async function buscarLigaOficial() {
 export async function buscarMaioresPontuadores() {
   const { data: partidas } = await supabase.from('partidas').select(`
       rodada, pontos_reais_casa, pontos_reais_visitante,
-      casa:times!partidas_time_casa_fkey(nome, escudo), visitante:times!partidas_time_visitante_fkey(nome, escudo), liga:campeonatos(nome)
+      casa:times!partidas_time_casa_fkey(nome, escudo), visitante:times!partidas_time_visitante_fkey(nome, escudo), liga:campeonatos(nome, is_paga)
     `).eq('status', 'finalizado')
 
   if (!partidas) return []
   let lista: any[] = []
   partidas.forEach((j: any) => {
+    if (j.liga?.is_paga) return;
     if (j.pontos_reais_casa) lista.push({ time: j.casa.nome, escudo: j.casa.escudo, pontos: j.pontos_reais_casa, rodada: j.rodada, liga: j.liga?.nome })
     if (j.pontos_reais_visitante) lista.push({ time: j.visitante.nome, escudo: j.visitante.escudo, pontos: j.pontos_reais_visitante, rodada: j.rodada, liga: j.liga?.nome })
   })
@@ -1031,7 +1074,7 @@ export async function buscarTodosRecordes() {
       rodada, pontos_reais_casa, pontos_reais_visitante,
       casa:times!partidas_time_casa_fkey(nome, escudo), 
       visitante:times!partidas_time_visitante_fkey(nome, escudo), 
-      liga:campeonatos(nome, ativo, tipo)
+      liga:campeonatos(nome, ativo, tipo, is_paga)
     `).eq('status', 'finalizado')
 
   if (!partidas) return []
@@ -1040,7 +1083,7 @@ export async function buscarTodosRecordes() {
   
   partidas.forEach((j: any) => {
     // FILTRO: Liga ATIVA e Tipo PONTOS CORRIDOS
-    if (j.liga?.ativo === true && j.liga?.tipo === 'pontos_corridos') {
+    if (j.liga?.ativo === true && j.liga?.tipo === 'pontos_corridos' && j.liga?.is_paga === false) {
         if (j.pontos_reais_casa) lista.push({ 
             time: j.casa.nome, 
             escudo: j.casa.escudo, 
@@ -1409,4 +1452,136 @@ export async function salvarTimePorId(timeId: number) {
   } catch (error: any) {
     return { success: false, msg: "Erro interno: " + error.message };
   }
+}
+
+// ==============================================================================
+// 8. MÓDULO: GRID (RANKING GERAL)
+// ==============================================================================
+
+export async function atualizarRodadaGrid(campeonatoId: number, rodadaCartola: number) {
+    // 1. Busca todos os times dessa liga
+    const times = await listarTimesDoCampeonato(campeonatoId);
+    if (!times || times.length === 0) return { success: false, msg: "Nenhum time na liga." };
+
+    // 2. Busca configuração de decimais
+    const { data: camp } = await supabase.from('campeonatos').select('usar_decimais').eq('id', campeonatoId).single();
+    const usarDecimais = camp?.usar_decimais === true;
+
+    // 3. Para cada time, busca a pontuação na API e salva como uma "partida solo"
+    for (const t of times) {
+        try {
+            const dados = await fetchCartola(`https://api.cartola.globo.com/time/id/${t.times.time_id_cartola}/${rodadaCartola}`);
+            const pontosReais = dados?.pontos || 0;
+            const pontosSalvar = usarDecimais ? pontosReais : Math.floor(pontosReais);
+
+            // Verifica se já existe registro dessa rodada para esse time
+            const { data: existente } = await supabase.from('partidas')
+                .select('id')
+                .eq('campeonato_id', campeonatoId)
+                .eq('rodada', rodadaCartola)
+                .eq('time_casa', t.time_id)
+                .single();
+
+            if (existente) {
+                // Atualiza
+                await supabase.from('partidas').update({
+                    placar_casa: pontosSalvar,
+                    pontos_reais_casa: pontosReais,
+                    status: 'finalizado'
+                }).eq('id', existente.id);
+            } else {
+                // Cria novo registro (Time Visitante é NULL pois é Grid)
+                await supabase.from('partidas').insert([{
+                    campeonato_id: campeonatoId,
+                    rodada: rodadaCartola,
+                    time_casa: t.time_id,
+                    time_visitante: null,
+                    placar_casa: pontosSalvar,
+                    pontos_reais_casa: pontosReais,
+                    status: 'finalizado'
+                }]);
+            }
+        } catch (e) {
+            console.error(`Erro ao atualizar time ${t.times.nome}`, e);
+        }
+    }
+
+    await recalcularTabelaGrid(campeonatoId);
+    revalidatePath(`/campeonatos/${campeonatoId}`);
+    return { success: true, msg: "Grid atualizado com sucesso!" };
+}
+
+export async function recalcularTabelaGrid(campeonatoId: number) {
+    // Zera a pontuação atual
+    await supabase.from('classificacao').update({ pts: 0, pj: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0 }).eq('campeonato_id', campeonatoId);
+
+    // Busca todos os jogos (que na verdade são pontuações de rodada)
+    const { data: registros } = await supabase.from('partidas')
+        .select('time_casa, placar_casa')
+        .eq('campeonato_id', campeonatoId);
+
+    if (!registros) return;
+
+    const stats: any = {};
+
+    registros.forEach((reg: any) => {
+        if (!stats[reg.time_casa]) {
+            stats[reg.time_casa] = { pts: 0, pj: 0 }; // pts aqui será a SOMA DOS PONTOS
+        }
+        stats[reg.time_casa].pts += reg.placar_casa || 0;
+        stats[reg.time_casa].pj += 1; // pj será o número de rodadas jogadas
+    });
+
+    // Salva no banco
+    for (const timeId in stats) {
+        await supabase.from('classificacao')
+            .update({ 
+                pts: stats[timeId].pts, // Total acumulado
+                pj: stats[timeId].pj    // Rodadas contadas
+            })
+            .eq('campeonato_id', campeonatoId)
+            .eq('time_id', timeId);
+    }
+}
+
+export async function buscarTabelaGrid(campeonatoId: number) {
+    // 1. Busca a classificação (já ordenada por total)
+    const { data: ranking } = await supabase.from('classificacao')
+        .select('*, times(*)')
+        .eq('campeonato_id', campeonatoId)
+        .order('pts', { ascending: false });
+
+    if (!ranking) return { ranking: [], rodadas: [] };
+
+    // 2. Busca o histórico de pontuações (tabela partidas)
+    // No Grid, time_visitante é null, então pegamos placar_casa
+    const { data: historico } = await supabase.from('partidas')
+        .select('rodada, time_casa, placar_casa')
+        .eq('campeonato_id', campeonatoId)
+        .eq('status', 'finalizado')
+        .order('rodada', { ascending: true });
+
+    // 3. Processa os dados para facilitar o uso no frontend
+    // Descobre quais rodadas já aconteceram (ex: [1, 2, 5])
+    const rodadasSet = new Set<number>();
+    
+    // Cria um mapa de pontuações: { timeId: { rodada1: 50.5, rodada2: 40 } }
+    const pontuacoesPorTime: any = {};
+
+    historico?.forEach((h: any) => {
+        rodadasSet.add(h.rodada);
+        if (!pontuacoesPorTime[h.time_casa]) pontuacoesPorTime[h.time_casa] = {};
+        pontuacoesPorTime[h.time_casa][h.rodada] = h.placar_casa;
+    });
+
+    // Converte o Set para Array ordenado
+    const rodadasOrdenadas = Array.from(rodadasSet).sort((a, b) => a - b);
+
+    // Injeta o histórico dentro de cada item do ranking
+    const rankingCompleto = ranking.map((item: any) => ({
+        ...item,
+        historico: pontuacoesPorTime[item.time_id] || {}
+    }));
+
+    return { ranking: rankingCompleto, rodadas: rodadasOrdenadas };
 }

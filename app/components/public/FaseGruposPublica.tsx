@@ -34,7 +34,7 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
         
         // CORREÇÃO: Limita estritamente à rodada 6 (padrão Libertadores/Champions)
         // para não puxar jogos de mata-mata (R7, R8...) na tela de grupos.
-        const jogosGrupos = dadosJogos.filter((j: any) => j.rodada <= 6);
+        const jogosGrupos = (dadosJogos || []).filter((j: any) => j.rodada <= 6);
 
         // Salva estado inicial
         setDadosOriginais({ grupos: dadosGrupos, jogos: jogosGrupos });
@@ -175,6 +175,12 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
       ? Math.max(...dadosOriginais.jogos.map((j) => j.rodada))
       : 6;
 
+  // === HELPER: Formata decimais se necessário ===
+  const formatDecimal = (val: number) => {
+      if (val === undefined || val === null) return 0;
+      return val % 1 !== 0 ? val.toFixed(1) : val;
+  };
+
   if (loading)
     return (
       <div className="text-center py-20 text-gray-500 animate-pulse">
@@ -191,7 +197,7 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start animate-fadeIn">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start animate-fadeIn max-w-[100vw] overflow-hidden">
       {/* ESQUERDA: GRADES DE GRUPOS */}
       <div className="lg:col-span-8">
         <div className="flex items-center justify-between mb-4 px-2">
@@ -276,7 +282,7 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
                                 />
                                 {/* Nome completo do time sem cortes */}
                                 <span
-                                  className={`font-bold whitespace-normal leading-tight ${
+                                  className={`font-bold whitespace-nowrap leading-tight ${
                                     isClassificado
                                       ? "text-white"
                                       : "text-gray-400"
@@ -286,8 +292,9 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
                                 </span>
                               </div>
                             </td>
+                            {/* PONTOS FORMATADOS */}
                             <td className="py-2 text-center font-black text-white bg-white/5">
-                              {t.pts}
+                              {formatDecimal(t.pts)}
                             </td>
                             <td className="py-2 text-center text-gray-600">
                               {t.pj}
@@ -302,10 +309,10 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
                               {t.d}
                             </td>
                             <td className="py-2 text-center text-gray-500 font-mono">
-                              {t.pp}
+                              {formatDecimal(t.pp)}
                             </td>
                             <td className="py-2 text-center text-gray-500 font-mono">
-                              {t.pc}
+                              {formatDecimal(t.pc)}
                             </td>
                             <td
                               className={`py-2 text-center font-bold ${
@@ -316,7 +323,7 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
                                   : "text-gray-600"
                               }`}
                             >
-                              {t.sp}
+                              {formatDecimal(t.sp)}
                             </td>
                           </tr>
                         );

@@ -5,13 +5,13 @@ import toast from 'react-hot-toast'
 import { 
   gerarJogosPontosCorridos, atualizarRodadaPontosCorridos, 
   buscarTabelaPontosCorridos, zerarJogos, atualizarPlacarManual, listarPartidas, recalcularTabelaPontosCorridos 
-} from '@/app/actions' // Ajustei para usar @/app/actions para garantir o caminho correto
-import { ModalConfirmacao } from './ModalConfirmacao' // <--- CORREÇÃO AQUI (COM CHAVES)
+} from '@/app/actions'
+import { ModalConfirmacao } from './ModalConfirmacao'
 import { Trophy, RefreshCw, Trash2, Save, X, Calendar, PlayCircle } from 'lucide-react'
 
 interface Props {
   campeonatoId: number
-  times?: any[] // Deixei opcional para evitar erros se não for passado em algum lugar
+  times?: any[] 
 }
 
 export default function PainelPontosCorridos({ campeonatoId, times = [] }: Props) {
@@ -71,7 +71,7 @@ export default function PainelPontosCorridos({ campeonatoId, times = [] }: Props
   function confirm(titulo: string, msg: string, action: () => void) {
     setModalConfig({ 
         titulo, 
-        descricao: msg, // Ajustado de 'mensagem' para 'descricao' conforme a prop do componente Modal
+        descricao: msg,
         onConfirm: async () => { 
             await action(); 
             setModalOpen(false) 
@@ -147,6 +147,12 @@ export default function PainelPontosCorridos({ campeonatoId, times = [] }: Props
     }
   }
 
+  // Helper para formatar números decimais (ex: 45.5) apenas se necessário
+  const formatDecimal = (val: number) => {
+      if (val === undefined || val === null) return 0;
+      return val % 1 !== 0 ? val.toFixed(1) : val;
+  };
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-fadeIn items-start pb-20">
       <ModalConfirmacao 
@@ -154,7 +160,7 @@ export default function PainelPontosCorridos({ campeonatoId, times = [] }: Props
           onClose={() => setModalOpen(false)}
           onConfirm={modalConfig.onConfirm}
           titulo={modalConfig.titulo || ""}
-          descricao={modalConfig.descricao || ""} // Corrigido para 'descricao'
+          descricao={modalConfig.descricao || ""}
           corBotao={modalConfig.corBotao || "blue"}
           textoBotao={modalConfig.textoBotao || "Confirmar"}
       />
@@ -174,13 +180,26 @@ export default function PainelPontosCorridos({ campeonatoId, times = [] }: Props
                         <div className="flex flex-col items-center w-1/3">
                             <img src={escudoCasa} alt={timeCasaNome} className="w-16 h-16 object-contain mb-3 drop-shadow-lg" />
                             <span className="text-[10px] text-gray-400 font-bold uppercase text-center line-clamp-1">{timeCasaNome}</span>
-                            <input type="number" autoFocus className="mt-2 w-20 h-16 bg-black border border-gray-700 focus:border-blue-500 text-white text-3xl font-black text-center rounded-xl outline-none transition" value={tempCasa} onChange={e => setTempCasa(e.target.value)} />
+                            <input 
+                                type="number" 
+                                step="0.1" // <--- PERMITE DECIMAIS
+                                autoFocus 
+                                className="mt-2 w-20 h-16 bg-black border border-gray-700 focus:border-blue-500 text-white text-3xl font-black text-center rounded-xl outline-none transition" 
+                                value={tempCasa} 
+                                onChange={e => setTempCasa(e.target.value)} 
+                            />
                         </div>
                         <span className="text-gray-600 font-black text-2xl mt-4">X</span>
                         <div className="flex flex-col items-center w-1/3">
                             <img src={escudoVisitante} alt={timeVisitanteNome} className="w-16 h-16 object-contain mb-3 drop-shadow-lg" />
                             <span className="text-[10px] text-gray-400 font-bold uppercase text-center line-clamp-1">{timeVisitanteNome}</span>
-                            <input type="number" className="mt-2 w-20 h-16 bg-black border border-gray-700 focus:border-blue-500 text-white text-3xl font-black text-center rounded-xl outline-none transition" value={tempVisitante} onChange={e => setTempVisitante(e.target.value)} />
+                            <input 
+                                type="number" 
+                                step="0.1" // <--- PERMITE DECIMAIS
+                                className="mt-2 w-20 h-16 bg-black border border-gray-700 focus:border-blue-500 text-white text-3xl font-black text-center rounded-xl outline-none transition" 
+                                value={tempVisitante} 
+                                onChange={e => setTempVisitante(e.target.value)} 
+                            />
                         </div>
                     </div>
                     <div className="flex gap-3">
@@ -257,14 +276,14 @@ export default function PainelPontosCorridos({ campeonatoId, times = [] }: Props
                                         <span className={`font-bold text-sm transition ${isZ4 ? 'text-gray-400 group-hover:text-red-400' : 'text-gray-300 group-hover:text-white'} whitespace-nowrap`}>{nome}</span>
                                     </div>
                                 </td>
-                                <td className="py-3 text-center font-black text-white bg-white/[0.03] text-sm shadow-inner">{t.pts}</td>
+                                <td className="py-3 text-center font-black text-white bg-white/[0.03] text-sm shadow-inner">{formatDecimal(t.pts)}</td>
                                 <td className="py-3 text-center text-gray-500 font-mono">{t.pj}</td>
                                 <td className="py-3 text-center text-gray-500 font-mono">{t.v}</td>
                                 <td className="py-3 text-center text-gray-500 font-mono">{t.e}</td>
                                 <td className="py-3 text-center text-gray-500 font-mono">{t.d}</td>
-                                <td className="py-3 text-center text-gray-500 font-mono">{t.gp}</td>
-                                <td className="py-3 text-center text-gray-500 font-mono">{t.gc}</td>
-                                <td className={`py-3 text-center font-mono font-bold ${t.sg > 0 ? 'text-green-500' : (t.sg < 0 ? 'text-red-500' : 'text-gray-500')}`}>{t.sg}</td>
+                                <td className="py-3 text-center text-gray-500 font-mono">{formatDecimal(t.gp)}</td>
+                                <td className="py-3 text-center text-gray-500 font-mono">{formatDecimal(t.gc)}</td>
+                                <td className={`py-3 text-center font-mono font-bold ${t.sg > 0 ? 'text-green-500' : (t.sg < 0 ? 'text-red-500' : 'text-gray-500')}`}>{formatDecimal(t.sg)}</td>
                             </tr>
                         )})}
                     </tbody>
@@ -297,6 +316,7 @@ export default function PainelPontosCorridos({ campeonatoId, times = [] }: Props
                     const finalizado = j.status === 'finalizado';
                     const cVenceu = finalizado && (j.placar_casa ?? 0) > (j.placar_visitante ?? 0);
                     const vVenceu = finalizado && (j.placar_visitante ?? 0) > (j.placar_casa ?? 0);
+                    
                     return (
                     <div key={j.id} onClick={() => abrirModalEdicao(j)} className="bg-black/40 border border-gray-800/50 p-4 rounded-xl cursor-pointer hover:border-yellow-500/50 hover:bg-white/[0.02] transition group relative overflow-hidden">
                         {finalizado && <div className="absolute top-0 right-0 w-2 h-2 bg-green-500 rounded-bl-lg"></div>}

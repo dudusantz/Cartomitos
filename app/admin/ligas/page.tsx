@@ -5,10 +5,12 @@ import { useState, useEffect } from 'react'
 import { criarCampeonato, atualizarCampeonato, listarCampeonatos, excluirCampeonato, finalizarCampeonato, reabrirCampeonato } from '@/app/actions'
 import toast from 'react-hot-toast'
 
+// === ADICIONEI O TIPO 'GRID' AQUI COM A COR DOURADA ===
 const TIPOS_TORNEIO = {
     pontos_corridos: { icon: '🏆', label: 'Pontos Corridos', style: 'text-blue-400 bg-blue-500/10 border-blue-500/20' },
     mata_mata: { icon: '🥊', label: 'Mata-Mata', style: 'text-purple-400 bg-purple-500/10 border-purple-500/20' },
     copa: { icon: '🌍', label: 'Copa Mista', style: 'text-orange-400 bg-orange-500/10 border-orange-500/20' },
+    grid: { icon: '📊', label: 'Grid / Ranking Geral', style: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20' }
 };
 
 export default function AdminLigas() {
@@ -21,6 +23,11 @@ export default function AdminLigas() {
   const [nome, setNome] = useState('')
   const [ano, setAno] = useState(String(new Date().getFullYear()))
   const [tipo, setTipo] = useState('pontos_corridos')
+  
+  // NOVOS ESTADOS
+  const [isPaga, setIsPaga] = useState(false)
+  const [usarDecimais, setUsarDecimais] = useState(false)
+  
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
@@ -37,6 +44,10 @@ export default function AdminLigas() {
       setNome(liga.nome)
       setAno(liga.ano)
       setTipo(liga.tipo)
+      // Carrega as configurações extras
+      setIsPaga(liga.is_paga === true)
+      setUsarDecimais(liga.usar_decimais === true)
+      
       window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -45,6 +56,9 @@ export default function AdminLigas() {
       setNome('')
       setAno(String(new Date().getFullYear()))
       setTipo('pontos_corridos')
+      // Reseta os checkboxes
+      setIsPaga(false)
+      setUsarDecimais(false)
   }
 
   async function handleSalvar() {
@@ -53,9 +67,9 @@ export default function AdminLigas() {
     
     let res;
     if (editandoId) {
-        res = await atualizarCampeonato(editandoId, nome, Number(ano), tipo)
+        res = await atualizarCampeonato(editandoId, nome, Number(ano), tipo, isPaga, usarDecimais)
     } else {
-        res = await criarCampeonato(nome, Number(ano), tipo)
+        res = await criarCampeonato(nome, Number(ano), tipo, isPaga, usarDecimais)
     }
 
     if (res.success) {
@@ -164,6 +178,45 @@ export default function AdminLigas() {
                                 ))}
                             </select>
                         </div>
+
+                        {/* CONFIGURAÇÕES AVANÇADAS */}
+                        <div className="mt-4 pt-4 border-t border-white/5 space-y-2">
+                            {/* Checkbox: Liga Paga - COR AMARELA */}
+                            <label className="bg-[#121212] p-3 rounded-xl border border-white/5 flex items-start gap-3 cursor-pointer hover:border-white/20 transition-colors group select-none">
+                                <input 
+                                    type="checkbox" 
+                                    className="hidden" 
+                                    checked={isPaga} 
+                                    onChange={e => setIsPaga(e.target.checked)} 
+                                />
+                                <div className={`w-5 h-5 rounded border flex items-center justify-center shrink-0 mt-0.5 transition-colors ${isPaga ? 'bg-yellow-600 border-yellow-600 text-black' : 'border-gray-600 group-hover:border-gray-500'}`}>
+                                    {isPaga && <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+                                </div>
+                                <div>
+                                    <span className={`block text-xs font-bold uppercase tracking-wide ${isPaga ? 'text-yellow-500' : 'text-gray-400'}`}>Liga Paga / Tiro Curto</span>
+                                    <span className="block text-[10px] text-gray-600 mt-0.5 leading-tight">Não conta para o Ranking Geral e nem Recordes.</span>
+                                </div>
+                            </label>
+
+                            {/* Checkbox: Pontuação Decimal */}
+                            <label className="bg-[#121212] p-3 rounded-xl border border-white/5 flex items-start gap-3 cursor-pointer hover:border-white/20 transition-colors group select-none">
+                                <input 
+                                    type="checkbox" 
+                                    className="hidden" 
+                                    checked={usarDecimais} 
+                                    onChange={e => setUsarDecimais(e.target.checked)} 
+                                />
+                                <div className={`w-5 h-5 rounded border flex items-center justify-center shrink-0 mt-0.5 transition-colors ${usarDecimais ? 'bg-blue-500 border-blue-500 text-white' : 'border-gray-600 group-hover:border-gray-500'}`}>
+                                    {usarDecimais && <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+                                </div>
+                                <div>
+                                    <span className={`block text-xs font-bold uppercase tracking-wide ${usarDecimais ? 'text-blue-500' : 'text-gray-400'}`}>Pontuação Decimal</span>
+                                    <span className="block text-[10px] text-gray-600 mt-0.5 leading-tight">
+                                        {usarDecimais ? 'Usa placar exato (Ex: 55.4)' : 'Arredonda p/ baixo (Ex: 55)'}
+                                    </span>
+                                </div>
+                            </label>
+                        </div>
                         
                         <div className="flex gap-2 mt-4">
                             {editandoId && (
@@ -221,6 +274,10 @@ export default function AdminLigas() {
                         ligasFiltradas.map((liga) => {
                             const info = getLigaInfo(liga.tipo)
                             const isAtivo = liga.ativo !== false;
+                            
+                            // Variáveis de visualização
+                            const isPagaLocal = liga.is_paga === true;
+                            const isDecimal = liga.usar_decimais === true;
 
                             return (
                                 <div key={liga.id} className={`p-5 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4 group ${isAtivo ? 'bg-[#1a1a1a] border-white/5 hover:border-white/20' : 'bg-[#121212] border-white/5 opacity-60 hover:opacity-100'}`}>
@@ -239,12 +296,23 @@ export default function AdminLigas() {
                                             <div className="flex items-center gap-2 mt-1">
                                                 <span className="bg-black/20 text-gray-500 text-[10px] font-bold px-2 py-0.5 rounded border border-white/5">{liga.ano}</span>
                                                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase tracking-wide ${info.style}`}>{info.label}</span>
+                                                
+                                                {/* BADGES NOVOS */}
+                                                {isPagaLocal && (
+                                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded border uppercase tracking-wide text-yellow-400 bg-yellow-500/10 border-yellow-500/20 flex items-center gap-1">
+                                                        <span>💰</span> Paga
+                                                    </span>
+                                                )}
+                                                {isDecimal && (
+                                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded border uppercase tracking-wide text-blue-400 bg-blue-500/10 border-blue-500/20 flex items-center gap-1">
+                                                        <span>.5</span> Decimal
+                                                    </span>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
 
                                     <div className="flex items-center gap-2 self-end sm:self-auto border-t sm:border-t-0 border-white/5 pt-3 sm:pt-0 w-full sm:w-auto justify-end">
-                                            {/* Botão Finalizar (Ícone Rápido) */}
                                             <button 
                                                 onClick={() => handleFinalizar(liga.id, isAtivo)}
                                                 title={isAtivo ? "Finalizar Campeonato" : "Reabrir Campeonato"}
@@ -258,7 +326,6 @@ export default function AdminLigas() {
                                                 }
                                             </button>
 
-                                            {/* Botão Excluir */}
                                             <button 
                                                 onClick={() => handleExcluir(liga.id)}
                                                 title="Excluir Liga"

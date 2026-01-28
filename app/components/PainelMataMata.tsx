@@ -7,9 +7,9 @@ import {
   listarPartidas, 
   excluirMataMata, 
   atualizarPlacarManual 
-} from '@/app/actions' // Usei @/app/actions para garantir o caminho absoluto correto
+} from '@/app/actions'
 import MataMataBracket from './MataMataBracket'
-import { ModalConfirmacao } from './ModalConfirmacao' // <--- CORRIGIDO: Importação com chaves
+import { ModalConfirmacao } from './ModalConfirmacao' 
 import SorteioMataMata from './admin/SorteioMataMata'
 import { RefreshCw, Trash2, Trophy, Save, Edit3, Eye, Shield } from 'lucide-react'
 
@@ -17,7 +17,7 @@ interface Props {
   campeonatoId: number
   rodadasCorte: number
   bloquearGerador?: boolean 
-  isCopa?: boolean // Adicionado para compatibilidade caso seja passado
+  isCopa?: boolean
 }
 
 export default function PainelMataMata({ campeonatoId, rodadasCorte, bloquearGerador = false }: Props) {
@@ -47,8 +47,6 @@ export default function PainelMataMata({ campeonatoId, rodadasCorte, bloquearGer
     
     setPartidas(jogosMataMata)
     
-    // Se não tem jogos e o gerador não está bloqueado (ex: Mata-Mata puro), mostra sorteio.
-    // Se for Copa, o bloqueio vem true, então não mostra sorteio aqui (fica na aba anterior).
     if (jogosMataMata.length === 0) {
         setModoSorteio(!bloquearGerador)
     } else {
@@ -91,7 +89,7 @@ export default function PainelMataMata({ campeonatoId, rodadasCorte, bloquearGer
             const res = await excluirMataMata(campeonatoId, rodadasCorte + 1)
             if(res.success) { 
                 toast.success(res.msg); 
-                window.location.reload(); // Recarrega para evitar bugs visuais
+                window.location.reload();
             }
             setModalOpen(false)
         }, 
@@ -253,8 +251,6 @@ function CardPartidaEditavel({ partida, todosJogos, onUpdate }: { partida: any, 
     const jogoIda = todosJogos.find(p => p.rodada === partida.rodada - 1 && (p.time_casa === partida.time_visitante || p.time_casa === partida.time_casa));
     const jogoVolta = todosJogos.find(p => p.rodada === partida.rodada + 1 && (p.time_casa === partida.time_visitante || p.time_casa === partida.time_casa));
 
-    // const isJogoIda = !!jogoVolta; 
-    // const isJogoUnico = !jogoIda && !jogoVolta; 
     const isJogoVolta = !!jogoIda;
 
     let isEmpateAgregado = false;
@@ -315,11 +311,29 @@ function CardPartidaEditavel({ partida, todosJogos, onUpdate }: { partida: any, 
             <span className="font-bold text-gray-300 text-xs md:text-sm text-right truncate">{partida.casa?.nome}</span>
             {partida.casa?.escudo ? <img src={partida.casa.escudo} className="w-6 h-6 object-contain" /> : <div className="w-6 h-6 bg-gray-800 rounded-full"/>}
           </div>
+          
           <div className="flex items-center gap-2 bg-black/40 p-1.5 rounded-lg border border-gray-800">
-             <input type="number" className="w-10 h-8 text-center bg-transparent text-white font-bold focus:outline-none border-b border-gray-600 focus:border-blue-500" value={casa} onChange={e => setCasa(e.target.value)} placeholder="0"/>
+             {/* INPUT CASA COM STEP 0.1 */}
+             <input 
+                type="number" 
+                step="0.1" 
+                className="w-12 h-8 text-center bg-transparent text-white font-bold focus:outline-none border-b border-gray-600 focus:border-blue-500" 
+                value={casa} 
+                onChange={e => setCasa(e.target.value)} 
+                placeholder="0"
+             />
              <span className="text-gray-600 text-xs">✕</span>
-             <input type="number" className="w-10 h-8 text-center bg-transparent text-white font-bold focus:outline-none border-b border-gray-600 focus:border-blue-500" value={visitante} onChange={e => setVisitante(e.target.value)} placeholder="0"/>
+             {/* INPUT VISITANTE COM STEP 0.1 */}
+             <input 
+                type="number" 
+                step="0.1" 
+                className="w-12 h-8 text-center bg-transparent text-white font-bold focus:outline-none border-b border-gray-600 focus:border-blue-500" 
+                value={visitante} 
+                onChange={e => setVisitante(e.target.value)} 
+                placeholder="0"
+             />
           </div>
+
           <div className="flex items-center gap-3 w-40">
              {partida.visitante ? (
                  <>

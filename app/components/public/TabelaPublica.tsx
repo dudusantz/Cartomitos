@@ -66,12 +66,11 @@ export default function TabelaPublica({ campeonatoId }: Props) {
     try {
       // 1. Busca parciais dos jogos abertos da rodada
       const jogosParaAtualizar = dadosOriginais.jogos.filter(
-        (j: any) => j.status !== "finalizado" && j.rodada === rodadaView
+        (j: any) => j.status !== "finalizado" && j.rodada === rodadaView,
       );
 
-      const { jogos: parciais } = await buscarParciaisAoVivo(
-        jogosParaAtualizar
-      );
+      const { jogos: parciais } =
+        await buscarParciaisAoVivo(jogosParaAtualizar);
 
       // 2. Mescla parciais na lista de jogos
       const novosJogos = dadosOriginais.jogos.map((jogo) => {
@@ -99,7 +98,7 @@ export default function TabelaPublica({ campeonatoId }: Props) {
               j.is_parcial &&
               j.rodada === rodadaView &&
               (j.time_casa === time.time_id ||
-                j.time_visitante === time.time_id)
+                j.time_visitante === time.time_id),
           );
 
           let pts = 0,
@@ -171,7 +170,6 @@ export default function TabelaPublica({ campeonatoId }: Props) {
   return (
     // CORREÇÃO 1: Adicionado max-w-[100vw] e overflow-hidden para evitar scroll horizontal na página inteira
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start animate-fadeIn max-w-[100vw] overflow-hidden">
-      
       {/* ESQUERDA: CLASSIFICAÇÃO */}
       {/* CORREÇÃO 2: min-w-0 evita que o grid exploda em telas pequenas */}
       <div className="lg:col-span-7 min-w-0">
@@ -244,8 +242,8 @@ export default function TabelaPublica({ campeonatoId }: Props) {
                               isG4
                                 ? "text-blue-400"
                                 : isZ4
-                                ? "text-red-500"
-                                : "text-gray-500"
+                                  ? "text-red-500"
+                                  : "text-gray-500"
                             }`}
                           >
                             {i + 1}º
@@ -272,7 +270,7 @@ export default function TabelaPublica({ campeonatoId }: Props) {
                           <div className="flex flex-col min-w-0 justify-center">
                             {/* CORREÇÃO: Limite de largura no nome do time */}
                             <span
-                              className={`font-bold text-[11px] leading-tight group-hover:text-white transition truncate max-w-[120px] ${
+                              className={`font-bold text-[11px] leading-tight group-hover:text-white transition whitespace-nowrap ${
                                 isG4 ? "text-gray-200" : "text-gray-400"
                               }`}
                             >
@@ -312,8 +310,8 @@ export default function TabelaPublica({ campeonatoId }: Props) {
                           t.sg > 0
                             ? "text-green-500"
                             : t.sg < 0
-                            ? "text-red-500"
-                            : "text-gray-500"
+                              ? "text-red-500"
+                              : "text-gray-500"
                         }`}
                       >
                         {t.sg}
@@ -380,8 +378,8 @@ export default function TabelaPublica({ campeonatoId }: Props) {
             {loading
               ? "..."
               : modoAoVivo
-              ? "Encerrar Transmissão"
-              : "Acompanhar em Tempo Real"}
+                ? "Encerrar Transmissão"
+                : "Acompanhar em Tempo Real"}
           </button>
 
           <div className="space-y-3">
@@ -453,8 +451,8 @@ export default function TabelaPublica({ campeonatoId }: Props) {
                         isLive
                           ? "bg-green-900/10 border-green-500/30 text-green-400"
                           : temPlacar
-                          ? "bg-black/40 border-gray-700 text-white"
-                          : "bg-black/20 border-gray-800 text-gray-600"
+                            ? "bg-black/40 border-gray-700 text-white"
+                            : "bg-black/20 border-gray-800 text-gray-600"
                       }`}
                     >
                       <div className="flex items-center gap-1">

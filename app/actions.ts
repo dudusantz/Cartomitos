@@ -399,17 +399,27 @@ export async function recalcularTabelaPontosCorridos(campeonatoId: number) {
     if (jogos) {
         jogos.forEach((j: any) => {
             const c = stats[j.time_casa]; const v = stats[j.time_visitante];
+            
+            // CORREÇÃO AQUI: Era 'iif', mudamos para 'if'
             if (c && v) {
+                // Normaliza para 2 casas decimais antes de qualquer conta
+                const pCasa = parseFloat((j.placar_casa || 0).toFixed(2));
+                const pVis = parseFloat((j.placar_visitante || 0).toFixed(2));
+
                 c.pj++; v.pj++;
-                c.pp += j.placar_casa; c.pc += j.placar_visitante;
-                v.pp += j.placar_visitante; v.pc += j.placar_casa;
-                c.sp = c.pp - c.pc; v.sp = v.pp - v.pc;
+                c.pp += pCasa; c.pc += pVis;
+                v.pp += pVis; v.pc += pCasa;
+                
+                // Recalcula saldo garantindo 2 casas
+                c.sp = parseFloat((c.pp - c.pc).toFixed(2)); 
+                v.sp = parseFloat((v.pp - v.pc).toFixed(2));
 
                 c.gp = c.pp; c.gc = c.pc; c.sg = c.sp;
                 v.gp = v.pp; v.gc = v.pc; v.sg = v.sp;
 
-                if (j.placar_casa > j.placar_visitante) { c.pts += 3; c.v++; v.d++; }
-                else if (j.placar_visitante > j.placar_casa) { v.pts += 3; v.v++; c.d++; }
+                // COMPARAÇÃO SEGURA (Usando as variáveis arredondadas)
+                if (pCasa > pVis) { c.pts += 3; c.v++; v.d++; }
+                else if (pVis > pCasa) { v.pts += 3; v.v++; c.d++; }
                 else { c.pts += 1; v.pts += 1; c.e++; v.e++; }
             }
         });
@@ -574,13 +584,26 @@ async function verificarEAvancarFase(campeonatoId: number, rodadaAtual: number) 
     
     const volta = jogosFase.find((j:any) => j.rodada === rodadaVolta && (j.time_casa === jogo.time_visitante || j.time_casa === jogo.time_casa));
     
-    let pA = jogo.placar_casa || 0; 
-    let pB = jogo.placar_visitante || 0;
+    // --- CORREÇÃO DE PRECISÃO DECIMAL AQUI ---
+    // Garante que 45.50 seja tratado exatamente como 45.50
+    let pA = parseFloat((jogo.placar_casa || 0).toFixed(2)); 
+    let pB = parseFloat((jogo.placar_visitante || 0).toFixed(2));
 
     if (volta) {
-       if (volta.time_casa === jogo.time_visitante) { pA += (volta.placar_visitante || 0); pB += (volta.placar_casa || 0); }
-       else { pA += (volta.placar_casa || 0); pB += (volta.placar_visitante || 0); }
+       // Soma a pontuação do jogo de volta
+       if (volta.time_casa === jogo.time_visitante) { 
+           pA += (volta.placar_visitante || 0); 
+           pB += (volta.placar_casa || 0); 
+       } else { 
+           pA += (volta.placar_casa || 0); 
+           pB += (volta.placar_visitante || 0); 
+       }
+       
+       // Re-normaliza a soma total para evitar 91.00000001
+       pA = parseFloat(pA.toFixed(2));
+       pB = parseFloat(pB.toFixed(2));
     }
+    // -----------------------------------------
 
     let vencedorId = null;
     let perdedorId = null;
@@ -592,13 +615,13 @@ async function verificarEAvancarFase(campeonatoId: number, rodadaAtual: number) 
         vencedorId = jogo.time_visitante;
         perdedorId = jogo.time_casa;
     } else {
-        // EMPATE NO AGREGADO - TRAVA
+        // EMPATE NO AGREGADO - VAI PARA CRITÉRIO DE DESEMPATE
         const jogoDecisivo = volta || jogo;
         const dC = jogoDecisivo.desempate_casa;
         const dV = jogoDecisivo.desempate_visitante;
 
         if (dC === null || dC === undefined || dV === null || dV === undefined) {
-             return; 
+             return; // Trava se não tiver desempate cadastrado
         }
 
         let penaltisA = dC; 
@@ -619,7 +642,7 @@ async function verificarEAvancarFase(campeonatoId: number, rodadaAtual: number) 
              vencedorId = jogo.time_visitante;
              perdedorId = jogo.time_casa;
         } else {
-             return; 
+             return; // Empate nos penaltis? Trava.
         }
     }
 
@@ -764,12 +787,19 @@ export async function buscarTabelaGrupos(campeonatoId: number) {
     if (jogo.rodada > 20) return; 
     const c = stats[jogo.time_casa]; const v = stats[jogo.time_visitante];
     if (c && v) {
+      // CORREÇÃO: Normaliza para 2 casas decimais
+      const pCasa = parseFloat((jogo.placar_casa || 0).toFixed(2));
+      const pVis = parseFloat((jogo.placar_visitante || 0).toFixed(2));
+
       c.pj++; v.pj++;
-      c.pp += jogo.placar_casa; c.pc += jogo.placar_visitante;
-      v.pp += jogo.placar_visitante; v.pc += jogo.placar_casa;
-      c.sp = c.pp - c.pc; v.sp = v.pp - v.pc;
-      if (jogo.placar_casa > jogo.placar_visitante) { c.pts += 3; c.v++; v.d++; }
-      else if (jogo.placar_visitante > jogo.placar_casa) { v.pts += 3; v.v++; c.d++; }
+      c.pp += pCasa; c.pc += pVis;
+      v.pp += pVis; v.pc += pCasa;
+      
+      c.sp = parseFloat((c.pp - c.pc).toFixed(2)); 
+      v.sp = parseFloat((v.pp - v.pc).toFixed(2));
+
+      if (pCasa > pVis) { c.pts += 3; c.v++; v.d++; }
+      else if (pVis > pCasa) { v.pts += 3; v.v++; c.d++; }
       else { c.pts += 1; v.pts += 1; c.e++; v.e++; }
     }
   });
@@ -1049,7 +1079,7 @@ export async function buscarMaioresPontuadores() {
 export async function buscarParciaisAoVivo(jogos: any[]) {
   const ts = Date.now();
   
-  // 1. Busca parciais e mapeia IDs para string (segurança)
+  // 1. Busca parciais globais
   const parciaisGerais = await fetchCartola(`https://api.cartola.globo.com/atletas/pontuados?_=${ts}`);
   const atletasPontuados: Record<string, any> = {};
   
@@ -1062,85 +1092,148 @@ export async function buscarParciaisAoVivo(jogos: any[]) {
   const jogosComParcial = await Promise.all(jogos.map(async (jogo) => {
     
     const calcularTime = async (timeId: number, rodada: number) => {
-      // TENTA BUSCAR A ESCALAÇÃO DA RODADA
+      // Busca escalação
       let dataTime = await fetchCartola(`https://api.cartola.globo.com/time/id/${timeId}/${rodada}?_=${ts}`);
       
-      // Fallback: Se falhar ou vier sem atletas (mercado fechado/transição), busca o time atual
+      // Fallback
       if (!dataTime || !dataTime.atletas || dataTime.atletas.length === 0) {
          dataTime = await fetchCartola(`https://api.cartola.globo.com/time/id/${timeId}?_=${ts}`);
       }
 
       if (!dataTime || !dataTime.atletas) return 0;
 
-      // BLINDAGEM: Garante capitão como string e arrays vazios se nulos
-      const capitaoId = String(dataTime.capitao_id || dataTime.time?.capitao_id || "0");
-      const titulares = dataTime.atletas || [];
-      const reservas = dataTime.reservas || []; // Garante que reservas exista
+      // ==================================================================================
+      // BUSCA O ID DO RESERVA DE LUXO
+      // ==================================================================================
+      let luxoIdOficial = "0";
 
-      // Agrupa por posição
+      // 1. Tenta na Raiz (Padrão encontrado nos seus logs)
+      if (dataTime.reserva_luxo_id) luxoIdOficial = String(dataTime.reserva_luxo_id);
+      else if (dataTime.id_reserva_luxo) luxoIdOficial = String(dataTime.id_reserva_luxo);
+      
+      // 2. Tenta dentro do Objeto Time
+      else if (dataTime.time?.reserva_luxo_id) luxoIdOficial = String(dataTime.time.reserva_luxo_id);
+      
+      // 3. Tenta varrer a lista de RESERVAS (Fallback)
+      else if (dataTime.reservas) {
+          const reservaLuxoEncontrado = dataTime.reservas.find((r: any) => r.luxo === true || r.is_luxo === true || r.reserva_luxo === true);
+          if (reservaLuxoEncontrado) {
+              luxoIdOficial = String(reservaLuxoEncontrado.atleta_id);
+          }
+      }
+      // ==================================================================================
+
+      // MUDANÇA AQUI: "let" em vez de "const" para permitir troca da braçadeira
+      let capitaoId = String(dataTime.capitao_id || dataTime.time?.capitao_id || "0");
+      
+      const titulares = dataTime.atletas || [];
+      const reservas = dataTime.reservas || [];
+
+      // Helper para pegar pontos
+      const getPontos = (id: string) => {
+          const dados = atletasPontuados[id];
+          return dados ? parseFloat(dados.pontuacao) : 0.0;
+      };
+
+      // Helper para checar se jogou
+      const checarJogou = (id: string) => {
+          return !!atletasPontuados[id];
+      };
+
       const titularesPorPosicao: Record<number, any[]> = {};
       const reservasPorPosicao: Record<number, any[]> = {};
+      
+      let escalacaoFinal: any[] = [];
+      let trocaLuxoRealizada = false;
 
       titulares.forEach((at: any) => {
         if (!titularesPorPosicao[at.posicao_id]) titularesPorPosicao[at.posicao_id] = [];
-        titularesPorPosicao[at.posicao_id].push(at);
+        titularesPorPosicao[at.posicao_id].push({ ...at, idStr: String(at.atleta_id) });
       });
 
       reservas.forEach((at: any) => {
         if (!reservasPorPosicao[at.posicao_id]) reservasPorPosicao[at.posicao_id] = [];
-        reservasPorPosicao[at.posicao_id].push(at);
+        reservasPorPosicao[at.posicao_id].push({ ...at, idStr: String(at.atleta_id) });
       });
 
-      let soma = 0;
-
-      // Processa cada posição
+      // 1. PROCESSA SUBSTITUIÇÃO NORMAL (Prioridade Máxima)
       for (const posId in titularesPorPosicao) {
-        const tits = titularesPorPosicao[posId];
-        const res = reservasPorPosicao[posId] || []; // Pega reservas da MESMA posição
-        
-        let vagasParaReserva = 0;
+          let tits = titularesPorPosicao[posId];
+          let res = reservasPorPosicao[posId] || [];
 
-        // A. Soma Titulares
-        tits.forEach((at: any) => {
-          const id = String(at.atleta_id);
-          const dados = atletasPontuados[id]; // Verifica se está na lista de pontuados
-          
-          if (dados) {
-            let pt = parseFloat(dados.pontuacao || 0);
-            if (id === capitaoId) {
-              pt = pt * 1.5;
-            }
-            soma += pt;
-          } else {
-            // Se não tem dados de pontuação, não jogou -> Abre vaga
-            vagasParaReserva++;
+          // Prepara reservas
+          res = res.map((r: any) => ({ ...r, pts: getPontos(r.idStr), jogou: checarJogou(r.idStr) }));
+          res.sort((a: any, b: any) => b.pts - a.pts); // Melhor pontuador primeiro
+
+          let houveSubstituicaoNormal = false;
+          let titularesDestaPosicao = [];
+
+          for (let i = 0; i < tits.length; i++) {
+              let titular = tits[i];
+              const jogou = checarJogou(titular.idStr);
+              
+              if (!jogou) {
+                  // Titular não jogou: Tenta substituir
+                  const reservaDisponivel = res.find((r: any) => r.jogou && !r.usado);
+                  
+                  if (reservaDisponivel) {
+                      reservaDisponivel.usado = true;
+                      
+                      // Se o titular que saiu era capitão, o reserva herda a faixa
+                      if (titular.idStr === capitaoId) capitaoId = reservaDisponivel.idStr; 
+                      
+                      titularesDestaPosicao.push({ ...reservaDisponivel, ehReserva: true });
+                      houveSubstituicaoNormal = true;
+                  } else {
+                      titularesDestaPosicao.push({ ...titular, pts: 0, jogou: false }); 
+                  }
+              } else {
+                  titularesDestaPosicao.push({ ...titular, pts: getPontos(titular.idStr), jogou: true });
+              }
           }
-        });
 
-        // B. Reserva de Luxo (Substituição)
-        if (vagasParaReserva > 0 && res.length > 0) {
-          // 1. Filtra reservas que PONTUARAM (entraram em campo)
-          const reservasQueJogaram = res.filter((r: any) => atletasPontuados[String(r.atleta_id)]);
-          
-          // 2. Ordena do maior para o menor (o melhor entra)
-          reservasQueJogaram.sort((a: any, b: any) => {
-            const pA = parseFloat(atletasPontuados[String(a.atleta_id)]?.pontuacao || 0);
-            const pB = parseFloat(atletasPontuados[String(b.atleta_id)]?.pontuacao || 0);
-            return pB - pA;
-          });
+          // 2. PROCESSA RESERVA DE LUXO (Se não houve sub normal na posição)
+          // Só processa se ACHAMOS o ID oficial na API
+          if (!houveSubstituicaoNormal && !trocaLuxoRealizada && luxoIdOficial !== "0") {
+              
+              // Verifica se o Reserva de Luxo escolhido é DESTA posição
+              const reservaLuxo = res.find((r: any) => r.idStr === luxoIdOficial);
 
-          // 3. Pega os melhores para cobrir as vagas
-          const reservasEntrando = reservasQueJogaram.slice(0, vagasParaReserva);
-          reservasEntrando.forEach((r: any) => {
-             const pt = parseFloat(atletasPontuados[String(r.atleta_id)]?.pontuacao || 0);
-             soma += pt; // Soma pontos do reserva
-          });
-        }
+              // Regra: Luxo precisa ter jogado, não ter sido usado na sub normal, e fazer mais pontos que o titular
+              if (reservaLuxo && reservaLuxo.jogou && !reservaLuxo.usado) {
+                  
+                  // Acha o pior titular desta posição
+                  const piorTitular = titularesDestaPosicao.reduce((min:any, curr:any) => curr.pts < min.pts ? curr : min, titularesDestaPosicao[0]);
+
+                  if (reservaLuxo.pts > piorTitular.pts) {
+                      // REALIZA A TROCA DE LUXO
+                      titularesDestaPosicao = titularesDestaPosicao.map(t => {
+                          if (t.idStr === piorTitular.idStr) {
+                              // Se o pior titular era o capitão, o reserva de luxo vira capitão
+                              if (t.idStr === capitaoId) capitaoId = reservaLuxo.idStr; 
+                              return { ...reservaLuxo, ehReservaLuxo: true };
+                          }
+                          return t;
+                      });
+                      trocaLuxoRealizada = true;
+                  }
+              }
+          }
+
+          escalacaoFinal.push(...titularesDestaPosicao);
       }
 
-      // RETORNA O DECIMAL EXATO (para cálculo de vitória no front)
-      // O truncamento visual será feito no React
-      return parseFloat(soma.toFixed(2));
+      // CÁLCULO FINAL
+      let somaTotal = 0;
+      escalacaoFinal.forEach(at => {
+          let p = at.pts || 0;
+          if (at.idStr === capitaoId) {
+              p = p * 1.5;
+          }
+          somaTotal += p;
+      });
+
+      return parseFloat(somaTotal.toFixed(2));
     }
 
     const [pc, pv] = await Promise.all([

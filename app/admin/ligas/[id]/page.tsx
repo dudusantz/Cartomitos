@@ -15,14 +15,14 @@ import {
 import { supabase } from "@/lib/supabase";
 import { ModalConfirmacao } from "@/app/components/ModalConfirmacao";
 import BotaoFinalizarCampeonato from "@/app/components/BotaoFinalizarCampeonato";
-import { Trophy, Calendar, Medal } from "lucide-react";
+import { Trophy, Calendar, Medal, AlertCircle } from "lucide-react"; 
 
 // IMPORTAÇÃO DOS PAINÉIS
 import PainelPontosCorridos from "@/app/components/PainelPontosCorridos";
 import PainelMataMata from "@/app/components/PainelMataMata";
 import PainelFaseGrupos from "@/app/components/PainelFaseGrupos";
 import PainelTimes from "@/app/components/PainelTimes";
-import PainelGrid from "@/app/components/PainelGrid"; // <--- ADICIONADO PAINEL GRID
+import PainelGrid from "@/app/components/PainelGrid";
 
 export default function GerenciarLiga() {
   const { id } = useParams();
@@ -51,10 +51,19 @@ export default function GerenciarLiga() {
   }, [id]);
 
   useEffect(() => {
-    if (tabAtiva === "jogos" && liga?.tipo === "copa") {
+    // Helper para normalizar tipo
+    const tipo = getTipoNormalizado(liga?.tipo);
+    if (tabAtiva === "jogos" && tipo === "copa") {
       atualizarPotes();
     }
   }, [tabAtiva, liga]);
+
+  // Função auxiliar para evitar erros de digitação no banco (hífen vs underscore)
+  function getTipoNormalizado(tipoBruto: string | undefined) {
+      if (!tipoBruto) return "";
+      // Transforma "mata-mata" em "mata_mata" para padronizar comparação e aceitar ambos
+      return tipoBruto.toLowerCase().replace("-", "_");
+  }
 
   async function carregarDados() {
     // Busca os dados da liga
@@ -78,16 +87,18 @@ export default function GerenciarLiga() {
     setTimesLiga(_times);
     setTodosTimes(await listarTodosTimes());
 
-    if (data?.tipo === "copa") {
+    const tipo = getTipoNormalizado(data?.tipo);
+
+    if (tipo === "copa") {
       await atualizarPotes();
     }
 
     // Define a aba inicial correta com base no tipo
     if (!redirFeito && data) {
-      if (data.tipo === "copa") setTabAtiva("grupos");
-      else if (data.tipo === "pontos_corridos") setTabAtiva("classificacao");
-      else if (data.tipo === "mata-mata") setTabAtiva("jogos");
-      else if (data.tipo === "grid") setTabAtiva("grid"); // <--- GRID
+      if (tipo === "copa") setTabAtiva("grupos");
+      else if (tipo === "pontos_corridos") setTabAtiva("classificacao");
+      else if (tipo === "mata_mata") setTabAtiva("jogos");
+      else if (tipo === "grid") setTabAtiva("grid");
       setRedirFeito(true);
     }
   }
@@ -135,7 +146,7 @@ export default function GerenciarLiga() {
     setModalOpen(true);
   }
 
-  // --- TELA DE CARREGAMENTO (IMPEDE ACESSAR 'liga' QUANDO NULL) ---
+  // --- TELA DE CARREGAMENTO ---
   if (!liga) {
     return (
       <div className="min-h-screen bg-[#050505] text-white flex items-center justify-center font-sans">
@@ -148,6 +159,9 @@ export default function GerenciarLiga() {
       </div>
     );
   }
+
+  // Calcula tipo normalizado para usar no render
+  const tipoLiga = getTipoNormalizado(liga.tipo);
 
   return (
     <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-yellow-500/30">
@@ -183,7 +197,7 @@ export default function GerenciarLiga() {
             </div>
             <div className="mt-2 flex items-center gap-2">
               <span className="text-[10px] bg-gray-800 border border-gray-700 px-3 py-1 rounded-full uppercase font-bold text-gray-300 tracking-widest">
-                {liga?.tipo?.replace("_", " ")}
+                {tipoLiga.replace("_", " ")}
               </span>
               {!liga?.ativo && (
                 <span className="text-[10px] bg-red-900/30 border border-red-500/30 text-red-400 px-3 py-1 rounded-full uppercase font-bold tracking-widest">
@@ -195,8 +209,9 @@ export default function GerenciarLiga() {
 
           {/* Abas de Navegação */}
           <div className="flex gap-2 bg-[#121212] p-1.5 rounded-xl border border-gray-800 shadow-xl overflow-x-auto max-w-full">
+            
             {/* Aba Pontos Corridos */}
-            {liga?.tipo === "pontos_corridos" && (
+            {tipoLiga === "pontos_corridos" && (
               <button
                 onClick={() => setTabAtiva("classificacao")}
                 className={`px-5 py-2.5 rounded-lg font-bold text-xs uppercase transition tracking-wider whitespace-nowrap ${tabAtiva === "classificacao" ? "bg-blue-600 text-white shadow-lg" : "text-gray-500 hover:text-white hover:bg-white/5"}`}
@@ -206,7 +221,7 @@ export default function GerenciarLiga() {
             )}
 
             {/* Aba Grid (Ranking Geral) */}
-            {liga?.tipo === "grid" && (
+            {tipoLiga === "grid" && (
               <button
                 onClick={() => setTabAtiva("grid")}
                 className={`px-5 py-2.5 rounded-lg font-bold text-xs uppercase transition tracking-wider whitespace-nowrap ${tabAtiva === "grid" ? "bg-yellow-600 text-black shadow-lg" : "text-gray-500 hover:text-white hover:bg-white/5"}`}
@@ -216,7 +231,7 @@ export default function GerenciarLiga() {
             )}
 
             {/* Aba Grupos (Copa) */}
-            {liga?.tipo === "copa" && (
+            {tipoLiga === "copa" && (
               <button
                 onClick={() => setTabAtiva("grupos")}
                 className={`px-5 py-2.5 rounded-lg font-bold text-xs uppercase transition tracking-wider whitespace-nowrap ${tabAtiva === "grupos" ? "bg-yellow-600 text-black shadow-lg" : "text-gray-500 hover:text-white hover:bg-white/5"}`}
@@ -226,12 +241,12 @@ export default function GerenciarLiga() {
             )}
 
             {/* Aba Mata-Mata (Copa ou Mata-Mata) */}
-            {(liga?.tipo === "mata-mata" || liga?.tipo === "copa") && (
+            {(tipoLiga === "mata_mata" || tipoLiga === "copa") && (
               <button
                 onClick={() => setTabAtiva("jogos")}
                 className={`px-5 py-2.5 rounded-lg font-bold text-xs uppercase transition tracking-wider whitespace-nowrap ${tabAtiva === "jogos" ? "bg-blue-600 text-white shadow-lg" : "text-gray-500 hover:text-white hover:bg-white/5"}`}
               >
-                {liga?.tipo === "mata-mata" ? "Chaveamento" : "Mata-Mata"}
+                {tipoLiga === "mata_mata" ? "Chaveamento" : "Mata-Mata"}
               </button>
             )}
 
@@ -242,8 +257,8 @@ export default function GerenciarLiga() {
               Times
             </button>
 
-            {/* Config só aparece se não for pontos corridos nem grid (que são simples) */}
-            {(liga?.tipo === "mata-mata" || liga?.tipo === "copa") && (
+            {/* Config só aparece se não for pontos corridos nem grid */}
+            {(tipoLiga === "mata_mata" || tipoLiga === "copa") && (
               <button
                 onClick={() => setTabAtiva("config")}
                 className={`px-5 py-2.5 rounded-lg font-bold text-xs uppercase transition tracking-wider whitespace-nowrap ${tabAtiva === "config" ? "bg-gray-700 text-white shadow-lg" : "text-gray-500 hover:text-white hover:bg-white/5"}`}
@@ -256,7 +271,18 @@ export default function GerenciarLiga() {
       </div>
 
       <div className="p-8 max-w-[1600px] mx-auto">
-        {/* --- CARD DE CAMPEÕES (SÓ APARECE SE FINALIZADO) --- */}
+        {/* Caso o tipo não seja reconhecido, mostra alerta para DEBUG */}
+        {["mata_mata", "copa", "pontos_corridos", "grid"].indexOf(tipoLiga) === -1 && (
+            <div className="mb-6 bg-red-500/10 border border-red-500/50 p-4 rounded-xl flex items-center gap-3 text-red-200">
+                <AlertCircle />
+                <div>
+                    <strong className="block text-red-100">Tipo de Liga Desconhecido</strong>
+                    O tipo da liga está salvo como <code>{liga.tipo}</code> no banco de dados, o que não corresponde aos tipos esperados.
+                </div>
+            </div>
+        )}
+
+        {/* --- CARD DE CAMPEÕES --- */}
         {!liga?.ativo && podium.length > 0 && (
           <div className="bg-gradient-to-br from-[#1a1a1a] to-black p-8 rounded-3xl border border-yellow-600/30 relative overflow-hidden mb-10 shadow-2xl">
             <div className="absolute top-0 right-0 p-10 opacity-10">
@@ -357,23 +383,25 @@ export default function GerenciarLiga() {
         )}
 
         {/* PAINÉIS DE CONTEÚDO */}
-        {tabAtiva === "classificacao" && liga?.tipo === "pontos_corridos" && (
+        {tabAtiva === "classificacao" && tipoLiga === "pontos_corridos" && (
           <PainelPontosCorridos campeonatoId={campeonatoId} times={timesLiga} />
         )}
 
-        {tabAtiva === "grid" && liga?.tipo === "grid" && (
+        {tabAtiva === "grid" && tipoLiga === "grid" && (
           <PainelGrid campeonatoId={campeonatoId} />
         )}
 
-        {tabAtiva === "jogos" && liga?.tipo === "mata-mata" && (
+        {tabAtiva === "jogos" && tipoLiga === "mata_mata" && (
           <PainelMataMata
             key={mmKey}
             campeonatoId={campeonatoId}
-            rodadasCorte={0}
+            rodadasCorte={liga.rodada_inicial_mata_mata || 0}
+            bloquearGerador={false} // IMPORTANTE: False para aparecer o botão
+            isCopa={false}          // IMPORTANTE: False para aparecer o header
           />
         )}
 
-        {tabAtiva === "jogos" && liga?.tipo === "copa" && (
+        {tabAtiva === "jogos" && tipoLiga === "copa" && (
           <div className="animate-fadeIn">
             <div className="mb-8 bg-[#121212] p-6 rounded-3xl border border-gray-800">
               <div className="flex justify-between items-start mb-6">
@@ -474,8 +502,8 @@ export default function GerenciarLiga() {
             <PainelMataMata
               key={mmKey}
               campeonatoId={campeonatoId}
-              rodadasCorte={6}
-              bloquearGerador={true}
+              rodadasCorte={6} // Valor hardcoded para Copa (ajuste se necessário)
+              bloquearGerador={true} // Bloqueia o botão interno (usa o da Copa acima)
               isCopa={true}
             />
           </div>

@@ -11,7 +11,7 @@ import {
 import MataMataBracket from './MataMataBracket'
 import { ModalConfirmacao } from './ModalConfirmacao' 
 import SorteioMataMata from './admin/SorteioMataMata'
-import { RefreshCw, Trash2, Trophy, Save, Edit3, Eye, Shield } from 'lucide-react'
+import { RefreshCw, Trash2, Trophy, Save, Edit3, Eye, Shield, Wand2 } from 'lucide-react'
 
 interface Props {
   campeonatoId: number
@@ -20,7 +20,7 @@ interface Props {
   isCopa?: boolean
 }
 
-export default function PainelMataMata({ campeonatoId, rodadasCorte, bloquearGerador = false }: Props) {
+export default function PainelMataMata({ campeonatoId, rodadasCorte, bloquearGerador = false, isCopa = false }: Props) {
   const [partidas, setPartidas] = useState<any[]>([])
   
   // Estados dos Controles (API)
@@ -46,12 +46,6 @@ export default function PainelMataMata({ campeonatoId, rodadasCorte, bloquearGer
       .map((p: any) => ({ ...p, rodada_bracket: p.rodada - rodadasCorte }))
     
     setPartidas(jogosMataMata)
-    
-    if (jogosMataMata.length === 0) {
-        setModoSorteio(!bloquearGerador)
-    } else {
-        setModoSorteio(false)
-    }
     setLoading(false)
   }
 
@@ -84,7 +78,7 @@ export default function PainelMataMata({ campeonatoId, rodadasCorte, bloquearGer
   async function handleLimpar() {
     setModalConfig({ 
         titulo: "Limpar Mata-Mata", 
-        descricao: "Isso apagará TODOS os jogos desta fase. Tem certeza?", 
+        descricao: "Isso apagará TODOS os jogos desta fase e reiniciará o mata-mata. Tem certeza?", 
         onConfirm: async () => {
             const res = await excluirMataMata(campeonatoId, rodadasCorte + 1)
             if(res.success) { 
@@ -94,29 +88,22 @@ export default function PainelMataMata({ campeonatoId, rodadasCorte, bloquearGer
             setModalOpen(false)
         }, 
         corBotao: 'red',
-        textoBotao: 'Sim, Limpar'
+        textoBotao: 'Sim, Limpar Tudo'
     })
     setModalOpen(true)
   }
 
-  // --- RENDER ---
-
-  if (loading && partidas.length === 0) return <div className="text-center py-10 text-gray-500 animate-pulse">Carregando...</div>
-
-  if (partidas.length === 0 && bloquearGerador) {
-      return (
-        <div className="flex flex-col items-center justify-center py-12 border border-dashed border-gray-800 rounded-2xl bg-white/5 animate-fadeIn">
-            <div className="text-4xl mb-4 text-gray-700"><Trophy size={48} /></div>
-            <h3 className="text-white font-bold text-lg">Aguardando Fase de Grupos</h3>
-            <p className="text-gray-500 text-sm mt-2 max-w-md text-center">O chaveamento aparecerá aqui automaticamente após ser gerado.</p>
-        </div>
-      )
-  }
-
+  // --- RENDERIZAR TELA DE SORTEIO (SOBREPOSIÇÃO) ---
   if (modoSorteio) {
       return (
-        <div className="animate-fadeIn">
-            <div className="bg-[#121212] p-6 rounded-xl border border-gray-800 mb-6 text-center">
+        <div className="animate-fadeIn relative bg-[#121212] p-4 rounded-xl border border-gray-800">
+            <div className="bg-[#121212] p-6 rounded-xl border border-gray-800 mb-6 text-center relative">
+                <button 
+                    onClick={() => setModoSorteio(false)} 
+                    className="absolute top-4 right-4 text-gray-500 hover:text-white text-sm font-bold flex items-center gap-1 bg-white/5 px-2 py-1 rounded transition-colors"
+                >
+                    ✕ Cancelar
+                </button>
                 <h3 className="text-white font-bold mb-2">Definir Chaveamento</h3>
                 <p className="text-gray-500 text-xs mb-4">Configure os potes abaixo para gerar os confrontos.</p>
             </div>
@@ -132,6 +119,12 @@ export default function PainelMataMata({ campeonatoId, rodadasCorte, bloquearGer
       )
   }
 
+  if (loading && partidas.length === 0) return <div className="text-center py-10 text-gray-500 animate-pulse">Carregando Painel...</div>
+
+  // --- RENDERIZAÇÃO INTELIGENTE DO BOTÃO ---
+  // Se não for copa, OU se não tiver jogos, mostra o botão de qualquer jeito.
+  const mostrarBotaoGerar = !isCopa || partidas.length === 0;
+
   return (
     <div className="animate-fadeIn space-y-6">
         <ModalConfirmacao 
@@ -143,81 +136,134 @@ export default function PainelMataMata({ campeonatoId, rodadasCorte, bloquearGer
             corBotao={modalConfig.corBotao || "blue"}
             textoBotao={modalConfig.textoBotao || "Confirmar"}
         />
-        
-        {/* === BARRA DE CONTROLE === */}
-        <div className="bg-[#121212] p-5 rounded-xl border border-gray-800 flex flex-wrap gap-4 items-end shadow-lg relative overflow-hidden">
-            <div className="absolute top-0 right-0 p-2 opacity-5"><Shield size={100} /></div>
-            
-            <div className="flex-1 min-w-[180px] z-10">
-                <label className="text-gray-500 text-[10px] font-bold uppercase block mb-1">Fase Atual (Controle)</label>
-                <select className="w-full bg-black border border-gray-700 text-white p-2.5 rounded-lg outline-none focus:border-blue-600 transition text-sm" value={faseAtual} onChange={e => setFaseAtual(e.target.value)}>
-                    {fasesIda.length > 0 ? fasesIda.map(f => (
-                        <option key={f} value={f}>{isJogoUnico(f) ? `Fase ${Math.ceil(f/2)} (Jogo Único)` : `Fase ${Math.ceil(f/2)} (Ida & Volta)`}</option>
-                    )) : <option value="1">Fase 1</option>}
-                </select>
-            </div>
-            
-            <div className="flex gap-2 z-10">
-                <div className="flex flex-col">
-                    <label className="text-[9px] text-gray-500 font-bold uppercase mb-1 ml-1">Ida (Cartola)</label>
-                    <input type="number" placeholder="#" className="w-14 bg-black border border-gray-700 text-white p-2.5 rounded-lg text-center outline-none focus:border-blue-600 transition text-sm" value={rodadaIda} onChange={e => setRodadaIda(e.target.value)} />
-                </div>
-                {!isJogoUnico(Number(faseAtual)) && (
-                    <div className="flex flex-col">
-                        <label className="text-[9px] text-gray-500 font-bold uppercase mb-1 ml-1">Volta</label>
-                        <input type="number" placeholder="#" className="w-14 bg-black border border-gray-700 text-white p-2.5 rounded-lg text-center outline-none focus:border-blue-600 transition text-sm" value={rodadaVolta} onChange={e => setRodadaVolta(e.target.value)} />
-                    </div>
-                )}
-                <div className="flex items-end">
-                    <button onClick={handleAtualizarAPI} disabled={loading} className="h-[42px] bg-blue-600 text-white px-4 rounded-lg font-bold uppercase text-[10px] hover:bg-blue-500 transition shadow-lg shadow-blue-900/20 flex items-center gap-2">
-                        {loading ? <RefreshCw className="animate-spin w-3 h-3"/> : <RefreshCw className="w-3 h-3" />} <span className="hidden sm:inline">Atualizar & Avançar</span>
-                    </button>
-                </div>
-            </div>
 
-            <div className="flex gap-2 ml-auto items-center pl-4 border-l border-gray-800 z-10">
+        {/* === HEADER COM BOTÃO GERAR (Só aparece se NÃO for Copa) === */}
+        {/* Isso garante que o mata-mata normal tenha o botão visível */}
+        {!isCopa && (
+             <div className="bg-[#121212] p-6 rounded-3xl border border-gray-800 flex flex-col md:flex-row justify-between items-center gap-4 shadow-xl">
+                <div>
+                    <h3 className="text-xl font-bold text-white uppercase tracking-wider mb-1">Mata-Mata</h3>
+                    <p className="text-gray-400 text-xs">
+                        {partidas.length === 0 ? "Nenhum jogo encontrado. Gere o chaveamento ao lado." : "Gerencie o chaveamento e avanços de fase."}
+                    </p>
+                </div>
                 <button 
-                    onClick={handleLimpar} 
-                    className="h-[42px] text-red-500 bg-red-500/10 px-3 rounded-lg hover:bg-red-500 hover:text-white transition border border-red-500/20"
-                    title="Limpar / Resetar Fase"
+                    onClick={() => setModoSorteio(true)}
+                    className="bg-gradient-to-r from-yellow-600 to-yellow-500 hover:from-yellow-500 hover:to-yellow-400 text-black px-6 py-3 rounded-xl text-xs font-black uppercase transition shadow-lg shadow-yellow-900/20 tracking-widest flex items-center gap-2"
                 >
-                    <Trash2 className="w-4 h-4" />
+                    <Wand2 size={16} /> 
+                    {partidas.length === 0 ? "Gerar Chaveamento" : "Regerar Chaveamento"}
                 </button>
             </div>
-        </div>
+        )}
 
-        {/* === ABAS === */}
-        <div className="flex gap-1 bg-gray-900/50 p-1 rounded-lg w-fit border border-gray-800">
-             <button onClick={() => setModoEdicao(false)} className={`text-xs font-bold px-4 py-2 rounded-md flex items-center gap-2 transition-all ${!modoEdicao ? 'bg-gray-800 text-white shadow' : 'text-gray-500 hover:text-gray-300'}`}>
-                <Eye size={14} /> Chaveamento
-             </button>
-             <button onClick={() => setModoEdicao(true)} className={`text-xs font-bold px-4 py-2 rounded-md flex items-center gap-2 transition-all ${modoEdicao ? 'bg-blue-600 text-white shadow' : 'text-gray-500 hover:text-gray-300'}`}>
-                <Edit3 size={14} /> Editar Placar / Desempate
-             </button>
-        </div>
-
-        {/* === CONTEÚDO === */}
-        <div className="min-h-[400px]">
-            {modoEdicao ? (
-                <div className="animate-in fade-in slide-in-from-bottom-2 space-y-4">
-                     <div className="flex items-start gap-3 bg-blue-500/10 p-4 rounded-lg border border-blue-500/20 text-blue-200 text-xs">
-                        <div className="bg-blue-500 p-1.5 rounded-full mt-0.5"><Edit3 size={12} className="text-white"/></div>
-                        <div>
-                            <strong className="block mb-1 text-blue-100">Modo de Edição Manual</strong>
-                            Use esta área para corrigir placares ou inserir o vencedor dos pênaltis caso haja empate no agregado.
-                        </div>
-                     </div>
-                     <ListaEditavel partidas={partidas} onUpdate={carregarDados} />
+        {/* === CONTEÚDO PRINCIPAL === */}
+        {partidas.length === 0 ? (
+            // ESTADO VAZIO
+            bloquearGerador ? (
+                // CASO COPA (Bloqueado esperando grupos)
+                <div className="flex flex-col items-center justify-center py-12 border border-dashed border-gray-800 rounded-2xl bg-white/5 animate-fadeIn">
+                    <div className="text-4xl mb-4 text-gray-700"><Trophy size={48} /></div>
+                    <h3 className="text-white font-bold text-lg">Aguardando Fase de Grupos</h3>
+                    <p className="text-gray-500 text-sm mt-2 max-w-md text-center">O chaveamento aparecerá aqui automaticamente após ser gerado na aba anterior.</p>
                 </div>
             ) : (
-                <div className="animate-in fade-in">
-                    <MataMataBracket partidas={partidas.map(p => ({...p, rodada: p.rodada_bracket}))} />
+                // CASO MATA-MATA (Vazio, mas liberado para gerar)
+                <div className="flex flex-col items-center justify-center py-12 border border-dashed border-gray-800 rounded-2xl bg-white/5 animate-fadeIn">
+                    <div className="text-4xl mb-4 text-gray-700"><Trophy size={48} /></div>
+                    <h3 className="text-white font-bold text-lg">Nenhum Jogo Definido</h3>
+                    <p className="text-gray-500 text-sm mt-2 max-w-md text-center mb-6">
+                        O chaveamento ainda não foi gerado.
+                    </p>
+                    {/* Botão extra de garantia no meio da tela */}
+                    <button 
+                        onClick={() => setModoSorteio(true)}
+                        className="bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded-lg text-sm font-bold transition flex items-center gap-2 border border-gray-700"
+                    >
+                        <Wand2 size={14} /> Criar Chaveamento Manualmente
+                    </button>
                 </div>
-            )}
-        </div>
+            )
+        ) : (
+            <>
+                {/* === BARRA DE CONTROLE === */}
+                <div className="bg-[#121212] p-5 rounded-xl border border-gray-800 flex flex-wrap gap-4 items-end shadow-lg relative overflow-hidden">
+                    <div className="absolute top-0 right-0 p-2 opacity-5"><Shield size={100} /></div>
+                    
+                    <div className="flex-1 min-w-[180px] z-10">
+                        <label className="text-gray-500 text-[10px] font-bold uppercase block mb-1">Fase Atual (Controle)</label>
+                        <select className="w-full bg-black border border-gray-700 text-white p-2.5 rounded-lg outline-none focus:border-blue-600 transition text-sm" value={faseAtual} onChange={e => setFaseAtual(e.target.value)}>
+                            {fasesIda.length > 0 ? fasesIda.map(f => (
+                                <option key={f} value={f}>{isJogoUnico(f) ? `Fase ${Math.ceil(f/2)} (Jogo Único)` : `Fase ${Math.ceil(f/2)} (Ida & Volta)`}</option>
+                            )) : <option value="1">Fase 1</option>}
+                        </select>
+                    </div>
+                    
+                    <div className="flex gap-2 z-10">
+                        <div className="flex flex-col">
+                            <label className="text-[9px] text-gray-500 font-bold uppercase mb-1 ml-1">Ida (Cartola)</label>
+                            <input type="number" placeholder="#" className="w-14 bg-black border border-gray-700 text-white p-2.5 rounded-lg text-center outline-none focus:border-blue-600 transition text-sm" value={rodadaIda} onChange={e => setRodadaIda(e.target.value)} />
+                        </div>
+                        {!isJogoUnico(Number(faseAtual)) && (
+                            <div className="flex flex-col">
+                                <label className="text-[9px] text-gray-500 font-bold uppercase mb-1 ml-1">Volta</label>
+                                <input type="number" placeholder="#" className="w-14 bg-black border border-gray-700 text-white p-2.5 rounded-lg text-center outline-none focus:border-blue-600 transition text-sm" value={rodadaVolta} onChange={e => setRodadaVolta(e.target.value)} />
+                            </div>
+                        )}
+                        <div className="flex items-end">
+                            <button onClick={handleAtualizarAPI} disabled={loading} className="h-[42px] bg-blue-600 text-white px-4 rounded-lg font-bold uppercase text-[10px] hover:bg-blue-500 transition shadow-lg shadow-blue-900/20 flex items-center gap-2">
+                                {loading ? <RefreshCw className="animate-spin w-3 h-3"/> : <RefreshCw className="w-3 h-3" />} <span className="hidden sm:inline">Atualizar & Avançar</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="flex gap-2 ml-auto items-center pl-4 border-l border-gray-800 z-10">
+                        <button 
+                            onClick={handleLimpar} 
+                            className="h-[42px] text-red-500 bg-red-500/10 px-3 rounded-lg hover:bg-red-500 hover:text-white transition border border-red-500/20"
+                            title="Limpar / Resetar Fase"
+                        >
+                            <Trash2 className="w-4 h-4" />
+                        </button>
+                    </div>
+                </div>
+
+                {/* === ABAS === */}
+                <div className="flex gap-1 bg-gray-900/50 p-1 rounded-lg w-fit border border-gray-800">
+                     <button onClick={() => setModoEdicao(false)} className={`text-xs font-bold px-4 py-2 rounded-md flex items-center gap-2 transition-all ${!modoEdicao ? 'bg-gray-800 text-white shadow' : 'text-gray-500 hover:text-gray-300'}`}>
+                        <Eye size={14} /> Chaveamento
+                     </button>
+                     <button onClick={() => setModoEdicao(true)} className={`text-xs font-bold px-4 py-2 rounded-md flex items-center gap-2 transition-all ${modoEdicao ? 'bg-blue-600 text-white shadow' : 'text-gray-500 hover:text-gray-300'}`}>
+                        <Edit3 size={14} /> Editar Placar / Desempate
+                     </button>
+                </div>
+
+                {/* === CONTEÚDO (Bracket ou Lista) === */}
+                <div className="min-h-[400px]">
+                    {modoEdicao ? (
+                        <div className="animate-in fade-in slide-in-from-bottom-2 space-y-4">
+                              <div className="flex items-start gap-3 bg-blue-500/10 p-4 rounded-lg border border-blue-500/20 text-blue-200 text-xs">
+                                <div className="bg-blue-500 p-1.5 rounded-full mt-0.5"><Edit3 size={12} className="text-white"/></div>
+                                <div>
+                                    <strong className="block mb-1 text-blue-100">Modo de Edição Manual</strong>
+                                    Use esta área para corrigir placares ou inserir o vencedor dos pênaltis caso haja empate no agregado.
+                                </div>
+                              </div>
+                              <ListaEditavel partidas={partidas} onUpdate={carregarDados} />
+                        </div>
+                    ) : (
+                        <div className="animate-in fade-in">
+                            <MataMataBracket partidas={partidas.map(p => ({...p, rodada: p.rodada_bracket}))} />
+                        </div>
+                    )}
+                </div>
+            </>
+        )}
     </div>
   )
 }
+
+// --- SUBCOMPONENTES ---
 
 function ListaEditavel({ partidas, onUpdate }: { partidas: any[], onUpdate: () => void }) {
     const rodadas = [...new Set(partidas.map(p => p.rodada))].sort((a, b) => a - b);
@@ -313,7 +359,6 @@ function CardPartidaEditavel({ partida, todosJogos, onUpdate }: { partida: any, 
           </div>
           
           <div className="flex items-center gap-2 bg-black/40 p-1.5 rounded-lg border border-gray-800">
-             {/* INPUT CASA COM STEP 0.1 */}
              <input 
                 type="number" 
                 step="0.1" 
@@ -323,7 +368,6 @@ function CardPartidaEditavel({ partida, todosJogos, onUpdate }: { partida: any, 
                 placeholder="0"
              />
              <span className="text-gray-600 text-xs">✕</span>
-             {/* INPUT VISITANTE COM STEP 0.1 */}
              <input 
                 type="number" 
                 step="0.1" 

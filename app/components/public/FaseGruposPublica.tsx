@@ -119,13 +119,17 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
           if (c && v && (jogo.status === "finalizado" || jogo.is_parcial)) {
             c.pj++;
             v.pj++;
+            
+            // Soma pontuações exatas (decimais)
             c.pp += jogo.placar_casa;
             c.pc += jogo.placar_visitante;
             v.pp += jogo.placar_visitante;
             v.pc += jogo.placar_casa;
+            
             c.sp = c.pp - c.pc;
             v.sp = v.pp - v.pc;
 
+            // Lógica de Vitória/Empate com base no valor exato (decimal)
             if (jogo.placar_casa > jogo.placar_visitante) {
               c.pts += 3;
               c.v++;
@@ -148,6 +152,8 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
           if (!novosGrupos[time.grupo]) novosGrupos[time.grupo] = [];
           novosGrupos[time.grupo].push(time);
         });
+        
+        // Ordena com precisão decimal
         for (const l in novosGrupos) {
           novosGrupos[l].sort(
             (a: any, b: any) =>
@@ -175,10 +181,11 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
       ? Math.max(...dadosOriginais.jogos.map((j) => j.rodada))
       : 6;
 
-  // === HELPER: Formata decimais se necessário ===
+  // === HELPER: Formata decimais se necessário (AGORA COM TRUNCAMENTO VISUAL) ===
   const formatDecimal = (val: number) => {
-      if (val === undefined || val === null) return 0;
-      return val % 1 !== 0 ? val.toFixed(1) : val;
+    if (val === undefined || val === null) return 0;
+    // Retorna apenas a parte inteira para visualização
+    return Math.trunc(val);
   };
 
   if (loading)
@@ -292,9 +299,9 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
                                 </span>
                               </div>
                             </td>
-                            {/* PONTOS FORMATADOS */}
+                            {/* PONTOS (PTS não precisa truncar pois já é inteiro) */}
                             <td className="py-2 text-center font-black text-white bg-white/5">
-                              {formatDecimal(t.pts)}
+                              {t.pts}
                             </td>
                             <td className="py-2 text-center text-gray-600">
                               {t.pj}
@@ -308,12 +315,18 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
                             <td className="py-2 text-center text-gray-600">
                               {t.d}
                             </td>
+                            
+                            {/* Pontos Pró Truncados */}
                             <td className="py-2 text-center text-gray-500 font-mono">
                               {formatDecimal(t.pp)}
                             </td>
+                            
+                            {/* Pontos Contra Truncados */}
                             <td className="py-2 text-center text-gray-500 font-mono">
                               {formatDecimal(t.pc)}
                             </td>
+                            
+                            {/* Saldo Truncado */}
                             <td
                               className={`py-2 text-center font-bold ${
                                 t.sp > 0
@@ -398,18 +411,18 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
                 ? j.visitante[0]
                 : j.visitante;
 
-              // Lógica de Status: "finalizado" pode ser real ou simulado pelo ao vivo
+              // Lógica de Status
               const finalizado = j.status === "finalizado";
               const parcial = j.is_parcial === true;
-
-              // Define se existe um resultado visível
               const temResultado = finalizado || parcial;
 
-              // Lógica de Vencedor
-              const vCasa = temResultado && j.placar_casa > j.placar_visitante;
-              const vVis = temResultado && j.placar_visitante > j.placar_casa;
-              const empate =
-                temResultado && j.placar_casa === j.placar_visitante;
+              const c = j.placar_casa ?? 0;
+              const v = j.placar_visitante ?? 0;
+
+              // Lógica de Vencedor (Internamente usa decimais)
+              const vCasa = temResultado && c > v;
+              const vVis = temResultado && v > c;
+              const empate = temResultado && c === v;
 
               return (
                 <div
@@ -457,7 +470,7 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
                       </span>
                     </div>
 
-                    {/* Placar */}
+                    {/* Placar (TRUNCADO VISUALMENTE) */}
                     <div
                       className={`
                     flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg border font-mono font-black text-sm w-auto min-w-[80px] shadow-inner
@@ -471,7 +484,7 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
 `}
                     >
                       <span className={vCasa ? "text-green-400" : ""}>
-                        {j.placar_casa ?? "-"}
+                        {j.placar_casa !== undefined ? Math.trunc(j.placar_casa) : "-"}
                       </span>
                       <span
                         className={`text-[10px] ${
@@ -481,7 +494,7 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
                         ✕
                       </span>
                       <span className={vVis ? "text-green-400" : ""}>
-                        {j.placar_visitante ?? "-"}
+                        {j.placar_visitante !== undefined ? Math.trunc(j.placar_visitante) : "-"}
                       </span>
                     </div>
 

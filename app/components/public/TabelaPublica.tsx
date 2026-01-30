@@ -122,6 +122,7 @@ export default function TabelaPublica({ campeonatoId }: Props) {
             gc += golsContra;
             sg += golsPro - golsContra;
 
+            // Lógica de Vitória/Empate/Derrota (Usa o valor decimal exato para decidir)
             if (isCasa) {
               if (c > vis) {
                 pts += 3;
@@ -168,15 +169,8 @@ export default function TabelaPublica({ campeonatoId }: Props) {
       ? Math.max(...dadosOriginais.jogos.map((j) => j.rodada))
       : 1;
 
-  // === HELPER: Formata decimais se necessário ===
-  const formatDecimal = (val: number) => {
-    if (val === undefined || val === null) return 0;
-    // Se tiver decimal, mostra 1 casa (ex: 45.5). Se for inteiro, mostra normal (ex: 45)
-    return val % 1 !== 0 ? val.toFixed(1) : val;
-  };
-
   return (
-    // Container Principal: evita scroll horizontal na página toda
+    // Container Principal
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start animate-fadeIn max-w-[100vw] overflow-hidden">
       
       {/* ESQUERDA: CLASSIFICAÇÃO */}
@@ -243,7 +237,6 @@ export default function TabelaPublica({ campeonatoId }: Props) {
                             className="w-7 h-7 object-contain shrink-0 drop-shadow-md"
                           />
                           <div className="flex flex-col min-w-0 justify-center">
-                            {/* NOME DO TIME: Whitespace-nowrap para não cortar nomes grandes */}
                             <span className={`font-bold text-[11px] leading-tight group-hover:text-white transition whitespace-nowrap ${isG4 ? "text-gray-200" : "text-gray-400"}`}>
                               {time?.nome}
                             </span>
@@ -256,9 +249,9 @@ export default function TabelaPublica({ campeonatoId }: Props) {
                         </div>
                       </td>
                       
-                      {/* PONTOS (FORMATADOS) */}
+                      {/* PONTOS (PTS): Inteiro, não precisa truncar */}
                       <td className="text-center font-black text-sm text-white bg-white/[0.02]">
-                        {formatDecimal(t.pts)}
+                        {t.pts}
                       </td>
                       
                       <td className="text-center text-gray-500 font-mono">{t.pj}</td>
@@ -266,19 +259,19 @@ export default function TabelaPublica({ campeonatoId }: Props) {
                       <td className="text-center text-gray-500 font-mono">{t.e}</td>
                       <td className="text-center text-gray-500 font-mono">{t.d}</td>
                       
-                      {/* PONTOS PRÓ (FORMATADOS) */}
+                      {/* PONTOS PRÓ (PP): TRUNCADO (Ex: 55) */}
                       <td className="text-center text-gray-400 font-mono">
-                        {formatDecimal(t.gp)}
+                        {Math.trunc(t.gp)}
                       </td>
                       
-                      {/* PONTOS CONTRA (FORMATADOS) */}
+                      {/* PONTOS CONTRA (PC): TRUNCADO */}
                       <td className="text-center text-gray-400 font-mono">
-                        {formatDecimal(t.gc)}
+                        {Math.trunc(t.gc)}
                       </td>
                       
-                      {/* SALDO (FORMATADO) */}
+                      {/* SALDO (SP): TRUNCADO */}
                       <td className={`text-center font-mono font-bold ${t.sg > 0 ? "text-green-500" : t.sg < 0 ? "text-red-500" : "text-gray-500"}`}>
-                        {formatDecimal(t.sg)}
+                        {Math.trunc(t.sg)}
                       </td>
                     </tr>
                   );
@@ -352,6 +345,7 @@ export default function TabelaPublica({ campeonatoId }: Props) {
               const isLive = j.is_parcial === true;
               const finalizado = j.status === "finalizado";
               const temPlacar = finalizado || isLive;
+              
               const c = j.placar_casa ?? 0;
               const v = j.placar_visitante ?? 0;
               const cWin = temPlacar && c > v;
@@ -383,12 +377,12 @@ export default function TabelaPublica({ campeonatoId }: Props) {
                       </span>
                     </div>
 
-                    {/* PLACAR */}
+                    {/* PLACAR - COM MATH.TRUNC */}
                     <div className={`flex flex-col items-center justify-center w-auto min-w-[70px] px-1 h-[36px] rounded-lg border font-mono text-sm font-black shadow-inner ${isLive ? "bg-green-900/10 border-green-500/30 text-green-400" : temPlacar ? "bg-black/40 border-gray-700 text-white" : "bg-black/20 border-gray-800 text-gray-600"}`}>
                       <div className="flex items-center gap-1">
-                        <span className={cWin ? "text-green-400" : ""}>{j.placar_casa ?? "-"}</span>
+                        <span className={cWin ? "text-green-400" : ""}>{j.placar_casa !== undefined ? Math.trunc(j.placar_casa) : "-"}</span>
                         <span className="text-[10px] opacity-50 mx-0.5">:</span>
-                        <span className={vWin ? "text-green-400" : ""}>{j.placar_visitante ?? "-"}</span>
+                        <span className={vWin ? "text-green-400" : ""}>{j.placar_visitante !== undefined ? Math.trunc(j.placar_visitante) : "-"}</span>
                       </div>
                     </div>
 

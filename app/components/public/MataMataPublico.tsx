@@ -231,8 +231,10 @@ export default function MataMataPublico({
 function CardConfronto({ ida, volta, modoAoVivo }: { ida: any, volta?: any, modoAoVivo: boolean }) {
     if (ida.status === 'bye') return null;
 
-    // Helper de formatação decimal (IMPORTANTE PARA A LIGA PAGA)
-    const fmt = (n: number) => n !== undefined && n !== null ? (n % 1 === 0 ? n : n.toFixed(1)) : '-';
+    // === MUDANÇA PRINCIPAL AQUI ===
+    // Exibe apenas o INTEIRO (Math.trunc)
+    // Se for 55.9 -> Mostra 55
+    const fmt = (n: number) => n !== undefined && n !== null ? Math.trunc(n) : '-';
 
     const finalizado = ida.status === 'finalizado' && (!volta || volta.status === 'finalizado');
     const emAndamento = modoAoVivo && (ida.is_parcial || (volta && volta.is_parcial));
@@ -245,9 +247,10 @@ function CardConfronto({ ida, volta, modoAoVivo }: { ida: any, volta?: any, modo
     const p1_volta = volta ? (volta.placar_visitante ?? 0) : 0; 
     const p2_volta = volta ? (volta.placar_casa ?? 0) : 0;
 
-    // Agregado com precisão decimal
-    const agg1 = Number((p1_ida + p1_volta).toFixed(1));
-    const agg2 = Number((p2_ida + p2_volta).toFixed(1));
+    // Agregado com precisão decimal para DECIDIR O VENCEDOR (usando float real)
+    // Obs: Backend manda 2 casas decimais, então mantemos a precisão aqui.
+    const agg1 = Number((p1_ida + p1_volta).toFixed(2));
+    const agg2 = Number((p2_ida + p2_volta).toFixed(2));
 
     let win1 = false;
     let win2 = false;
@@ -280,6 +283,7 @@ function CardConfronto({ ida, volta, modoAoVivo }: { ida: any, volta?: any, modo
                 <div className="flex items-center gap-2 text-xs font-mono">
                     <span className="text-gray-500 w-5 text-center">{fmt(p1_ida)}</span>
                     {volta && <span className="text-gray-500 w-5 text-center">{fmt(p1_volta)}</span>}
+                    {/* Exibe o agregado TRUNCADO também */}
                     <span className={`w-10 text-center font-black bg-black/20 rounded py-0.5 ${win1 ? 'text-green-400' : 'text-white'}`}>
                         {fmt(agg1)}
                     </span>
@@ -299,6 +303,7 @@ function CardConfronto({ ida, volta, modoAoVivo }: { ida: any, volta?: any, modo
                 <div className="flex items-center gap-2 text-xs font-mono">
                     <span className="text-gray-500 w-5 text-center">{fmt(p2_ida)}</span>
                     {volta && <span className="text-gray-500 w-5 text-center">{fmt(p2_volta)}</span>}
+                    {/* Exibe o agregado TRUNCADO também */}
                     <span className={`w-10 text-center font-black bg-black/20 rounded py-0.5 ${win2 ? 'text-green-400' : 'text-white'}`}>
                         {fmt(agg2)}
                     </span>

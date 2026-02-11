@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import toast from 'react-hot-toast'
-import { atualizarRodadaGrid, buscarTabelaGrid, zerarJogos } from '@/app/actions'
+import { atualizarRodadaGrid, buscarTabelaGrid, zerarJogos, buscarParciaisGrid } from '@/app/actions'
 import { ModalConfirmacao } from './ModalConfirmacao'
-import { Trophy, RefreshCw, Trash2, Calendar, ChevronRight, ChevronLeft, Edit3, Filter } from 'lucide-react'
+import { Trophy, RefreshCw, Trash2, Calendar, Zap, X } from 'lucide-react'
 
 interface Props {
   campeonatoId: number
@@ -13,13 +13,17 @@ interface Props {
 export default function PainelGrid({ campeonatoId }: Props) {
   const [dados, setDados] = useState<{ ranking: any[], rodadas: number[] }>({ ranking: [], rodadas: [] })
   const [loading, setLoading] = useState(false)
+  const [loadingParciais, setLoadingParciais] = useState(false)
   const [modalOpen, setModalOpen] = useState(false)
   const [modalConfig, setModalConfig] = useState<any>({})
   
-  const [visaoTabela, setVisaoTabela] = useState<'geral' | number>('geral')
+  const [visaoTabela, setVisaoTabela] = useState<'geral' | 'aovivo' | number>('geral')
   const [proxRodada, setProxRodada] = useState(1)
   const [modoEdicaoManual, setModoEdicaoManual] = useState(false)
   const [rodadaInput, setRodadaInput] = useState('')
+  
+  // Novo estado para armazenar as parciais temporárias
+  const [parciaisAoVivo, setParciaisAoVivo] = useState<Record<number, number> | null>(null)
 
   useEffect(() => { 
       carregarDados() 
@@ -57,6 +61,30 @@ export default function PainelGrid({ campeonatoId }: Props) {
       setLoading(false);
   }
 
+  // Mantive a função caso queira usar no futuro, mas o botão foi removido do render
+  async function handleBuscarParciais() {
+      setLoadingParciais(true);
+      const res = await buscarParciaisGrid(campeonatoId);
+      setLoadingParciais(false);
+
+      if (res.success && res.parciais) {
+          const map: Record<number, number> = {};
+          res.parciais.forEach((p: any) => {
+              map[p.time_id] = p.parcial;
+          });
+          setParciaisAoVivo(map);
+          setVisaoTabela('aovivo'); 
+          toast.success("Parciais carregadas!");
+      } else {
+          toast.error(res.msg || "Erro ao buscar parciais");
+      }
+  }
+
+  function limparParciais() {
+      setParciaisAoVivo(null);
+      setVisaoTabela('geral');
+  }
+
   async function handleReset() {
       confirm("Zerar Ranking", "Tem certeza? Isso apagará todo o histórico.", async () => {
           setLoading(true)
@@ -67,12 +95,18 @@ export default function PainelGrid({ campeonatoId }: Props) {
       })
   }
 
-  const formatDecimal = (val: number) => {
-      if (val === undefined || val === null) return '-';
-      return val % 1 !== 0 ? val.toFixed(1) : val;
+  const formatDecimal = (val: any) => {
+      const num = Number(val);
+      if (isNaN(num)) return '-';
+      return num.toFixed(2);
   };
 
   const rankingExibido = [...dados.ranking].sort((a, b) => {
+      if (visaoTabela === 'aovivo') {
+          const pA = parciaisAoVivo ? (parciaisAoVivo[a.time_id] || 0) : 0;
+          const pB = parciaisAoVivo ? (parciaisAoVivo[b.time_id] || 0) : 0;
+          return pB - pA;
+      }
       if (visaoTabela === 'geral') return b.pts - a.pts;
       const ptsA = a.historico[visaoTabela] || 0;
       const ptsB = b.historico[visaoTabela] || 0;
@@ -85,9 +119,9 @@ export default function PainelGrid({ campeonatoId }: Props) {
       
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
           
+          {/* PAINEL DE CONTROLE (LATERAL) */}
           <div className="lg:col-span-1 space-y-6">
               <div className="bg-[#121212] border border-gray-800 rounded-2xl p-6 shadow-xl sticky top-6">
-                  {/* CORRIGIDO PARA YELLOW */}
                   <div className="flex items-center gap-3 mb-4 text-yellow-500">
                       <Calendar size={20}/>
                       <h3 className="font-bold uppercase tracking-widest text-sm">Controle de Rodadas</h3>
@@ -99,13 +133,13 @@ export default function PainelGrid({ campeonatoId }: Props) {
                           <div className="text-5xl font-black text-white my-3">{proxRodada}ª</div>
                           <span className="text-gray-400 text-xs block mb-4">Rodada do Cartola</span>
                           
-                          {/* CORRIGIDO PARA YELLOW */}
+                          {/* Botão Buscar Oficial (ÚNICO BOTÃO AGORA) */}
                           <button 
                             onClick={handleAtualizar} 
                             disabled={loading} 
                             className="w-full bg-yellow-600 hover:bg-yellow-500 text-black py-3 rounded-xl font-bold uppercase tracking-wider text-xs transition shadow-lg shadow-yellow-900/20 flex items-center justify-center gap-2"
                           >
-                              {loading ? <RefreshCw className="animate-spin w-4 h-4"/> : 'Buscar Pontuações'}
+                              {loading ? <RefreshCw className="animate-spin w-4 h-4"/> : 'Buscar Pontuações (Salvar)'}
                           </button>
 
                           <button 
@@ -146,27 +180,39 @@ export default function PainelGrid({ campeonatoId }: Props) {
               </div>
           </div>
 
+          {/* TABELA DE CLASSIFICAÇÃO */}
           <div className="lg:col-span-2">
               <div className="bg-[#121212] border border-gray-800 rounded-2xl overflow-hidden shadow-xl flex flex-col">
                   
                   <div className="bg-[#1a1a1a] px-4 py-3 border-b border-gray-800 flex flex-col sm:flex-row justify-between items-center gap-4">
-                      {/* CORRIGIDO PARA YELLOW */}
                       <h3 className="text-white font-black uppercase tracking-widest text-sm flex items-center gap-2">
                           <Trophy size={16} className="text-yellow-500"/> 
-                          {visaoTabela === 'geral' ? 'Classificação Geral' : `Classificação Rodada ${visaoTabela}`}
+                          {visaoTabela === 'geral' ? 'Classificação Geral' : visaoTabela === 'aovivo' ? 'Parciais Ao Vivo' : `Classificação Rodada ${visaoTabela}`}
                       </h3>
                       
                       <div className="flex items-center gap-1 bg-black p-1 rounded-lg border border-gray-800 overflow-x-auto max-w-full">
-                          {/* CORRIGIDO PARA YELLOW */}
+                          {/* Botão Geral */}
                           <button 
                               onClick={() => setVisaoTabela('geral')}
                               className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase transition whitespace-nowrap ${visaoTabela === 'geral' ? 'bg-yellow-600 text-black' : 'text-gray-500 hover:text-white'}`}
                           >
                               Geral
                           </button>
+
+                          {/* Se tiver parciais carregadas, mostra o botão para voltar a vê-las, mas sem botão para buscar novas */}
+                          {parciaisAoVivo && (
+                              <button 
+                                  onClick={() => setVisaoTabela('aovivo')}
+                                  className={`px-3 py-1.5 rounded text-[10px] font-bold uppercase transition whitespace-nowrap flex items-center gap-1 ${visaoTabela === 'aovivo' ? 'bg-green-600 text-white' : 'text-green-500 hover:text-white'}`}
+                              >
+                                  <Zap size={10} fill="currentColor" /> Ao Vivo
+                                  <span onClick={(e) => { e.stopPropagation(); limparParciais(); }} className="ml-1 opacity-50 hover:opacity-100 hover:text-red-400"><X size={10} /></span>
+                              </button>
+                          )}
                           
                           {dados.rodadas.length > 0 && <div className="w-px h-4 bg-gray-800 mx-1"></div>}
 
+                          {/* Botões de Rodadas */}
                           {dados.rodadas.map(r => (
                               <button 
                                   key={r}
@@ -185,6 +231,14 @@ export default function PainelGrid({ campeonatoId }: Props) {
                               <tr>
                                   <th className="py-4 pl-6 w-[50px] text-center bg-black sticky left-0 z-20 shadow-[2px_0_5px_rgba(0,0,0,0.5)]">Pos</th>
                                   <th className="py-4 px-4 w-[200px] bg-black sticky left-[50px] z-20 shadow-[2px_0_5px_rgba(0,0,0,0.5)]">Time</th>
+                                  
+                                  {/* Coluna Ao Vivo (Só aparece se tiver dados) */}
+                                  {parciaisAoVivo && (
+                                      <th className="py-4 px-4 text-center text-green-500 min-w-[80px] bg-green-900/10 border-b border-green-900/30">
+                                          AO VIVO
+                                      </th>
+                                  )}
+
                                   {dados.rodadas.map(r => (
                                       <th key={r} className="py-4 px-4 text-center text-gray-600 min-w-[60px]">R{r}</th>
                                   ))}
@@ -193,11 +247,20 @@ export default function PainelGrid({ campeonatoId }: Props) {
                           </thead>
                           <tbody className="divide-y divide-gray-800/50">
                               {rankingExibido.length === 0 ? (
-                                  <tr><td colSpan={dados.rodadas.length + 3} className="py-8 text-center text-gray-600 italic">Nenhum dado registrado.</td></tr>
+                                  <tr><td colSpan={dados.rodadas.length + 4} className="py-8 text-center text-gray-600 italic">Nenhum dado registrado.</td></tr>
                               ) : (
                                   rankingExibido.map((t, i) => {
                                       const time = t.times;
-                                      const valorMostrado = visaoTabela === 'geral' ? t.pts : (t.historico[visaoTabela] || 0);
+                                      
+                                      let valorMostrado = 0;
+                                      if (visaoTabela === 'geral') valorMostrado = t.pts;
+                                      else if (visaoTabela === 'aovivo') valorMostrado = parciaisAoVivo ? (parciaisAoVivo[t.time_id] || 0) : 0;
+                                      else valorMostrado = t.historico[visaoTabela] || 0;
+
+                                      if (visaoTabela === 'geral' && t.pts === 0) {
+                                          const soma = Object.values(t.historico).reduce((acc: any, cur: any) => acc + Number(cur), 0);
+                                          if (Number(soma) > 0) valorMostrado = Number(soma);
+                                      }
                                       
                                       return (
                                           <tr key={t.id} className="hover:bg-white/[0.02] transition group">
@@ -215,26 +278,23 @@ export default function PainelGrid({ campeonatoId }: Props) {
                                                   </div>
                                               </td>
 
+                                              {parciaisAoVivo && (
+                                                  <td className="py-3 px-4 text-center font-mono font-bold text-green-400 bg-green-900/5">
+                                                      {formatDecimal(parciaisAoVivo[t.time_id] || 0)}
+                                                  </td>
+                                              )}
+
                                               {dados.rodadas.map(r => (
                                                   <td key={r} className="py-3 px-4 text-center font-mono text-gray-400">
                                                       {formatDecimal(t.historico[r])}
                                                   </td>
                                               ))}
 
-                                              {visaoTabela === 'geral' ? (
-                                                  <td className="py-3 px-6 text-center">
-                                                      {/* CORRIGIDO PARA YELLOW */}
-                                                      <span className="text-yellow-400 font-black text-sm bg-yellow-500/10 px-3 py-1 rounded-lg border border-yellow-500/20">
-                                                          {formatDecimal(valorMostrado)}
-                                                      </span>
-                                                  </td>
-                                              ) : (
-                                                  <td className="py-3 px-6 text-center">
-                                                      <span className="text-white font-bold text-sm bg-white/10 px-2 py-1 rounded">
-                                                          {formatDecimal(valorMostrado)}
-                                                      </span>
-                                                  </td>
-                                              )}
+                                              <td className="py-3 px-6 text-center">
+                                                  <span className={`font-black text-sm px-3 py-1 rounded-lg border ${visaoTabela === 'geral' ? 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20' : visaoTabela === 'aovivo' ? 'text-green-400 bg-green-900/20 border-green-500/30' : 'text-white bg-white/10 border-white/10'}`}>
+                                                      {formatDecimal(valorMostrado)}
+                                                  </span>
+                                              </td>
                                           </tr>
                                       )
                                   })

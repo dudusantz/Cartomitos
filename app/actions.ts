@@ -1625,24 +1625,39 @@ export async function atualizarRodadaGrid(campeonatoId: number, rodadaCartola: n
 }
 
 export async function recalcularTabelaGrid(campeonatoId: number) {
-    await supabase.from('classificacao').update({ pts: 0, pj: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0 }).eq('campeonato_id', campeonatoId);
-
-    const { data: registros } = await supabase.from('partidas')
-        .select('time_casa, placar_casa')
+    // 1. Zera a pontuação atual de todos os times da liga
+    await supabase.from('classificacao')
+        .update({ pts: 0, pj: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0 })
         .eq('campeonato_id', campeonatoId);
 
-    if (!registros) return;
+    // 2. Busca todas as pontuações de partidas já realizadas
+    const { data: registros } = await supabase.from('partidas')
+        .select('time_casa, placar_casa')
+        .eq('campeonato_id', campeonatoId)
+        .not('placar_casa', 'is', null); // Garante que não pega nulos
+
+    if (!registros || registros.length === 0) return;
 
     const stats: any = {};
 
+    // 3. Soma os pontos rodada a rodada com precisão decimal
     registros.forEach((reg: any) => {
         if (!stats[reg.time_casa]) {
             stats[reg.time_casa] = { pts: 0, pj: 0 }; 
         }
-        stats[reg.time_casa].pts += reg.placar_casa || 0;
+        
+        // Garante que a string ou número vire float com 2 casas
+        const pRodada = parseFloat(Number(reg.placar_casa).toFixed(2));
+        
+        // Soma acumulativa
+        const somaAtual = stats[reg.time_casa].pts + pRodada;
+        
+        // Salva com 2 casas fixas para evitar 30.000000004
+        stats[reg.time_casa].pts = parseFloat(somaAtual.toFixed(2)); 
         stats[reg.time_casa].pj += 1; 
     });
 
+    // 4. Salva o total calculado na tabela de classificação
     for (const timeId in stats) {
         await supabase.from('classificacao')
             .update({ 
@@ -1685,4 +1700,123 @@ export async function buscarTabelaGrid(campeonatoId: number) {
     }));
 
     return { ranking: rankingCompleto, rodadas: rodadasOrdenadas };
+}
+
+// ==============================================================================
+// 10. MÓDULO: PARCIAIS GRID (NOVO)
+// ==============================================================================
+
+export async function buscarParciaisGrid(campeonatoId: number) {
+  const times = await listarTimesDoCampeonato(campeonatoId);
+  if (!times || times.length === 0) return { success: false, msg: "Nenhum time na liga." };
+
+  const ts = Date.now();
+  
+  // 1. Busca parciais globais (scouts)
+  const parciaisGerais = await fetchCartola(`https://api.cartola.globo.com/atletas/pontuados?_=${ts}`);
+  const atletasPontuados: Record<string, any> = {};
+  
+  if (parciaisGerais?.atletas) {
+    Object.keys(parciaisGerais.atletas).forEach((id) => {
+      atletasPontuados[String(id)] = parciaisGerais.atletas[id];
+    });
+  }
+
+  // 2. Calcula para cada time
+  const resultados = await Promise.all(times.map(async (t: any) => {
+      const timeId = t.times.time_id_cartola;
+      
+      // Busca time atual (sem rodada especifica = time escalado para a rodada vigente)
+      let dataTime = await fetchCartola(`https://api.cartola.globo.com/time/id/${timeId}?_=${ts}`);
+      
+      if (!dataTime || !dataTime.atletas) return { time_id: t.time_id, parcial: 0 };
+
+      // Lógica de cálculo (Cópia simplificada da lógica do Mata-Mata)
+      let luxoIdOficial = "0";
+      if (dataTime.reserva_luxo_id) luxoIdOficial = String(dataTime.reserva_luxo_id);
+      else if (dataTime.time?.reserva_luxo_id) luxoIdOficial = String(dataTime.time.reserva_luxo_id);
+
+      let capitaoId = String(dataTime.capitao_id || dataTime.time?.capitao_id || "0");
+      
+      const titulares = dataTime.atletas || [];
+      const reservas = dataTime.reservas || [];
+
+      const getPontos = (id: string) => {
+          const dados = atletasPontuados[id];
+          return dados ? parseFloat(dados.pontuacao) : 0.0;
+      };
+      const checarJogou = (id: string) => !!atletasPontuados[id];
+
+      const titularesPorPosicao: Record<number, any[]> = {};
+      const reservasPorPosicao: Record<number, any[]> = {};
+      
+      titulares.forEach((at: any) => {
+        if (!titularesPorPosicao[at.posicao_id]) titularesPorPosicao[at.posicao_id] = [];
+        titularesPorPosicao[at.posicao_id].push({ ...at, idStr: String(at.atleta_id) });
+      });
+      reservas.forEach((at: any) => {
+        if (!reservasPorPosicao[at.posicao_id]) reservasPorPosicao[at.posicao_id] = [];
+        reservasPorPosicao[at.posicao_id].push({ ...at, idStr: String(at.atleta_id) });
+      });
+
+      let escalacaoFinal: any[] = [];
+      let trocaLuxoRealizada = false;
+
+      for (const posId in titularesPorPosicao) {
+          let tits = titularesPorPosicao[posId];
+          let res = reservasPorPosicao[posId] || [];
+          res = res.map((r: any) => ({ ...r, pts: getPontos(r.idStr), jogou: checarJogou(r.idStr) }));
+          res.sort((a: any, b: any) => b.pts - a.pts); 
+
+          let houveSubstituicaoNormal = false;
+          let titularesDestaPosicao = [];
+
+          for (let i = 0; i < tits.length; i++) {
+              let titular = tits[i];
+              const jogou = checarJogou(titular.idStr);
+              if (!jogou) {
+                  const reservaDisponivel = res.find((r: any) => r.jogou && !r.usado);
+                  if (reservaDisponivel) {
+                      reservaDisponivel.usado = true;
+                      if (titular.idStr === capitaoId) capitaoId = reservaDisponivel.idStr; 
+                      titularesDestaPosicao.push({ ...reservaDisponivel });
+                      houveSubstituicaoNormal = true;
+                  } else {
+                      titularesDestaPosicao.push({ ...titular, pts: 0 }); 
+                  }
+              } else {
+                  titularesDestaPosicao.push({ ...titular, pts: getPontos(titular.idStr) });
+              }
+          }
+
+          if (!houveSubstituicaoNormal && !trocaLuxoRealizada && luxoIdOficial !== "0") {
+              const reservaLuxo = res.find((r: any) => r.idStr === luxoIdOficial);
+              if (reservaLuxo && reservaLuxo.jogou && !reservaLuxo.usado) {
+                  const piorTitular = titularesDestaPosicao.reduce((min:any, curr:any) => curr.pts < min.pts ? curr : min, titularesDestaPosicao[0]);
+                  if (reservaLuxo.pts > piorTitular.pts) {
+                      titularesDestaPosicao = titularesDestaPosicao.map(t => {
+                          if (t.idStr === piorTitular.idStr) {
+                              if (t.idStr === capitaoId) capitaoId = reservaLuxo.idStr; 
+                              return { ...reservaLuxo };
+                          }
+                          return t;
+                      });
+                      trocaLuxoRealizada = true;
+                  }
+              }
+          }
+          escalacaoFinal.push(...titularesDestaPosicao);
+      }
+
+      let somaTotal = 0;
+      escalacaoFinal.forEach(at => {
+          let p = getPontos(at.idStr || String(at.atleta_id));
+          if ((at.idStr || String(at.atleta_id)) === capitaoId) p = p * 1.5;
+          somaTotal += p;
+      });
+
+      return { time_id: t.time_id, parcial: parseFloat(somaTotal.toFixed(2)) };
+  }));
+
+  return { success: true, parciais: resultados };
 }

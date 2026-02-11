@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabase'
 import { buscarPodium } from '@/app/actions'
 
 // Ícones
-import { Trophy, ArrowLeft, Crown, DollarSign, Calendar } from 'lucide-react'
+import { Trophy, ArrowLeft, Crown, DollarSign, Calendar, Medal } from 'lucide-react'
 
 // Componentes Públicos
 import TabelaPublica from '@/app/components/public/TabelaPublica'
@@ -19,6 +19,7 @@ export default function PaginaPublicaCampeonato() {
   const params = useParams()
   const router = useRouter()
   
+  // Lógica robusta para extrair o ID do slug (ex: "brasileirao-123" -> 123)
   const rawId = (Array.isArray(params.id) ? params.id[0] : params.id) || '';
   const parts = rawId.split('-');
   const id = Number(parts[parts.length - 1]);
@@ -45,7 +46,7 @@ export default function PaginaPublicaCampeonato() {
       
       setCampeonato(camp)
 
-      // ABA INICIAL
+      // Define a aba inicial baseada no tipo
       if (camp.tipo === 'mata_mata' || camp.tipo === 'mata-mata') {
           setActiveTab('fase_final')
       } else if (camp.tipo === 'copa') {
@@ -56,9 +57,10 @@ export default function PaginaPublicaCampeonato() {
           setActiveTab('classificacao')
       }
 
+      // Se estiver finalizado, busca o pódio
       if (camp.ativo === false) {
           const p = await buscarPodium(id)
-          setPodium(p)
+          setPodium(p || [])
       }
 
       setLoading(false)
@@ -78,13 +80,16 @@ export default function PaginaPublicaCampeonato() {
   const isFinalizado = campeonato.ativo === false;
   const isPaga = campeonato.is_paga === true;
 
+  // Função auxiliar para evitar erro de imagem quebrada
+  const getEscudo = (time: any) => time?.escudo || time?.url_escudo_png || '';
+
   return (
     <div className="min-h-screen bg-[#121212] text-gray-100 animate-fadeIn pb-20 font-sans">
       
       {/* === HERO HEADER === */}
       <div className="relative bg-[#0a0a0a] border-b border-gray-800 pt-8 pb-12 px-6 overflow-hidden">
         <div className="absolute inset-0 bg-[url('/bg-grid.svg')] opacity-10"></div>
-        {/* MUDANÇA: COR DO BRILHO (Dourado se pago/grid) */}
+        {/* COR DO BRILHO (Dourado se pago/grid) */}
         <div className={`absolute top-0 right-0 w-[500px] h-[500px] rounded-full blur-[120px] -translate-y-1/2 translate-x-1/3 pointer-events-none transition-colors duration-700 ${isPaga ? 'bg-yellow-600/10' : 'bg-blue-600/10'}`}></div>
 
         <div className="max-w-7xl mx-auto relative z-10">
@@ -104,7 +109,6 @@ export default function PaginaPublicaCampeonato() {
                             {campeonato.tipo.replace('_', ' ')}
                         </span>
 
-                        {/* MUDANÇA: BADGE DOURADO */}
                         {isPaga && (
                             <span className="text-yellow-400 font-bold text-[10px] uppercase tracking-widest bg-yellow-500/10 px-2 py-1 rounded border border-yellow-500/20 flex items-center gap-1 shadow-[0_0_10px_rgba(234,179,8,0.2)]">
                                 <DollarSign size={10} /> Liga Paga
@@ -123,32 +127,56 @@ export default function PaginaPublicaCampeonato() {
                     </h1>
                 </div>
 
-                {/* === PÓDIO === */}
-                {isFinalizado && podium.length > 0 && (
-                    <div className="flex items-end gap-3 md:gap-4 bg-white/[0.03] p-4 rounded-2xl border border-white/5 shadow-2xl backdrop-blur-sm mt-4 md:mt-0">
+                {/* === PÓDIO (VERSÃO GIGANTE) === */}
+                {isFinalizado && podium && podium.length > 0 && (
+                    <div className="flex items-end gap-2 md:gap-6 bg-white/[0.03] px-6 py-5 rounded-3xl border border-white/5 shadow-2xl backdrop-blur-sm mt-6 md:mt-0">
+                        
+                        {/* 2º LUGAR */}
                         {podium[1] && (
                             <div className="flex flex-col items-center">
-                                <img src={podium[1].escudo} className="w-8 h-8 md:w-10 md:h-10 object-contain mb-1 opacity-80" alt="2º Lugar" />
-                                <div className="h-6 w-8 md:h-8 md:w-10 bg-gray-400/20 rounded-t-lg flex items-center justify-center border-t border-gray-400/30">
-                                    <span className="text-[10px] md:text-xs font-bold text-gray-400">2</span>
+                                <div className="w-14 h-14 md:w-20 md:h-20 relative mb-2">
+                                    {getEscudo(podium[1]) ? (
+                                        <img src={getEscudo(podium[1])} className="w-full h-full object-contain opacity-80 drop-shadow-lg" alt="2º Lugar" />
+                                    ) : (
+                                        <Medal className="w-full h-full text-gray-400" />
+                                    )}
+                                </div>
+                                <div className="h-8 w-10 md:h-10 md:w-14 bg-gray-400/20 rounded-t-lg flex items-center justify-center border-t border-gray-400/30">
+                                    <span className="text-sm md:text-lg font-black text-gray-400">2</span>
                                 </div>
                             </div>
                         )}
+
+                        {/* 1º LUGAR (CAMPEÃO) */}
                         {podium[0] && (
-                            <div className="flex flex-col items-center relative -top-2">
-                                <Crown size={14} className="text-yellow-400 mb-1 animate-bounce" />
-                                <img src={podium[0].escudo} className="w-12 h-12 md:w-14 md:h-14 object-contain mb-2 drop-shadow-[0_0_10px_rgba(234,179,8,0.3)]" alt="Campeão" />
-                                <div className="h-10 w-10 md:h-12 md:w-12 bg-yellow-500/20 rounded-t-lg flex items-center justify-center border-t border-yellow-500/30 relative overflow-hidden">
-                                    <div className="absolute inset-0 bg-gradient-to-t from-yellow-500/10 to-transparent"></div>
-                                    <span className="text-sm md:text-lg font-black text-yellow-500">1</span>
+                            <div className="flex flex-col items-center relative -top-4 z-10 mx-2">
+                                <Crown size={32} className="text-yellow-400 mb-2 animate-bounce drop-shadow-[0_0_15px_rgba(234,179,8,0.6)]" />
+                                <div className="w-20 h-20 md:w-28 md:h-28 relative mb-3 drop-shadow-[0_0_20px_rgba(234,179,8,0.4)]">
+                                    {getEscudo(podium[0]) ? (
+                                        <img src={getEscudo(podium[0])} className="w-full h-full object-contain" alt="Campeão" />
+                                    ) : (
+                                        <Trophy className="w-full h-full text-yellow-500" />
+                                    )}
+                                </div>
+                                <div className="h-12 w-12 md:h-16 md:w-20 bg-yellow-500/20 rounded-t-xl flex items-center justify-center border-t border-yellow-500/30 relative overflow-hidden shadow-[0_0_30px_rgba(234,179,8,0.2)]">
+                                    <div className="absolute inset-0 bg-gradient-to-t from-yellow-500/20 to-transparent animate-pulse"></div>
+                                    <span className="text-2xl md:text-4xl font-black text-yellow-500 drop-shadow-sm">1</span>
                                 </div>
                             </div>
                         )}
+
+                        {/* 3º LUGAR */}
                         {podium[2] && (
                             <div className="flex flex-col items-center">
-                                <img src={podium[2].escudo} className="w-8 h-8 md:w-10 md:h-10 object-contain mb-1 opacity-60" alt="3º Lugar" />
-                                <div className="h-4 w-8 md:h-6 md:w-10 bg-orange-700/20 rounded-t-lg flex items-center justify-center border-t border-orange-700/30">
-                                    <span className="text-[10px] md:text-xs font-bold text-orange-700">3</span>
+                                <div className="w-14 h-14 md:w-20 md:h-20 relative mb-2">
+                                    {getEscudo(podium[2]) ? (
+                                        <img src={getEscudo(podium[2])} className="w-full h-full object-contain opacity-60 drop-shadow-lg" alt="3º Lugar" />
+                                    ) : (
+                                        <Medal className="w-full h-full text-orange-700" />
+                                    )}
+                                </div>
+                                <div className="h-6 w-10 md:h-8 md:w-14 bg-orange-700/20 rounded-t-lg flex items-center justify-center border-t border-orange-700/30">
+                                    <span className="text-sm md:text-lg font-black text-orange-700">3</span>
                                 </div>
                             </div>
                         )}
@@ -171,7 +199,6 @@ export default function PaginaPublicaCampeonato() {
                 </button>
             )}
 
-            {/* MUDANÇA: ABA GRID DOURADA */}
             {campeonato.tipo === 'grid' && (
                 <button 
                     onClick={() => setActiveTab('grid')}

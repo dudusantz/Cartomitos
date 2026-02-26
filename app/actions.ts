@@ -1037,14 +1037,31 @@ export async function buscarMaioresPontuadores() {
 export async function buscarParciaisAoVivo(jogos: any[]) {
   const ts = Date.now();
   
-  const parciaisGerais = await fetchCartola(`https://api.cartola.globo.com/atletas/pontuados?_=${ts}`);
-  const atletasPontuados: Record<string, any> = {};
+  const [parciaisGerais, partidasCartola] = await Promise.all([
+      fetchCartola(`https://api.cartola.globo.com/atletas/pontuados?_=${ts}`),
+      fetchCartola(`https://api.cartola.globo.com/partidas?_=${ts}`)
+  ]);
   
+  const atletasPontuados: Record<string, any> = {};
   if (parciaisGerais?.atletas) {
     Object.keys(parciaisGerais.atletas).forEach((id) => {
       atletasPontuados[String(id)] = parciaisGerais.atletas[id];
     });
   }
+
+  const statusClubes: Record<number, number> = {};
+  if (partidasCartola?.partidas) {
+      partidasCartola.partidas.forEach((p: any) => {
+          const status = p.status_transmissao_tr?.id || 1;
+          statusClubes[p.clube_casa_id] = status;
+          statusClubes[p.clube_visitante_id] = status;
+      });
+  }
+
+  const jogoComecou = (clubeId: number) => {
+      const status = statusClubes[clubeId];
+      return status !== undefined ? status !== 1 : true; 
+  };
 
   const jogosComParcial = await Promise.all(jogos.map(async (jogo) => {
     
@@ -1114,17 +1131,19 @@ export async function buscarParciaisAoVivo(jogos: any[]) {
               const jogou = checarJogou(titular.idStr);
               
               if (!jogou) {
-                  const reservaDisponivel = res.find((r: any) => r.jogou && !r.usado);
-                  
-                  if (reservaDisponivel) {
-                      reservaDisponivel.usado = true;
-                      
-                      if (titular.idStr === capitaoId) capitaoId = reservaDisponivel.idStr; 
-                      
-                      titularesDestaPosicao.push({ ...reservaDisponivel, ehReserva: true });
-                      houveSubstituicaoNormal = true;
+                  const comecou = jogoComecou(titular.clube_id);
+                  if (comecou) {
+                      const reservaDisponivel = res.find((r: any) => r.jogou && !r.usado);
+                      if (reservaDisponivel) {
+                          reservaDisponivel.usado = true;
+                          if (titular.idStr === capitaoId) capitaoId = reservaDisponivel.idStr; 
+                          titularesDestaPosicao.push({ ...reservaDisponivel, ehReserva: true });
+                          houveSubstituicaoNormal = true;
+                      } else {
+                          titularesDestaPosicao.push({ ...titular, pts: 0, jogou: false }); 
+                      }
                   } else {
-                      titularesDestaPosicao.push({ ...titular, pts: 0, jogou: false }); 
+                      titularesDestaPosicao.push({ ...titular, pts: 0, jogou: false });
                   }
               } else {
                   titularesDestaPosicao.push({ ...titular, pts: getPontos(titular.idStr), jogou: true });
@@ -1712,26 +1731,39 @@ export async function buscarParciaisGrid(campeonatoId: number) {
 
   const ts = Date.now();
   
-  // 1. Busca parciais globais (scouts)
-  const parciaisGerais = await fetchCartola(`https://api.cartola.globo.com/atletas/pontuados?_=${ts}`);
+  const [parciaisGerais, partidasCartola] = await Promise.all([
+      fetchCartola(`https://api.cartola.globo.com/atletas/pontuados?_=${ts}`),
+      fetchCartola(`https://api.cartola.globo.com/partidas?_=${ts}`)
+  ]);
+
   const atletasPontuados: Record<string, any> = {};
-  
   if (parciaisGerais?.atletas) {
     Object.keys(parciaisGerais.atletas).forEach((id) => {
       atletasPontuados[String(id)] = parciaisGerais.atletas[id];
     });
   }
 
-  // 2. Calcula para cada time
+  const statusClubes: Record<number, number> = {};
+  if (partidasCartola?.partidas) {
+      partidasCartola.partidas.forEach((p: any) => {
+          const status = p.status_transmissao_tr?.id || 1;
+          statusClubes[p.clube_casa_id] = status;
+          statusClubes[p.clube_visitante_id] = status;
+      });
+  }
+
+  const jogoComecou = (clubeId: number) => {
+      const status = statusClubes[clubeId];
+      return status !== undefined ? status !== 1 : true;
+  };
+
   const resultados = await Promise.all(times.map(async (t: any) => {
       const timeId = t.times.time_id_cartola;
       
-      // Busca time atual (sem rodada especifica = time escalado para a rodada vigente)
       let dataTime = await fetchCartola(`https://api.cartola.globo.com/time/id/${timeId}?_=${ts}`);
       
       if (!dataTime || !dataTime.atletas) return { time_id: t.time_id, parcial: 0 };
 
-      // Lógica de cálculo (Cópia simplificada da lógica do Mata-Mata)
       let luxoIdOficial = "0";
       if (dataTime.reserva_luxo_id) luxoIdOficial = String(dataTime.reserva_luxo_id);
       else if (dataTime.time?.reserva_luxo_id) luxoIdOficial = String(dataTime.time.reserva_luxo_id);
@@ -1775,14 +1807,19 @@ export async function buscarParciaisGrid(campeonatoId: number) {
               let titular = tits[i];
               const jogou = checarJogou(titular.idStr);
               if (!jogou) {
-                  const reservaDisponivel = res.find((r: any) => r.jogou && !r.usado);
-                  if (reservaDisponivel) {
-                      reservaDisponivel.usado = true;
-                      if (titular.idStr === capitaoId) capitaoId = reservaDisponivel.idStr; 
-                      titularesDestaPosicao.push({ ...reservaDisponivel });
-                      houveSubstituicaoNormal = true;
+                  const comecou = jogoComecou(titular.clube_id);
+                  if (comecou) {
+                      const reservaDisponivel = res.find((r: any) => r.jogou && !r.usado);
+                      if (reservaDisponivel) {
+                          reservaDisponivel.usado = true;
+                          if (titular.idStr === capitaoId) capitaoId = reservaDisponivel.idStr; 
+                          titularesDestaPosicao.push({ ...reservaDisponivel });
+                          houveSubstituicaoNormal = true;
+                      } else {
+                          titularesDestaPosicao.push({ ...titular, pts: 0 }); 
+                      }
                   } else {
-                      titularesDestaPosicao.push({ ...titular, pts: 0 }); 
+                      titularesDestaPosicao.push({ ...titular, pts: 0 });
                   }
               } else {
                   titularesDestaPosicao.push({ ...titular, pts: getPontos(titular.idStr) });

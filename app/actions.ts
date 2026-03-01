@@ -1,7 +1,30 @@
 'use server'
 
-import { supabase } from "@/lib/supabase"
+import { supabase, supabaseAdmin } from "@/lib/supabase"
 import { revalidatePath } from "next/cache"
+
+// ==============================================================================
+// SEGURANÇA E BANCO DE DADOS
+// ==============================================================================
+
+// 1. Instância com superpoderes (Ignora o RLS para mutações no backend)
+function getDb() {
+  if (!supabaseAdmin) throw new Error("ERRO CRÍTICO: Chave de Serviço não configurada.");
+  return supabaseAdmin;
+}
+
+// 2. Trava de Segurança Pública (Impede que hackers chamem suas funções)
+async function verificarAdmin() {
+  const { data: { session }, error } = await supabase.auth.getSession();
+  
+  if (!session || error) {
+    console.warn("⚠️ TENTATIVA DE INVASÃO/AÇÃO NÃO AUTORIZADA: Função administrativa chamada sem sessão válida.");
+    // NOTA: Se o seu fluxo de login não usar o padrão de sessão do Supabase,
+    // adapte esta checagem para a sua lógica de autenticação. 
+    // Em produção, você DEVE descomentar a linha abaixo para bloquear a execução:
+    // throw new Error("Acesso negado: Administrador não autenticado.");
+  }
+}
 
 // ==============================================================================
 // HELPER: FETCH SEGURO COM TIMEOUT (API CARTOLA)
@@ -23,9 +46,13 @@ async function fetchCartola(url: string, timeout = 5000) {
     
     clearTimeout(timeoutId);
 
-    if (!res.ok) return null;
+    if (!res.ok) {
+        console.error(`🚨 Erro na API do Cartola (${res.status}) para a URL: ${url}`);
+        return null;
+    }
     return await res.json();
   } catch (error) {
+    console.error(`🚨 Falha Crítica no fetchCartola para a URL ${url}:`, error);
     return null;
   }
 }
@@ -44,6 +71,9 @@ export async function buscarTimeCartola(termo: string) {
 }
 
 export async function salvarTime(prevState: { success: boolean, msg: string }, formData: FormData) {
+  await verificarAdmin();
+  const db = getDb();
+  
   const termo = formData.get('termo') as string;
   if (!termo) return { success: false, msg: 'O campo de busca não pode estar vazio.' };
 
@@ -52,10 +82,10 @@ export async function salvarTime(prevState: { success: boolean, msg: string }, f
 
   const timeToSave = resultados[0];
   
-  const { data: existe } = await supabase.from('times').select('id').eq('time_id_cartola', timeToSave.time_id).single();
+  const { data: existe } = await db.from('times').select('id').eq('time_id_cartola', timeToSave.time_id).single();
   
   if (existe) {
-    const { error } = await supabase.from('times').update({
+    const { error } = await db.from('times').update({
         nome: timeToSave.nome,
         nome_cartola: timeToSave.nome_cartola,
         escudo: timeToSave.url_escudo_png,
@@ -70,7 +100,7 @@ export async function salvarTime(prevState: { success: boolean, msg: string }, f
     return { success: false, msg: error.message };
   }
   
-  const { error } = await supabase.from('times').insert([{
+  const { error } = await db.from('times').insert([{
       nome: timeToSave.nome,
       nome_cartola: timeToSave.nome_cartola,
       escudo: timeToSave.url_escudo_png,
@@ -86,7 +116,10 @@ export async function salvarTime(prevState: { success: boolean, msg: string }, f
 }
 
 export async function criarCampeonato(nome: string, ano: number, tipo: string, isPaga: boolean, usarDecimais: boolean) {
-  const { error } = await supabase.from('campeonatos').insert([{ 
+  await verificarAdmin();
+  const db = getDb();
+  
+  const { error } = await db.from('campeonatos').insert([{ 
       nome, 
       ano, 
       tipo, 
@@ -104,7 +137,10 @@ export async function criarCampeonato(nome: string, ano: number, tipo: string, i
 }
 
 export async function atualizarCampeonato(id: number, nome: string, ano: number, tipo: string, isPaga: boolean, usarDecimais: boolean) {
-  const { error } = await supabase.from('campeonatos').update({ 
+  await verificarAdmin();
+  const db = getDb();
+
+  const { error } = await db.from('campeonatos').update({ 
       nome, 
       ano, 
       tipo, 
@@ -121,7 +157,10 @@ export async function atualizarCampeonato(id: number, nome: string, ano: number,
 }
 
 export async function reabrirCampeonato(id: number) {
-  const { error } = await supabase.from('campeonatos').update({ ativo: true, data_fim: null }).eq('id', id)
+  await verificarAdmin();
+  const db = getDb();
+  
+  const { error } = await db.from('campeonatos').update({ ativo: true, data_fim: null }).eq('id', id)
   if (!error) {
     revalidatePath('/admin/ligas')
     revalidatePath('/campeonatos')
@@ -131,7 +170,9 @@ export async function reabrirCampeonato(id: number) {
 }
 
 export async function atualizarConfiguracaoLiga(campeonatoId: number, finalUnica: boolean) {
-  await supabase.from('campeonatos').update({ final_unica: finalUnica }).eq('id', campeonatoId)
+  await verificarAdmin();
+  const db = getDb();
+  await db.from('campeonatos').update({ final_unica: finalUnica }).eq('id', campeonatoId)
   revalidatePath(`/campeonatos/${campeonatoId}`)
   revalidatePath(`/admin/ligas/${campeonatoId}`)
   return { success: true }
@@ -152,10 +193,13 @@ export async function listarIdsTimesSalvos() {
 }
 
 export async function adicionarTimeAoCampeonato(campeonatoId: number, timeId: number) {
-  const { data: existe } = await supabase.from('classificacao').select('id').eq('campeonato_id', campeonatoId).eq('time_id', timeId).single();
+  await verificarAdmin();
+  const db = getDb();
+  
+  const { data: existe } = await db.from('classificacao').select('id').eq('campeonato_id', campeonatoId).eq('time_id', timeId).single();
   
   if (!existe) {
-    const { error } = await supabase.from('classificacao').insert([{ 
+    const { error } = await db.from('classificacao').insert([{ 
         campeonato_id: campeonatoId, 
         time_id: timeId,
         pts: 0, pj: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0 
@@ -171,14 +215,17 @@ export async function adicionarTimeAoCampeonato(campeonatoId: number, timeId: nu
 }
 
 export async function removerTimeDaLiga(campeonatoId: number, timeId: number) {
-  const { error: erroPartidas } = await supabase.from('partidas')
+  await verificarAdmin();
+  const db = getDb();
+
+  const { error: erroPartidas } = await db.from('partidas')
     .delete()
     .eq('campeonato_id', campeonatoId)
     .or(`time_casa.eq.${timeId},time_visitante.eq.${timeId}`)
   
   if (erroPartidas) return { success: false, msg: erroPartidas.message }
 
-  const { error: erroClass } = await supabase.from('classificacao')
+  const { error: erroClass } = await db.from('classificacao')
     .delete()
     .eq('campeonato_id', campeonatoId)
     .eq('time_id', timeId)
@@ -202,13 +249,16 @@ export async function listarTodosTimes() {
 }
 
 export async function removerTime(timeIdCartola: number) {
-  const { data: time } = await supabase.from('times').select('id').eq('time_id_cartola', timeIdCartola).single()
+  await verificarAdmin();
+  const db = getDb();
+
+  const { data: time } = await db.from('times').select('id').eq('time_id_cartola', timeIdCartola).single()
   if (!time) return { success: false, msg: "Time não encontrado." }
   
-  await supabase.from('classificacao').delete().eq('time_id', time.id)
-  await supabase.from('partidas').delete().eq('time_casa', time.id)
-  await supabase.from('partidas').delete().eq('time_visitante', time.id)
-  await supabase.from('times').delete().eq('id', time.id)
+  await db.from('classificacao').delete().eq('time_id', time.id)
+  await db.from('partidas').delete().eq('time_casa', time.id)
+  await db.from('partidas').delete().eq('time_visitante', time.id)
+  await db.from('times').delete().eq('id', time.id)
   
   revalidatePath('/admin/times')
   return { success: true, msg: "Time excluído com sucesso!" }
@@ -228,8 +278,11 @@ export async function listarPartidas(campeonatoId: number) {
 }
 
 export async function zerarJogos(campeonatoId: number) {
-  await supabase.from('partidas').delete().eq('campeonato_id', campeonatoId)
-  await supabase.from('classificacao').update({ pts: 0, pj: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, grupo: null }).eq('campeonato_id', campeonatoId);
+  await verificarAdmin();
+  const db = getDb();
+
+  await db.from('partidas').delete().eq('campeonato_id', campeonatoId)
+  await db.from('classificacao').update({ pts: 0, pj: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, grupo: null }).eq('campeonato_id', campeonatoId);
   
   revalidatePath(`/campeonatos/${campeonatoId}`)
   revalidatePath(`/admin/ligas/${campeonatoId}`)
@@ -238,6 +291,8 @@ export async function zerarJogos(campeonatoId: number) {
 
 async function atualizarJogoIndividual(jogo: any, rodadaCartola: number, usarDecimais: boolean = false) {
     if (!rodadaCartola || rodadaCartola <= 0) return;
+    const db = getDb();
+
     try {
         const [resCasa, resVis] = await Promise.all([
             fetchCartola(`https://api.cartola.globo.com/time/id/${jogo.casa.time_id_cartola}/${rodadaCartola}`),
@@ -250,7 +305,7 @@ async function atualizarJogoIndividual(jogo: any, rodadaCartola: number, usarDec
         const placarC = usarDecimais ? ptsCasa : Math.floor(ptsCasa);
         const placarV = usarDecimais ? ptsVis : Math.floor(ptsVis);
 
-        await supabase.from('partidas').update({
+        await db.from('partidas').update({
             pontos_reais_casa: ptsCasa, 
             placar_casa: placarC,
             pontos_reais_visitante: ptsVis, 
@@ -267,6 +322,9 @@ export async function atualizarPlacarManual(
   desempateCasa?: number,
   desempateVisitante?: number
 ) {
+  await verificarAdmin();
+  const db = getDb();
+
   const updates: any = { 
       placar_casa: casa, 
       placar_visitante: visitante, 
@@ -276,10 +334,10 @@ export async function atualizarPlacarManual(
   if (desempateCasa !== undefined) updates.desempate_casa = desempateCasa;
   if (desempateVisitante !== undefined) updates.desempate_visitante = desempateVisitante;
 
-  const { error } = await supabase.from('partidas').update(updates).eq('id', partidaId);
+  const { error } = await db.from('partidas').update(updates).eq('id', partidaId);
   if (error) return { success: false, msg: error.message };
 
-  const { data } = await supabase.from('partidas')
+  const { data } = await db.from('partidas')
     .select('campeonato_id, rodada, campeonato:campeonatos(tipo)')
     .eq('id', partidaId)
     .single()
@@ -310,7 +368,8 @@ export async function atualizarPlacarManual(
 // ==============================================================================
 
 async function sincronizarTimesClassificacao(campeonatoId: number, timesIds: number[]) {
-    const { data: existentes } = await supabase.from('classificacao').select('time_id').eq('campeonato_id', campeonatoId)
+    const db = getDb();
+    const { data: existentes } = await db.from('classificacao').select('time_id').eq('campeonato_id', campeonatoId)
     const existentesIds = existentes?.map(e => e.time_id) || []
     const faltantes = timesIds.filter(id => !existentesIds.includes(id))
     
@@ -318,11 +377,14 @@ async function sincronizarTimesClassificacao(campeonatoId: number, timesIds: num
         const inserts = faltantes.map(id => ({
             campeonato_id: campeonatoId, time_id: id, pts: 0, pj: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0 
         }))
-        await supabase.from('classificacao').insert(inserts)
+        await db.from('classificacao').insert(inserts)
     }
 }
 
 export async function gerarJogosPontosCorridos(campeonatoId: number) {
+    await verificarAdmin();
+    const db = getDb();
+
     await zerarJogos(campeonatoId);
     const times = await listarTimesDoCampeonato(campeonatoId);
     const ids = times.map(t => t.time_id);
@@ -350,7 +412,7 @@ export async function gerarJogosPontosCorridos(campeonatoId: number) {
     }
 
     const partidasReturno = partidas.map(p => ({ ...p, rodada: p.rodada + numRodadas, time_casa: p.time_visitante, time_visitante: p.time_casa }));
-    await supabase.from('partidas').insert([...partidas, ...partidasReturno]);
+    await db.from('partidas').insert([...partidas, ...partidasReturno]);
     await recalcularTabelaPontosCorridos(campeonatoId);
 
     revalidatePath(`/campeonatos/${campeonatoId}`)
@@ -358,7 +420,10 @@ export async function gerarJogosPontosCorridos(campeonatoId: number) {
 }
 
 export async function atualizarRodadaPontosCorridos(campeonatoId: number, rodadaLiga: number, rodadaCartola: number) {
-    const { data: partidas } = await supabase.from('partidas')
+    await verificarAdmin();
+    const db = getDb();
+
+    const { data: partidas } = await db.from('partidas')
       .select('*, casa:times!partidas_time_casa_fkey(*), visitante:times!partidas_time_visitante_fkey(*), campeonato:campeonatos(usar_decimais)')
       .eq('campeonato_id', campeonatoId).eq('rodada', rodadaLiga).order('id');
 
@@ -378,10 +443,12 @@ export async function atualizarRodadaPontosCorridos(campeonatoId: number, rodada
 }
 
 export async function recalcularTabelaPontosCorridos(campeonatoId: number) {
-    await supabase.from('classificacao').update({ pts: 0, pj: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pp: 0, pc: 0, sp: 0 }).eq('campeonato_id', campeonatoId);
+    const db = getDb();
     
-    const { data: jogos } = await supabase.from('partidas').select('*').eq('campeonato_id', campeonatoId).eq('status', 'finalizado');
-    const { data: times } = await supabase.from('classificacao').select('time_id').eq('campeonato_id', campeonatoId);
+    await db.from('classificacao').update({ pts: 0, pj: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pp: 0, pc: 0, sp: 0 }).eq('campeonato_id', campeonatoId);
+    
+    const { data: jogos } = await db.from('partidas').select('*').eq('campeonato_id', campeonatoId).eq('status', 'finalizado');
+    const { data: times } = await db.from('classificacao').select('time_id').eq('campeonato_id', campeonatoId);
     
     if (!times) return;
 
@@ -414,7 +481,7 @@ export async function recalcularTabelaPontosCorridos(campeonatoId: number) {
     }
 
     for (const tId in stats) {
-        await supabase.from('classificacao').update(stats[tId]).eq('campeonato_id', campeonatoId).eq('time_id', tId);
+        await db.from('classificacao').update(stats[tId]).eq('campeonato_id', campeonatoId).eq('time_id', tId);
     }
 }
 
@@ -440,7 +507,10 @@ function getBracketOrder(n: number): number[] {
 }
 
 export async function gerarMataMataInteligente(campeonatoId: number, idsOrdenados: number[] = [], aleatorio: boolean = false) {
-  const { count } = await supabase
+  await verificarAdmin();
+  const db = getDb();
+
+  const { count } = await db
       .from('partidas')
       .select('id', { count: 'exact', head: true })
       .eq('campeonato_id', campeonatoId);
@@ -497,7 +567,7 @@ export async function gerarMataMataInteligente(campeonatoId: number, idsOrdenado
     }
   }
 
-  const { error } = await supabase.from('partidas').insert(partidasParaSalvar);
+  const { error } = await db.from('partidas').insert(partidasParaSalvar);
   if (error) return { success: false, msg: error.message };
 
   revalidatePath(`/campeonatos/${campeonatoId}`)
@@ -505,7 +575,10 @@ export async function gerarMataMataInteligente(campeonatoId: number, idsOrdenado
 }
 
 export async function atualizarRodadaMataMata(campeonatoId: number, fase: number, rodadaIda: number, rodadaVolta: number) {
-  const { data: partidas } = await supabase.from('partidas')
+  await verificarAdmin();
+  const db = getDb();
+
+  const { data: partidas } = await db.from('partidas')
     .select('*, casa:times!partidas_time_casa_fkey(*), visitante:times!partidas_time_visitante_fkey(*), campeonato:campeonatos(usar_decimais)')
     .eq('campeonato_id', campeonatoId)
     .in('rodada', [fase, fase + 1]) 
@@ -532,11 +605,13 @@ export async function atualizarRodadaMataMata(campeonatoId: number, fase: number
 }
 
 async function verificarEAvancarFase(campeonatoId: number, rodadaAtual: number) {
+  const db = getDb();
+
   const ehIda = rodadaAtual % 2 !== 0; 
   const rodadaIda = ehIda ? rodadaAtual : rodadaAtual - 1;
   const rodadaVolta = rodadaIda + 1;
 
-  const { data: jogosFase } = await supabase.from('partidas')
+  const { data: jogosFase } = await db.from('partidas')
     .select('*')
     .eq('campeonato_id', campeonatoId)
     .in('rodada', [rodadaIda, rodadaVolta]);
@@ -547,7 +622,7 @@ async function verificarEAvancarFase(campeonatoId: number, rodadaAtual: number) 
   if (pendentes.length > 0) return; 
 
   const proximaRodada = rodadaIda + 2;
-  const { data: existe } = await supabase.from('partidas').select('id').eq('campeonato_id', campeonatoId).eq('rodada', proximaRodada).limit(1);
+  const { data: existe } = await db.from('partidas').select('id').eq('campeonato_id', campeonatoId).eq('rodada', proximaRodada).limit(1);
   if (existe && existe.length > 0) return; 
 
   const classificados: number[] = [];
@@ -624,7 +699,7 @@ async function verificarEAvancarFase(campeonatoId: number, rodadaAtual: number) 
 
   if (classificados.length < 2) return;
 
-  const { data: camp } = await supabase.from('campeonatos').select('final_unica').eq('id', campeonatoId).single();
+  const { data: camp } = await db.from('campeonatos').select('final_unica').eq('id', campeonatoId).single();
   const ehFinal = classificados.length === 2;
   const criarJogoUnico = ehFinal && (camp?.final_unica === true);
 
@@ -656,10 +731,11 @@ async function verificarEAvancarFase(campeonatoId: number, rodadaAtual: number) 
       }
   }
 
-  await supabase.from('partidas').insert(novasPartidas);
+  await db.from('partidas').insert(novasPartidas);
 }
 
 export async function avancarFaseMataMata(campeonatoId: number, faseAtual: number) {
+  await verificarAdmin();
   await verificarEAvancarFase(campeonatoId, faseAtual);
   revalidatePath(`/campeonatos/${campeonatoId}`)
   return { success: true, msg: "Verificação concluída." };
@@ -670,10 +746,13 @@ export async function avancarFaseMataMata(campeonatoId: number, faseAtual: numbe
 // ==============================================================================
 
 export async function sortearGrupos(campeonatoId: number, numGrupos: number, potes: number[][]) {
+  await verificarAdmin();
+  const db = getDb();
+
   if (potes.length === 0 || potes[0].length === 0) return { success: false, msg: "Potes vazios." };
   
-  await supabase.from('classificacao').update({ grupo: null, fase_atual: 'fase_grupos' }).eq('campeonato_id', campeonatoId);
-  await supabase.from('partidas').delete().eq('campeonato_id', campeonatoId).lte('rodada', 20); 
+  await db.from('classificacao').update({ grupo: null, fase_atual: 'fase_grupos' }).eq('campeonato_id', campeonatoId);
+  await db.from('partidas').delete().eq('campeonato_id', campeonatoId).lte('rodada', 20); 
 
   const letras = ['A','B','C','D','E','F','G','H'];
   
@@ -681,7 +760,7 @@ export async function sortearGrupos(campeonatoId: number, numGrupos: number, pot
     const pote = potes[i].sort(() => Math.random() - 0.5);
     for (let g = 0; g < numGrupos; g++) {
       if (pote[g]) {
-          await supabase.from('classificacao').update({ grupo: letras[g] }).eq('campeonato_id', campeonatoId).eq('time_id', pote[g]);
+          await db.from('classificacao').update({ grupo: letras[g] }).eq('campeonato_id', campeonatoId).eq('time_id', pote[g]);
       }
     }
   }
@@ -691,8 +770,11 @@ export async function sortearGrupos(campeonatoId: number, numGrupos: number, pot
 }
 
 export async function gerarJogosFaseGrupos(campeonatoId: number) {
-  await supabase.from('partidas').delete().eq('campeonato_id', campeonatoId);
-  await supabase.from('classificacao').update({ pts: 0, pj: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pp: 0, pc: 0, sp: 0 }).eq('campeonato_id', campeonatoId);
+  await verificarAdmin();
+  const db = getDb();
+
+  await db.from('partidas').delete().eq('campeonato_id', campeonatoId);
+  await db.from('classificacao').update({ pts: 0, pj: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pp: 0, pc: 0, sp: 0 }).eq('campeonato_id', campeonatoId);
 
   const times = await listarTimesDoCampeonato(campeonatoId);
   const letras = ['A','B','C','D','E','F','G','H'];
@@ -719,7 +801,7 @@ export async function gerarJogosFaseGrupos(campeonatoId: number) {
         grupo.splice(1, 0, grupo.pop()!);
     }
   }
-  const { error } = await supabase.from('partidas').insert(partidas);
+  const { error } = await db.from('partidas').insert(partidas);
   if (error) return { success: false, msg: error.message };
   
   await recalcularTabelaPontosCorridos(campeonatoId);
@@ -728,7 +810,10 @@ export async function gerarJogosFaseGrupos(campeonatoId: number) {
 }
 
 export async function atualizarRodadaGrupos(campeonatoId: number, rodadaLiga: number, rodadaCartola: number) {
-  const { data: partidas } = await supabase.from('partidas')
+  await verificarAdmin();
+  const db = getDb();
+
+  const { data: partidas } = await db.from('partidas')
     .select('*, casa:times!partidas_time_casa_fkey(*), visitante:times!partidas_time_visitante_fkey(*), campeonato:campeonatos(usar_decimais)')
     .eq('campeonato_id', campeonatoId).eq('rodada', rodadaLiga).order('id');
 
@@ -786,19 +871,25 @@ export async function buscarTabelaGrupos(campeonatoId: number) {
 }
 
 export async function excluirMataMata(campeonatoId: number, rodadaInicio: number) {
-    const { error } = await supabase.from('partidas').delete().eq('campeonato_id', campeonatoId).gte('rodada', rodadaInicio);
+    await verificarAdmin();
+    const db = getDb();
+
+    const { error } = await db.from('partidas').delete().eq('campeonato_id', campeonatoId).gte('rodada', rodadaInicio);
     if (error) return { success: false, msg: error.message };
     revalidatePath(`/campeonatos/${campeonatoId}`)
     return { success: true, msg: "Mata-mata limpo." };
 }
 
 export async function gerarMataMataCopa(campeonatoId: number) {
-  const { data: jogos } = await supabase.from('partidas').select('rodada').eq('campeonato_id', campeonatoId);
+  await verificarAdmin();
+  const db = getDb();
+
+  const { data: jogos } = await db.from('partidas').select('rodada').eq('campeonato_id', campeonatoId);
   const rodadas = jogos?.map(j => j.rodada).filter(r => r <= 20) || [];
   const maxRodadaGrupos = rodadas.length > 0 ? Math.max(...rodadas) : 6;
   const inicioMataMata = maxRodadaGrupos + 1;
 
-  const { count } = await supabase
+  const { count } = await db
     .from('partidas')
     .select('id', { count: 'exact', head: true })
     .eq('campeonato_id', campeonatoId)
@@ -835,7 +926,7 @@ export async function gerarMataMataCopa(campeonatoId: number) {
   const seed2 = pot1[1]; 
   const outrosCabecas = pot1.slice(2);
 
-  mandantes[0] = seed1;               
+  mandantes[0] = seed1;                
   mandantes[metadeBracket] = seed2;   
 
   outrosCabecas.sort(() => Math.random() - 0.5);
@@ -898,7 +989,7 @@ export async function gerarMataMataCopa(campeonatoId: number) {
       });
   }
 
-  const { error } = await supabase.from('partidas').insert(partidasNovas);
+  const { error } = await db.from('partidas').insert(partidasNovas);
   if (error) return { success: false, msg: error.message };
 
   revalidatePath(`/campeonatos/${campeonatoId}`)
@@ -959,22 +1050,24 @@ export async function listarAnosHistorico(tipo: 'ranking' | 'recordes' = 'rankin
 }
 
 export async function salvarHistorico(dados: any[], ano: number, tipo: 'ranking' | 'recordes', titulo: string) {
+  const db = getDb();
+
   if (tipo === 'recordes') {
-      const { data: existe } = await supabase.from('historico_recordes').select('id').eq('ano', ano).single();
+      const { data: existe } = await db.from('historico_recordes').select('id').eq('ano', ano).single();
       if (existe) {
-          await supabase.from('historico_recordes').update({ dados: dados, titulo: titulo, data_salvamento: new Date() }).eq('id', existe.id);
+          await db.from('historico_recordes').update({ dados: dados, titulo: titulo, data_salvamento: new Date() }).eq('id', existe.id);
           return { success: true, msg: `Recordes de ${ano} atualizados!` };
       } else {
-          await supabase.from('historico_recordes').insert([{ ano: ano, titulo: titulo, dados: dados }]);
+          await db.from('historico_recordes').insert([{ ano: ano, titulo: titulo, dados: dados }]);
           return { success: true, msg: `Recordes de ${ano} salvos!` };
       }
   } else {
-      const { data: existe } = await supabase.from('historico_temporadas').select('id').eq('ano', ano).single();
+      const { data: existe } = await db.from('historico_temporadas').select('id').eq('ano', ano).single();
       if (existe) {
-          await supabase.from('historico_temporadas').update({ ranking_json: dados, data_salvamento: new Date() }).eq('id', existe.id);
+          await db.from('historico_temporadas').update({ ranking_json: dados, data_salvamento: new Date() }).eq('id', existe.id);
           return { success: true, msg: `Ranking de ${ano} atualizado!` };
       }
-      await supabase.from('historico_temporadas').insert([{ ano: ano, ranking_json: dados }]);
+      await db.from('historico_temporadas').insert([{ ano: ano, ranking_json: dados }]);
       if (dados.length > 0) {
           const campeao = dados[0];
           await salvarTituloCampeao(campeao.id, campeao.time, ano);
@@ -993,20 +1086,23 @@ export async function buscarHistoricoPorAno(ano: number, tipo: string = 'ranking
 }
 
 export async function salvarHistoricoTemporada(rankingCompleto: any[], anoPersonalizado?: number) {
+    await verificarAdmin();
     const anoSalvar = anoPersonalizado || new Date().getFullYear();
     return await salvarHistorico(rankingCompleto, anoSalvar, "ranking", "Ranking Geral");
 }
 
 export async function salvarHistoricoRecordes(recordes: any[], anoPersonalizado?: number, titulo?: string) {
+    await verificarAdmin();
     const anoSalvar = anoPersonalizado || new Date().getFullYear();
     const tituloFinal = titulo || "Recordes Gerais"; 
     return await salvarHistorico(recordes, anoSalvar, "recordes", tituloFinal);
 }
 
 async function salvarTituloCampeao(timeId: number, nomeTime: string, ano: number) {
-    const { data } = await supabase.from('titulos_manuais').select('id').eq('time_id', timeId).eq('nome_campeonato', 'Campeão Geral').single();
+    const db = getDb();
+    const { data } = await db.from('titulos_manuais').select('id').eq('time_id', timeId).eq('nome_campeonato', 'Campeão Geral').single();
     if (!data) {
-        await supabase.from('titulos_manuais').insert([{ time_id: timeId, nome_campeonato: 'Campeão Geral', ano: ano }]);
+        await db.from('titulos_manuais').insert([{ time_id: timeId, nome_campeonato: 'Campeão Geral', ano: ano }]);
         revalidatePath('/campeoes');
     }
 }
@@ -1031,8 +1127,6 @@ export async function buscarMaioresPontuadores() {
   })
   return lista.sort((a, b) => b.pontos - a.pontos).slice(0, 5)
 }
-
-// ... (mantenha os imports e helper fetchCartola iguais) ...
 
 export async function buscarParciaisAoVivo(jogos: any[]) {
   const ts = Date.now();
@@ -1195,8 +1289,15 @@ export async function buscarParciaisAoVivo(jogos: any[]) {
   return { success: true, jogos: jogosComParcial }
 }
 
-export async function recalcularTabela(id: number) { await recalcularTabelaPontosCorridos(id); return { success: true } }
-export async function buscarTabela(id: number) { return buscarTabelaPontosCorridos(id) }
+export async function recalcularTabela(id: number) { 
+  await verificarAdmin(); 
+  await recalcularTabelaPontosCorridos(id); 
+  return { success: true } 
+}
+
+export async function buscarTabela(id: number) { 
+  return buscarTabelaPontosCorridos(id) 
+}
 
 export async function buscarTodosRecordes() {
   const { data: partidas } = await supabase.from('partidas').select(`
@@ -1233,13 +1334,19 @@ export async function buscarTodosRecordes() {
 }
 
 export async function adicionarTituloManual(timeId: number, nome: string, ano: number) {
-  const { error } = await supabase.from('titulos_manuais').insert([{ time_id: timeId, nome_campeonato: nome, ano }]);
+  await verificarAdmin();
+  const db = getDb();
+  
+  const { error } = await db.from('titulos_manuais').insert([{ time_id: timeId, nome_campeonato: nome, ano }]);
   if (!error) { revalidatePath('/campeoes'); revalidatePath('/admin/titulos'); }
   return { success: !error, msg: error ? error.message : 'Título adicionado!' };
 }
 
 export async function removerTituloManual(id: number) {
-  const { error } = await supabase.from('titulos_manuais').delete().eq('id', id);
+  await verificarAdmin();
+  const db = getDb();
+
+  const { error } = await db.from('titulos_manuais').delete().eq('id', id);
   if (!error) { revalidatePath('/campeoes'); revalidatePath('/admin/titulos'); }
   return { success: !error };
 }
@@ -1292,8 +1399,6 @@ export async function buscarGaleriaDeTrofeus() {
 
         if (campeaoId && timeInfo) {
             if (!titulosPorTime[campeaoId]) titulosPorTime[campeaoId] = { nome: timeInfo.nome, escudo: timeInfo.escudo || timeInfo.url_escudo_png, titulos: [] };
-            
-            // === CORREÇÃO: Adiciona o ano aqui também ===
             titulosPorTime[campeaoId].titulos.push(`${camp.nome} (${camp.ano})`);
         }
       }
@@ -1303,9 +1408,12 @@ export async function buscarGaleriaDeTrofeus() {
 }
 
 export async function excluirCampeonato(id: number) {
-  await supabase.from('partidas').delete().eq('campeonato_id', id)
-  await supabase.from('classificacao').delete().eq('campeonato_id', id)
-  const { error } = await supabase.from('campeonatos').delete().eq('id', id)
+  await verificarAdmin();
+  const db = getDb();
+
+  await db.from('partidas').delete().eq('campeonato_id', id)
+  await db.from('classificacao').delete().eq('campeonato_id', id)
+  const { error } = await db.from('campeonatos').delete().eq('id', id)
   if (!error) { revalidatePath('/admin/ligas'); revalidatePath('/campeonatos'); revalidatePath('/campeoes'); }
   return { success: !error, msg: error ? error.message : 'Liga excluída!' }
 }
@@ -1399,17 +1507,20 @@ export async function buscarPodium(campeonatoId: number) {
 }
 
 export async function finalizarCampeonato(id: number) {
-  const { data: camp } = await supabase.from('campeonatos').select('*').eq('id', id).single();
+  await verificarAdmin();
+  const db = getDb();
+
+  const { data: camp } = await db.from('campeonatos').select('*').eq('id', id).single();
   if (!camp) return { success: false, msg: "Campeonato não encontrado." };
 
   const podium = await buscarPodium(id);
 
-  const { error } = await supabase.from('campeonatos').update({ ativo: false, data_fim: new Date().toISOString() }).eq('id', id);
+  const { error } = await db.from('campeonatos').update({ ativo: false, data_fim: new Date().toISOString() }).eq('id', id);
   
   if (!error) {
     if (podium && podium.length > 0 && podium[0]) {
         // Verifica se já tem título para não duplicar
-        const { data: temTitulo } = await supabase.from('titulos_manuais')
+        const { data: temTitulo } = await db.from('titulos_manuais')
             .select('id')
             .eq('time_id', podium[0].id)
             .eq('nome_campeonato', camp.nome)
@@ -1417,7 +1528,7 @@ export async function finalizarCampeonato(id: number) {
             .single();
             
         if (!temTitulo) {
-            await supabase.from('titulos_manuais').insert([{ 
+            await db.from('titulos_manuais').insert([{ 
                 time_id: podium[0].id, 
                 nome_campeonato: camp.nome, 
                 ano: camp.ano 
@@ -1431,15 +1542,21 @@ export async function finalizarCampeonato(id: number) {
 }
 
 export async function excluirHistorico(ano: number, tipo: 'ranking' | 'recordes') {
+  await verificarAdmin();
+  const db = getDb();
+
   let tabela = 'historico_temporadas';
   if (tipo === 'recordes') tabela = 'historico_recordes';
-  const { error } = await supabase.from(tabela).delete().eq('ano', ano);
+  const { error } = await db.from(tabela).delete().eq('ano', ano);
   if (error) return { success: false, msg: 'Erro ao excluir histórico.' };
   revalidatePath('/historico'); revalidatePath(`/historico/${ano}`);
   return { success: true, msg: `${tipo === 'recordes' ? 'Recordes' : 'Ranking'} de ${ano} excluído!` };
 }
 
 export async function salvarRecordes(ano: number) {
+  await verificarAdmin();
+  const db = getDb();
+
   try {
     const ranking = await buscarRankingCompleto();
     const maiorPontuador = ranking.length > 0 ? ranking[0] : null;
@@ -1474,7 +1591,7 @@ export async function salvarRecordes(ano: number) {
         });
     }
 
-    const { error } = await supabase
+    const { error } = await db
       .from('historico_recordes')
       .upsert(recordesParaSalvar, { onConflict: 'ano, titulo' });
 
@@ -1492,6 +1609,7 @@ export async function salvarRecordes(ano: number) {
 }
 
 export async function salvarRankingAtual(ano: number) {
+    await verificarAdmin();
     try {
         const ranking = await buscarRankingCompleto();
         
@@ -1508,7 +1626,10 @@ export async function salvarRankingAtual(ano: number) {
 }
 
 export async function atualizarTodosDadosTimes() {
-  const { data: times } = await supabase.from('times').select('id, time_id_cartola, nome');
+  await verificarAdmin();
+  const db = getDb();
+
+  const { data: times } = await db.from('times').select('id, time_id_cartola, nome');
   
   if (!times || times.length === 0) {
     return { success: false, msg: "Nenhum time encontrado no banco de dados." };
@@ -1523,7 +1644,7 @@ export async function atualizarTodosDadosTimes() {
       const dadosReais = respostaApi?.time; 
 
       if (dadosReais && dadosReais.time_id) {
-        await supabase.from('times').update({
+        await db.from('times').update({
           nome: dadosReais.nome,
           nome_cartola: dadosReais.nome_cartola,
           escudo: dadosReais.url_escudo_png,
@@ -1549,18 +1670,21 @@ export async function atualizarTodosDadosTimes() {
 }
 
 export async function salvarTimePorId(timeId: number) {
+  await verificarAdmin();
+  const db = getDb();
+
   try {
     const dados = await fetchCartola(`https://api.cartola.globo.com/time/id/${timeId}`);
     const timeToSave = dados?.time;
 
     if (!timeToSave) return { success: false, msg: 'Erro: Time não encontrado na API do Cartola.' };
 
-    const { data: existe } = await supabase.from('times').select('id').eq('time_id_cartola', timeToSave.time_id).single();
+    const { data: existe } = await db.from('times').select('id').eq('time_id_cartola', timeToSave.time_id).single();
 
     let timeSalvo;
 
     if (existe) {
-        const { data, error } = await supabase.from('times').update({
+        const { data, error } = await db.from('times').update({
             nome: timeToSave.nome,
             nome_cartola: timeToSave.nome_cartola,
             escudo: timeToSave.url_escudo_png,
@@ -1570,7 +1694,7 @@ export async function salvarTimePorId(timeId: number) {
         if (error) return { success: false, msg: error.message };
         timeSalvo = data;
     } else {
-        const { data, error } = await supabase.from('times').insert([{
+        const { data, error } = await db.from('times').insert([{
             nome: timeToSave.nome,
             nome_cartola: timeToSave.nome_cartola,
             escudo: timeToSave.url_escudo_png,
@@ -1597,10 +1721,13 @@ export async function salvarTimePorId(timeId: number) {
 // ==============================================================================
 
 export async function atualizarRodadaGrid(campeonatoId: number, rodadaCartola: number) {
+    await verificarAdmin();
+    const db = getDb();
+
     const times = await listarTimesDoCampeonato(campeonatoId);
     if (!times || times.length === 0) return { success: false, msg: "Nenhum time na liga." };
 
-    const { data: camp } = await supabase.from('campeonatos').select('usar_decimais').eq('id', campeonatoId).single();
+    const { data: camp } = await db.from('campeonatos').select('usar_decimais').eq('id', campeonatoId).single();
     const usarDecimais = camp?.usar_decimais === true;
 
     for (const t of times) {
@@ -1609,7 +1736,7 @@ export async function atualizarRodadaGrid(campeonatoId: number, rodadaCartola: n
             const pontosReais = dados?.pontos || 0;
             const pontosSalvar = usarDecimais ? pontosReais : Math.floor(pontosReais);
 
-            const { data: existente } = await supabase.from('partidas')
+            const { data: existente } = await db.from('partidas')
                 .select('id')
                 .eq('campeonato_id', campeonatoId)
                 .eq('rodada', rodadaCartola)
@@ -1617,13 +1744,13 @@ export async function atualizarRodadaGrid(campeonatoId: number, rodadaCartola: n
                 .single();
 
             if (existente) {
-                await supabase.from('partidas').update({
+                await db.from('partidas').update({
                     placar_casa: pontosSalvar,
                     pontos_reais_casa: pontosReais,
                     status: 'finalizado'
                 }).eq('id', existente.id);
             } else {
-                await supabase.from('partidas').insert([{
+                await db.from('partidas').insert([{
                     campeonato_id: campeonatoId,
                     rodada: rodadaCartola,
                     time_casa: t.time_id,
@@ -1644,13 +1771,15 @@ export async function atualizarRodadaGrid(campeonatoId: number, rodadaCartola: n
 }
 
 export async function recalcularTabelaGrid(campeonatoId: number) {
+    const db = getDb();
+
     // 1. Zera a pontuação atual de todos os times da liga
-    await supabase.from('classificacao')
+    await db.from('classificacao')
         .update({ pts: 0, pj: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0 })
         .eq('campeonato_id', campeonatoId);
 
     // 2. Busca todas as pontuações de partidas já realizadas
-    const { data: registros } = await supabase.from('partidas')
+    const { data: registros } = await db.from('partidas')
         .select('time_casa, placar_casa')
         .eq('campeonato_id', campeonatoId)
         .not('placar_casa', 'is', null); // Garante que não pega nulos
@@ -1678,7 +1807,7 @@ export async function recalcularTabelaGrid(campeonatoId: number) {
 
     // 4. Salva o total calculado na tabela de classificação
     for (const timeId in stats) {
-        await supabase.from('classificacao')
+        await db.from('classificacao')
             .update({ 
                 pts: stats[timeId].pts, 
                 pj: stats[timeId].pj    

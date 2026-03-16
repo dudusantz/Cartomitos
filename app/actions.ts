@@ -41,7 +41,8 @@ async function fetchCartola(url: string, timeout = 5000) {
         'Accept': 'application/json',
         'Referer': 'https://ge.globo.com/'
       },
-      next: { revalidate: 0 }
+    
+      cache: 'no-store' 
     });
     
     clearTimeout(timeoutId);

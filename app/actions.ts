@@ -9,7 +9,7 @@ import { revalidatePath } from "next/cache"
 
 // 1. Instância com superpoderes (Ignora o RLS para mutações no backend)
 function getDb() {
-  if (!supabaseAdmin) throw new Error("ERRO CRÍTICO: Chave de Serviço não configurada.");
+  if (!supabaseAdmin) throw new Error("ERRO CRÍTICO: Chave de Serviço (SUPABASE_SERVICE_ROLE_KEY) não configurada.");
   return supabaseAdmin;
 }
 
@@ -62,8 +62,12 @@ async function fetchCartola(url: string, timeout = 5000) {
 // ==============================================================================
 
 export async function checarStatusLiga(id: number) {
-  const { data } = await supabase.from('campeonatos').select('ativo').eq('id', id).single()
-  return data?.ativo ?? true
+  try {
+    const { data } = await supabase.from('campeonatos').select('ativo').eq('id', id).single()
+    return data?.ativo ?? true
+  } catch {
+    return true;
+  }
 }
 
 export async function buscarTimeCartola(termo: string) {
@@ -71,111 +75,136 @@ export async function buscarTimeCartola(termo: string) {
 }
 
 export async function salvarTime(prevState: { success: boolean, msg: string }, formData: FormData) {
-  await verificarAdmin();
-  const db = getDb();
-  
-  const termo = formData.get('termo') as string;
-  if (!termo) return { success: false, msg: 'O campo de busca não pode estar vazio.' };
+  try {
+    await verificarAdmin();
+    const db = getDb();
+    
+    const termo = formData.get('termo') as string;
+    if (!termo) return { success: false, msg: 'O campo de busca não pode estar vazio.' };
 
-  const resultados = await buscarTimeCartola(termo);
-  if (resultados.length === 0) return { success: false, msg: `Nenhum time encontrado para o termo: "${termo}"` };
+    const resultados = await buscarTimeCartola(termo);
+    if (resultados.length === 0) return { success: false, msg: `Nenhum time encontrado para o termo: "${termo}"` };
 
-  const timeToSave = resultados[0];
-  
-  const { data: existe } = await db.from('times').select('id').eq('time_id_cartola', timeToSave.time_id).single();
-  
-  if (existe) {
-    const { error } = await db.from('times').update({
+    const timeToSave = resultados[0];
+    
+    const { data: existe } = await db.from('times').select('id').eq('time_id_cartola', timeToSave.time_id).single();
+    
+    if (existe) {
+      const { error } = await db.from('times').update({
+          nome: timeToSave.nome,
+          nome_cartola: timeToSave.nome_cartola,
+          escudo: timeToSave.url_escudo_png,
+          slug: timeToSave.slug
+      }).eq('id', existe.id);
+
+      if (!error) {
+          revalidatePath('/admin/times');
+          revalidatePath('/ranking');
+          return { success: true, msg: `Dados do "${timeToSave.nome}" atualizados com sucesso!` };
+      }
+      return { success: false, msg: error.message };
+    }
+    
+    const { error } = await db.from('times').insert([{
         nome: timeToSave.nome,
         nome_cartola: timeToSave.nome_cartola,
         escudo: timeToSave.url_escudo_png,
-        slug: timeToSave.slug
-    }).eq('id', existe.id);
-
+        slug: timeToSave.slug,
+        time_id_cartola: timeToSave.time_id
+    }]);
+    
     if (!error) {
         revalidatePath('/admin/times');
         revalidatePath('/ranking');
-        return { success: true, msg: `Dados do "${timeToSave.nome}" atualizados com sucesso!` };
     }
-    return { success: false, msg: error.message };
+    return { success: !error, msg: error ? error.message : `Time "${timeToSave.nome}" salvo com sucesso!` };
+  } catch (error: any) {
+    console.error("Erro em salvarTime:", error);
+    return { success: false, msg: error.message || "Erro interno ao salvar time." };
   }
-  
-  const { error } = await db.from('times').insert([{
-      nome: timeToSave.nome,
-      nome_cartola: timeToSave.nome_cartola,
-      escudo: timeToSave.url_escudo_png,
-      slug: timeToSave.slug,
-      time_id_cartola: timeToSave.time_id
-  }]);
-  
-  if (!error) {
-      revalidatePath('/admin/times');
-      revalidatePath('/ranking');
-  }
-  return { success: !error, msg: error ? error.message : `Time "${timeToSave.nome}" salvo com sucesso!` };
 }
 
 export async function criarCampeonato(nome: string, ano: number, tipo: string, isPaga: boolean, usarDecimais: boolean) {
-  await verificarAdmin();
-  const db = getDb();
-  
-  const { error } = await db.from('campeonatos').insert([{ 
-      nome, 
-      ano, 
-      tipo, 
-      ativo: true, 
-      final_unica: false, 
-      is_paga: isPaga,
-      usar_decimais: usarDecimais 
-  }])
-  
-  if (!error) {
-    revalidatePath('/admin/ligas')
-    revalidatePath('/campeonatos')
+  try {
+    await verificarAdmin();
+    const db = getDb();
+    
+    const { error } = await db.from('campeonatos').insert([{ 
+        nome, 
+        ano, 
+        tipo, 
+        ativo: true, 
+        final_unica: false, 
+        is_paga: isPaga,
+        usar_decimais: usarDecimais 
+    }])
+    
+    if (!error) {
+      revalidatePath('/admin/ligas')
+      revalidatePath('/campeonatos')
+    }
+    return { success: !error, msg: error ? error.message : 'Criado!' }
+  } catch (error: any) {
+    console.error("Erro em criarCampeonato:", error);
+    return { success: false, msg: error.message || "Erro interno." };
   }
-  return { success: !error, msg: error ? error.message : 'Criado!' }
 }
 
 export async function atualizarCampeonato(id: number, nome: string, ano: number, tipo: string, isPaga: boolean, usarDecimais: boolean) {
-  await verificarAdmin();
-  const db = getDb();
+  try {
+    await verificarAdmin();
+    const db = getDb();
 
-  const { error } = await db.from('campeonatos').update({ 
-      nome, 
-      ano, 
-      tipo, 
-      is_paga: isPaga,
-      usar_decimais: usarDecimais 
-  }).eq('id', id)
-  
-  if (!error) {
-    revalidatePath('/admin/ligas')
-    revalidatePath('/campeonatos')
-    revalidatePath(`/campeonatos/${id}`)
+    const { error } = await db.from('campeonatos').update({ 
+        nome, 
+        ano, 
+        tipo, 
+        is_paga: isPaga,
+        usar_decimais: usarDecimais 
+    }).eq('id', id)
+    
+    if (!error) {
+      revalidatePath('/admin/ligas')
+      revalidatePath('/campeonatos')
+      revalidatePath(`/campeonatos/${id}`)
+    }
+    return { success: !error, msg: error ? error.message : 'Campeonato atualizado!' }
+  } catch (error: any) {
+    console.error("Erro em atualizarCampeonato:", error);
+    return { success: false, msg: error.message || "Erro interno." };
   }
-  return { success: !error, msg: error ? error.message : 'Campeonato atualizado!' }
 }
 
 export async function reabrirCampeonato(id: number) {
-  await verificarAdmin();
-  const db = getDb();
-  
-  const { error } = await db.from('campeonatos').update({ ativo: true, data_fim: null }).eq('id', id)
-  if (!error) {
-    revalidatePath('/admin/ligas')
-    revalidatePath('/campeonatos')
-    revalidatePath(`/campeonatos/${id}`)
+  try {
+    await verificarAdmin();
+    const db = getDb();
+    
+    const { error } = await db.from('campeonatos').update({ ativo: true, data_fim: null }).eq('id', id)
+    if (!error) {
+      revalidatePath('/admin/ligas')
+      revalidatePath('/campeonatos')
+      revalidatePath(`/campeonatos/${id}`)
+    }
+    return { success: !error, msg: error ? error.message : 'Campeonato reaberto!' }
+  } catch (error: any) {
+    console.error("Erro em reabrirCampeonato:", error);
+    return { success: false, msg: error.message || "Erro interno." };
   }
-  return { success: !error, msg: error ? error.message : 'Campeonato reaberto!' }
 }
 
 export async function atualizarConfiguracaoLiga(campeonatoId: number, finalUnica: boolean) {
-  await verificarAdmin();
-  const db = getDb();
-  await db.from('campeonatos').update({ final_unica: finalUnica }).eq('id', campeonatoId)
-  revalidatePath(`/campeonatos/${campeonatoId}`)
-  revalidatePath(`/admin/ligas/${campeonatoId}`)
-  return { success: true }
+  try {
+    await verificarAdmin();
+    const db = getDb();
+    await db.from('campeonatos').update({ final_unica: finalUnica }).eq('id', campeonatoId)
+    revalidatePath(`/campeonatos/${campeonatoId}`)
+    revalidatePath(`/admin/ligas/${campeonatoId}`)
+    return { success: true }
+  } catch (error: any) {
+    console.error("Erro em atualizarConfiguracaoLiga:", error);
+    return { success: false, msg: error.message || "Erro interno." };
+  }
 }
 
 export async function listarCampeonatos() {
@@ -193,49 +222,59 @@ export async function listarIdsTimesSalvos() {
 }
 
 export async function adicionarTimeAoCampeonato(campeonatoId: number, timeId: number) {
-  await verificarAdmin();
-  const db = getDb();
-  
-  const { data: existe } = await db.from('classificacao').select('id').eq('campeonato_id', campeonatoId).eq('time_id', timeId).single();
-  
-  if (!existe) {
-    const { error } = await db.from('classificacao').insert([{ 
-        campeonato_id: campeonatoId, 
-        time_id: timeId,
-        pts: 0, pj: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0 
-    }])
-    if (error) return { success: false, msg: error.message }
+  try {
+    await verificarAdmin();
+    const db = getDb();
+    
+    const { data: existe } = await db.from('classificacao').select('id').eq('campeonato_id', campeonatoId).eq('time_id', timeId).single();
+    
+    if (!existe) {
+      const { error } = await db.from('classificacao').insert([{ 
+          campeonato_id: campeonatoId, 
+          time_id: timeId,
+          pts: 0, pj: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0 
+      }])
+      if (error) return { success: false, msg: error.message }
+    }
+    
+    await recalcularTabelaPontosCorridos(campeonatoId);
+    revalidatePath(`/campeonatos/${campeonatoId}`)
+    revalidatePath(`/admin/ligas/${campeonatoId}`)
+    
+    return { success: true }
+  } catch (error: any) {
+    console.error("Erro em adicionarTimeAoCampeonato:", error);
+    return { success: false, msg: error.message || "Erro interno." };
   }
-  
-  await recalcularTabelaPontosCorridos(campeonatoId);
-  revalidatePath(`/campeonatos/${campeonatoId}`)
-  revalidatePath(`/admin/ligas/${campeonatoId}`)
-  
-  return { success: true }
 }
 
 export async function removerTimeDaLiga(campeonatoId: number, timeId: number) {
-  await verificarAdmin();
-  const db = getDb();
+  try {
+    await verificarAdmin();
+    const db = getDb();
 
-  const { error: erroPartidas } = await db.from('partidas')
-    .delete()
-    .eq('campeonato_id', campeonatoId)
-    .or(`time_casa.eq.${timeId},time_visitante.eq.${timeId}`)
-  
-  if (erroPartidas) return { success: false, msg: erroPartidas.message }
+    const { error: erroPartidas } = await db.from('partidas')
+      .delete()
+      .eq('campeonato_id', campeonatoId)
+      .or(`time_casa.eq.${timeId},time_visitante.eq.${timeId}`)
+    
+    if (erroPartidas) return { success: false, msg: erroPartidas.message }
 
-  const { error: erroClass } = await db.from('classificacao')
-    .delete()
-    .eq('campeonato_id', campeonatoId)
-    .eq('time_id', timeId)
+    const { error: erroClass } = await db.from('classificacao')
+      .delete()
+      .eq('campeonato_id', campeonatoId)
+      .eq('time_id', timeId)
 
-  if (erroClass) return { success: false, msg: erroClass.message }
-  
-  revalidatePath(`/campeonatos/${campeonatoId}`)
-  revalidatePath(`/admin/ligas/${campeonatoId}`)
-  
-  return { success: true, msg: "Time removido com sucesso!" }
+    if (erroClass) return { success: false, msg: erroClass.message }
+    
+    revalidatePath(`/campeonatos/${campeonatoId}`)
+    revalidatePath(`/admin/ligas/${campeonatoId}`)
+    
+    return { success: true, msg: "Time removido com sucesso!" }
+  } catch (error: any) {
+    console.error("Erro em removerTimeDaLiga:", error);
+    return { success: false, msg: error.message || "Erro interno." };
+  }
 }
 
 export async function listarTimesDoCampeonato(campeonatoId: number) {
@@ -249,19 +288,24 @@ export async function listarTodosTimes() {
 }
 
 export async function removerTime(timeIdCartola: number) {
-  await verificarAdmin();
-  const db = getDb();
+  try {
+    await verificarAdmin();
+    const db = getDb();
 
-  const { data: time } = await db.from('times').select('id').eq('time_id_cartola', timeIdCartola).single()
-  if (!time) return { success: false, msg: "Time não encontrado." }
-  
-  await db.from('classificacao').delete().eq('time_id', time.id)
-  await db.from('partidas').delete().eq('time_casa', time.id)
-  await db.from('partidas').delete().eq('time_visitante', time.id)
-  await db.from('times').delete().eq('id', time.id)
-  
-  revalidatePath('/admin/times')
-  return { success: true, msg: "Time excluído com sucesso!" }
+    const { data: time } = await db.from('times').select('id').eq('time_id_cartola', timeIdCartola).single()
+    if (!time) return { success: false, msg: "Time não encontrado." }
+    
+    await db.from('classificacao').delete().eq('time_id', time.id)
+    await db.from('partidas').delete().eq('time_casa', time.id)
+    await db.from('partidas').delete().eq('time_visitante', time.id)
+    await db.from('times').delete().eq('id', time.id)
+    
+    revalidatePath('/admin/times')
+    return { success: true, msg: "Time excluído com sucesso!" }
+  } catch (error: any) {
+    console.error("Erro em removerTime:", error);
+    return { success: false, msg: error.message || "Erro interno." };
+  }
 }
 
 // ==============================================================================
@@ -278,22 +322,26 @@ export async function listarPartidas(campeonatoId: number) {
 }
 
 export async function zerarJogos(campeonatoId: number) {
-  await verificarAdmin();
-  const db = getDb();
+  try {
+    await verificarAdmin();
+    const db = getDb();
 
-  await db.from('partidas').delete().eq('campeonato_id', campeonatoId)
-  await db.from('classificacao').update({ pts: 0, pj: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, grupo: null }).eq('campeonato_id', campeonatoId);
-  
-  revalidatePath(`/campeonatos/${campeonatoId}`)
-  revalidatePath(`/admin/ligas/${campeonatoId}`)
-  return { success: true }
+    await db.from('partidas').delete().eq('campeonato_id', campeonatoId)
+    await db.from('classificacao').update({ pts: 0, pj: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, grupo: null }).eq('campeonato_id', campeonatoId);
+    
+    revalidatePath(`/campeonatos/${campeonatoId}`)
+    revalidatePath(`/admin/ligas/${campeonatoId}`)
+    return { success: true }
+  } catch (error: any) {
+    console.error("Erro em zerarJogos:", error);
+    return { success: false, msg: error.message || "Erro interno." };
+  }
 }
 
 async function atualizarJogoIndividual(jogo: any, rodadaCartola: number, usarDecimais: boolean = false) {
     if (!rodadaCartola || rodadaCartola <= 0) return;
-    const db = getDb();
-
     try {
+        const db = getDb();
         const [resCasa, resVis] = await Promise.all([
             fetchCartola(`https://api.cartola.globo.com/time/id/${jogo.casa.time_id_cartola}/${rodadaCartola}`),
             fetchCartola(`https://api.cartola.globo.com/time/id/${jogo.visitante.time_id_cartola}/${rodadaCartola}`)
@@ -312,7 +360,9 @@ async function atualizarJogoIndividual(jogo: any, rodadaCartola: number, usarDec
             placar_visitante: placarV,
             status: 'finalizado'
         }).eq('id', jogo.id);
-    } catch (e) { console.error("Erro ao atualizar jogo individual", e); }
+    } catch (e) { 
+        console.error("Erro ao atualizar jogo individual", e); 
+    }
 }
 
 export async function atualizarPlacarManual(
@@ -322,45 +372,50 @@ export async function atualizarPlacarManual(
   desempateCasa?: number,
   desempateVisitante?: number
 ) {
-  await verificarAdmin();
-  const db = getDb();
+  try {
+    await verificarAdmin();
+    const db = getDb();
 
-  const updates: any = { 
-      placar_casa: casa, 
-      placar_visitante: visitante, 
-      status: 'finalizado' 
-  };
+    const updates: any = { 
+        placar_casa: casa, 
+        placar_visitante: visitante, 
+        status: 'finalizado' 
+    };
 
-  if (desempateCasa !== undefined) updates.desempate_casa = desempateCasa;
-  if (desempateVisitante !== undefined) updates.desempate_visitante = desempateVisitante;
+    if (desempateCasa !== undefined) updates.desempate_casa = desempateCasa;
+    if (desempateVisitante !== undefined) updates.desempate_visitante = desempateVisitante;
 
-  const { error } = await db.from('partidas').update(updates).eq('id', partidaId);
-  if (error) return { success: false, msg: error.message };
+    const { error } = await db.from('partidas').update(updates).eq('id', partidaId);
+    if (error) return { success: false, msg: error.message };
 
-  const { data } = await db.from('partidas')
-    .select('campeonato_id, rodada, campeonato:campeonatos(tipo)')
-    .eq('id', partidaId)
-    .single()
-  
-  if (!data) return { success: true, msg: "Placar salvo (Recálculo pendente)" }
+    const { data } = await db.from('partidas')
+      .select('campeonato_id, rodada, campeonato:campeonatos(tipo)')
+      .eq('id', partidaId)
+      .single()
+    
+    if (!data) return { success: true, msg: "Placar salvo (Recálculo pendente)" }
 
-  const camp: any = data.campeonato;
-  const tipo = Array.isArray(camp) ? camp[0]?.tipo : camp?.tipo;
+    const camp: any = data.campeonato;
+    const tipo = Array.isArray(camp) ? camp[0]?.tipo : camp?.tipo;
 
-  if (tipo === 'pontos_corridos' || (tipo === 'copa' && data.rodada <= 20)) {
-      await recalcularTabelaPontosCorridos(data.campeonato_id)
+    if (tipo === 'pontos_corridos' || (tipo === 'copa' && data.rodada <= 20)) {
+        await recalcularTabelaPontosCorridos(data.campeonato_id)
+    }
+    
+    if (tipo === 'mata-mata' || tipo === 'mata_mata' || (tipo === 'copa' && data.rodada > 20)) {
+        await verificarEAvancarFase(data.campeonato_id, data.rodada);
+    }
+
+    if (tipo === 'grid') {
+        await recalcularTabelaGrid(data.campeonato_id);
+    }
+
+    revalidatePath(`/campeonatos/${data.campeonato_id}`)
+    return { success: true }
+  } catch (error: any) {
+    console.error("Erro em atualizarPlacarManual:", error);
+    return { success: false, msg: error.message || "Erro interno." };
   }
-  
-  if (tipo === 'mata-mata' || tipo === 'mata_mata' || (tipo === 'copa' && data.rodada > 20)) {
-      await verificarEAvancarFase(data.campeonato_id, data.rodada);
-  }
-
-  if (tipo === 'grid') {
-      await recalcularTabelaGrid(data.campeonato_id);
-  }
-
-  revalidatePath(`/campeonatos/${data.campeonato_id}`)
-  return { success: true }
 }
 
 // ==============================================================================
@@ -368,81 +423,97 @@ export async function atualizarPlacarManual(
 // ==============================================================================
 
 async function sincronizarTimesClassificacao(campeonatoId: number, timesIds: number[]) {
-    const db = getDb();
-    const { data: existentes } = await db.from('classificacao').select('time_id').eq('campeonato_id', campeonatoId)
-    const existentesIds = existentes?.map(e => e.time_id) || []
-    const faltantes = timesIds.filter(id => !existentesIds.includes(id))
-    
-    if (faltantes.length > 0) {
-        const inserts = faltantes.map(id => ({
-            campeonato_id: campeonatoId, time_id: id, pts: 0, pj: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0 
-        }))
-        await db.from('classificacao').insert(inserts)
+    try {
+      const db = getDb();
+      const { data: existentes } = await db.from('classificacao').select('time_id').eq('campeonato_id', campeonatoId)
+      const existentesIds = existentes?.map(e => e.time_id) || []
+      const faltantes = timesIds.filter(id => !existentesIds.includes(id))
+      
+      if (faltantes.length > 0) {
+          const inserts = faltantes.map(id => ({
+              campeonato_id: campeonatoId, time_id: id, pts: 0, pj: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0 
+          }))
+          await db.from('classificacao').insert(inserts)
+      }
+    } catch (e) {
+      console.error("Erro em sincronizarTimesClassificacao", e);
     }
 }
 
 export async function gerarJogosPontosCorridos(campeonatoId: number) {
-    await verificarAdmin();
-    const db = getDb();
+    try {
+      await verificarAdmin();
+      const db = getDb();
 
-    await zerarJogos(campeonatoId);
-    const times = await listarTimesDoCampeonato(campeonatoId);
-    const ids = times.map(t => t.time_id);
-    
-    if (ids.length < 2) return { success: false, msg: "Precisa de pelo menos 2 times." };
+      await zerarJogos(campeonatoId);
+      const times = await listarTimesDoCampeonato(campeonatoId);
+      const ids = times.map(t => t.time_id);
+      
+      if (ids.length < 2) return { success: false, msg: "Precisa de pelo menos 2 times." };
 
-    await sincronizarTimesClassificacao(campeonatoId, ids);
+      await sincronizarTimesClassificacao(campeonatoId, ids);
 
-    if (ids.length % 2 !== 0) ids.push(-1); 
-    const numTimes = ids.length;
-    const numRodadas = numTimes - 1;
-    const metade = numTimes / 2;
-    const partidas = [];
+      if (ids.length % 2 !== 0) ids.push(-1); 
+      const numTimes = ids.length;
+      const numRodadas = numTimes - 1;
+      const metade = numTimes / 2;
+      const partidas = [];
 
-    for (let rodada = 0; rodada < numRodadas; rodada++) {
-        for (let i = 0; i < metade; i++) {
-            const t1 = ids[i];
-            const t2 = ids[numTimes - 1 - i];
-            if (t1 !== -1 && t2 !== -1) {
-                if (rodada % 2 === 0) partidas.push({ campeonato_id: campeonatoId, rodada: rodada + 1, time_casa: t1, time_visitante: t2, status: 'agendado' });
-                else partidas.push({ campeonato_id: campeonatoId, rodada: rodada + 1, time_casa: t2, time_visitante: t1, status: 'agendado' });
-            }
-        }
-        ids.splice(1, 0, ids.pop()!);
+      for (let rodada = 0; rodada < numRodadas; rodada++) {
+          for (let i = 0; i < metade; i++) {
+              const t1 = ids[i];
+              const t2 = ids[numTimes - 1 - i];
+              if (t1 !== -1 && t2 !== -1) {
+                  if (rodada % 2 === 0) partidas.push({ campeonato_id: campeonatoId, rodada: rodada + 1, time_casa: t1, time_visitante: t2, status: 'agendado' });
+                  else partidas.push({ campeonato_id: campeonatoId, rodada: rodada + 1, time_casa: t2, time_visitante: t1, status: 'agendado' });
+              }
+          }
+          ids.splice(1, 0, ids.pop()!);
+      }
+
+      const partidasReturno = partidas.map(p => ({ ...p, rodada: p.rodada + numRodadas, time_casa: p.time_visitante, time_visitante: p.time_casa }));
+      await db.from('partidas').insert([...partidas, ...partidasReturno]);
+      await recalcularTabelaPontosCorridos(campeonatoId);
+
+      revalidatePath(`/campeonatos/${campeonatoId}`)
+      return { success: true, msg: "Tabela de Pontos Corridos gerada!" };
+    } catch (error: any) {
+      console.error("Erro em gerarJogosPontosCorridos:", error);
+      return { success: false, msg: error.message || "Erro interno." };
     }
-
-    const partidasReturno = partidas.map(p => ({ ...p, rodada: p.rodada + numRodadas, time_casa: p.time_visitante, time_visitante: p.time_casa }));
-    await db.from('partidas').insert([...partidas, ...partidasReturno]);
-    await recalcularTabelaPontosCorridos(campeonatoId);
-
-    revalidatePath(`/campeonatos/${campeonatoId}`)
-    return { success: true, msg: "Tabela de Pontos Corridos gerada!" };
 }
 
 export async function atualizarRodadaPontosCorridos(campeonatoId: number, rodadaLiga: number, rodadaCartola: number) {
-    await verificarAdmin();
-    const db = getDb();
+    try {
+      await verificarAdmin();
+      const db = getDb();
 
-    const { data: partidas } = await db.from('partidas')
-      .select('*, casa:times!partidas_time_casa_fkey(*), visitante:times!partidas_time_visitante_fkey(*), campeonato:campeonatos(usar_decimais)')
-      .eq('campeonato_id', campeonatoId).eq('rodada', rodadaLiga).order('id');
+      const { data: partidas, error } = await db.from('partidas')
+        .select('*, casa:times!partidas_time_casa_fkey(*), visitante:times!partidas_time_visitante_fkey(*), campeonato:campeonatos(usar_decimais)')
+        .eq('campeonato_id', campeonatoId).eq('rodada', rodadaLiga).order('id');
 
-    if (!partidas || partidas.length === 0) return { success: false, msg: "Sem jogos nesta rodada." };
+      if (error) throw error;
+      if (!partidas || partidas.length === 0) return { success: false, msg: "Sem jogos nesta rodada." };
 
-    const p = partidas as any[];
-    const usarDecimais = partidas[0].campeonato?.usar_decimais === true;
+      const p = partidas as any[];
+      const usarDecimais = partidas[0].campeonato?.usar_decimais === true;
 
-    for (const jogo of partidas) {
-        await atualizarJogoIndividual(jogo, rodadaCartola, usarDecimais);
+      for (const jogo of partidas) {
+          await atualizarJogoIndividual(jogo, rodadaCartola, usarDecimais);
+      }
+
+      await recalcularTabelaPontosCorridos(campeonatoId);
+      
+      revalidatePath(`/campeonatos/${campeonatoId}`)
+      return { success: true, msg: "Rodada atualizada!" };
+    } catch (error: any) {
+      console.error("Erro em atualizarRodadaPontosCorridos:", error);
+      return { success: false, msg: error.message || "Erro interno." };
     }
-
-    await recalcularTabelaPontosCorridos(campeonatoId);
-    
-    revalidatePath(`/campeonatos/${campeonatoId}`)
-    return { success: true, msg: "Rodada atualizada!" };
 }
 
 export async function recalcularTabelaPontosCorridos(campeonatoId: number) {
+  try {
     const db = getDb();
     
     await db.from('classificacao').update({ pts: 0, pj: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pp: 0, pc: 0, sp: 0 }).eq('campeonato_id', campeonatoId);
@@ -483,6 +554,9 @@ export async function recalcularTabelaPontosCorridos(campeonatoId: number) {
     for (const tId in stats) {
         await db.from('classificacao').update(stats[tId]).eq('campeonato_id', campeonatoId).eq('time_id', tId);
     }
+  } catch (e) {
+    console.error("Erro no recálculo da tabela:", e);
+  }
 }
 
 export async function buscarTabelaPontosCorridos(campeonatoId: number) {
@@ -507,238 +581,258 @@ function getBracketOrder(n: number): number[] {
 }
 
 export async function gerarMataMataInteligente(campeonatoId: number, idsOrdenados: number[] = [], aleatorio: boolean = false) {
-  await verificarAdmin();
-  const db = getDb();
+  try {
+    await verificarAdmin();
+    const db = getDb();
 
-  const { count } = await db
-      .from('partidas')
-      .select('id', { count: 'exact', head: true })
-      .eq('campeonato_id', campeonatoId);
-  
-  if (count && count > 0) {
-      return { 
-          success: false, 
-          msg: "Já existem partidas criadas! Use o botão 'Resetar Liga' se quiser recomeçar do zero." 
-      };
-  }
-
-  const timesNoBanco = await listarTimesDoCampeonato(campeonatoId);
-  if (timesNoBanco.length < 2) return { success: false, msg: "Mínimo de 2 times." };
-
-  let rankingInicial: any[] = [];
-
-  if (aleatorio) {
-    rankingInicial = [...timesNoBanco].sort(() => Math.random() - 0.5).map(t => t.time_id);
-  } else if (idsOrdenados.length > 0) {
-    rankingInicial = idsOrdenados;
-    const faltantes = timesNoBanco.filter(t => !idsOrdenados.includes(t.time_id)).map(t => t.time_id);
-    rankingInicial = [...rankingInicial, ...faltantes];
-  } else {
-    rankingInicial = timesNoBanco.map(t => t.time_id);
-  }
-
-  const numTimes = rankingInicial.length;
-  const tamanhoChave = Math.pow(2, Math.ceil(Math.log2(numTimes)));
-  
-  const slots = new Array(tamanhoChave).fill(null);
-  for (let i = 0; i < numTimes; i++) {
-      slots[i] = rankingInicial[i];
-  }
-
-  const bracketOrder = getBracketOrder(tamanhoChave).map(x => x - 1);
-  const partidasParaSalvar = [];
-
-  for (let i = 0; i < bracketOrder.length; i += 2) {
-    const seedA = bracketOrder[i];
-    const seedB = bracketOrder[i+1];
+    const { count } = await db
+        .from('partidas')
+        .select('id', { count: 'exact', head: true })
+        .eq('campeonato_id', campeonatoId);
     
-    const timeA = slots[seedA]; 
-    const timeB = slots[seedB]; 
-
-    if (!timeA && !timeB) continue;
-
-    if (timeA && !timeB) {
-      partidasParaSalvar.push({ campeonato_id: campeonatoId, rodada: 1, time_casa: timeA, time_visitante: null, placar_casa: 1, placar_visitante: 0, status: 'bye' });
-    } else if (!timeA && timeB) {
-      partidasParaSalvar.push({ campeonato_id: campeonatoId, rodada: 1, time_casa: timeB, time_visitante: null, placar_casa: 1, placar_visitante: 0, status: 'bye' });
-    } else {
-      partidasParaSalvar.push({ campeonato_id: campeonatoId, rodada: 1, time_casa: timeB, time_visitante: timeA, status: 'agendado' });
-      partidasParaSalvar.push({ campeonato_id: campeonatoId, rodada: 2, time_casa: timeA, time_visitante: timeB, status: 'agendado' });
+    if (count && count > 0) {
+        return { 
+            success: false, 
+            msg: "Já existem partidas criadas! Use o botão 'Resetar Liga' se quiser recomeçar do zero." 
+        };
     }
+
+    const timesNoBanco = await listarTimesDoCampeonato(campeonatoId);
+    if (timesNoBanco.length < 2) return { success: false, msg: "Mínimo de 2 times." };
+
+    let rankingInicial: any[] = [];
+
+    if (aleatorio) {
+      rankingInicial = [...timesNoBanco].sort(() => Math.random() - 0.5).map(t => t.time_id);
+    } else if (idsOrdenados.length > 0) {
+      rankingInicial = idsOrdenados;
+      const faltantes = timesNoBanco.filter(t => !idsOrdenados.includes(t.time_id)).map(t => t.time_id);
+      rankingInicial = [...rankingInicial, ...faltantes];
+    } else {
+      rankingInicial = timesNoBanco.map(t => t.time_id);
+    }
+
+    const numTimes = rankingInicial.length;
+    const tamanhoChave = Math.pow(2, Math.ceil(Math.log2(numTimes)));
+    
+    const slots = new Array(tamanhoChave).fill(null);
+    for (let i = 0; i < numTimes; i++) {
+        slots[i] = rankingInicial[i];
+    }
+
+    const bracketOrder = getBracketOrder(tamanhoChave).map(x => x - 1);
+    const partidasParaSalvar = [];
+
+    for (let i = 0; i < bracketOrder.length; i += 2) {
+      const seedA = bracketOrder[i];
+      const seedB = bracketOrder[i+1];
+      
+      const timeA = slots[seedA]; 
+      const timeB = slots[seedB]; 
+
+      if (!timeA && !timeB) continue;
+
+      if (timeA && !timeB) {
+        partidasParaSalvar.push({ campeonato_id: campeonatoId, rodada: 1, time_casa: timeA, time_visitante: null, placar_casa: 1, placar_visitante: 0, status: 'bye' });
+      } else if (!timeA && timeB) {
+        partidasParaSalvar.push({ campeonato_id: campeonatoId, rodada: 1, time_casa: timeB, time_visitante: null, placar_casa: 1, placar_visitante: 0, status: 'bye' });
+      } else {
+        partidasParaSalvar.push({ campeonato_id: campeonatoId, rodada: 1, time_casa: timeB, time_visitante: timeA, status: 'agendado' });
+        partidasParaSalvar.push({ campeonato_id: campeonatoId, rodada: 2, time_casa: timeA, time_visitante: timeB, status: 'agendado' });
+      }
+    }
+
+    const { error } = await db.from('partidas').insert(partidasParaSalvar);
+    if (error) return { success: false, msg: error.message };
+
+    revalidatePath(`/campeonatos/${campeonatoId}`)
+    return { success: true, msg: `Mata-Mata gerado com ${numTimes} times!` };
+  } catch (error: any) {
+    console.error("Erro em gerarMataMataInteligente:", error);
+    return { success: false, msg: error.message || "Erro interno." };
   }
-
-  const { error } = await db.from('partidas').insert(partidasParaSalvar);
-  if (error) return { success: false, msg: error.message };
-
-  revalidatePath(`/campeonatos/${campeonatoId}`)
-  return { success: true, msg: `Mata-Mata gerado com ${numTimes} times!` };
 }
 
 export async function atualizarRodadaMataMata(campeonatoId: number, fase: number, rodadaIda: number, rodadaVolta: number) {
-  await verificarAdmin();
-  const db = getDb();
+  try {
+    await verificarAdmin();
+    const db = getDb();
 
-  const { data: partidas } = await db.from('partidas')
-    .select('*, casa:times!partidas_time_casa_fkey(*), visitante:times!partidas_time_visitante_fkey(*), campeonato:campeonatos(usar_decimais)')
-    .eq('campeonato_id', campeonatoId)
-    .in('rodada', [fase, fase + 1]) 
-    .neq('status', 'bye')
-    .order('id', { ascending: true });
+    const { data: partidas, error } = await db.from('partidas')
+      .select('*, casa:times!partidas_time_casa_fkey(*), visitante:times!partidas_time_visitante_fkey(*), campeonato:campeonatos(usar_decimais)')
+      .eq('campeonato_id', campeonatoId)
+      .in('rodada', [fase, fase + 1]) 
+      .neq('status', 'bye')
+      .order('id', { ascending: true });
 
-  if (!partidas || partidas.length === 0) return { success: false, msg: "Sem jogos nesta fase." };
-  
-  const p = partidas as any[];
-  const usarDecimais = partidas[0].campeonato?.usar_decimais === true;
+    if (error) throw error;
+    if (!partidas || partidas.length === 0) return { success: false, msg: "Sem jogos nesta fase." };
+    
+    const p = partidas as any[];
+    const usarDecimais = partidas[0].campeonato?.usar_decimais === true;
 
-  for (const jogo of partidas) {
-      let r = 0;
-      if (jogo.rodada === fase) r = rodadaIda;
-      else if (jogo.rodada === fase + 1) r = rodadaVolta;
+    for (const jogo of partidas) {
+        let r = 0;
+        if (jogo.rodada === fase) r = rodadaIda;
+        else if (jogo.rodada === fase + 1) r = rodadaVolta;
 
-      if (r > 0) await atualizarJogoIndividual(jogo, r, usarDecimais); 
+        if (r > 0) await atualizarJogoIndividual(jogo, r, usarDecimais); 
+    }
+
+    await verificarEAvancarFase(campeonatoId, fase);
+    
+    revalidatePath(`/campeonatos/${campeonatoId}`)
+    return { success: true, msg: `Pontos atualizados!` };
+  } catch (error: any) {
+    console.error("Erro em atualizarRodadaMataMata:", error);
+    return { success: false, msg: error.message || "Erro interno." };
   }
-
-  await verificarEAvancarFase(campeonatoId, fase);
-  
-  revalidatePath(`/campeonatos/${campeonatoId}`)
-  return { success: true, msg: `Pontos atualizados!` };
 }
 
 async function verificarEAvancarFase(campeonatoId: number, rodadaAtual: number) {
-  const db = getDb();
+  try {
+    const db = getDb();
 
-  const ehIda = rodadaAtual % 2 !== 0; 
-  const rodadaIda = ehIda ? rodadaAtual : rodadaAtual - 1;
-  const rodadaVolta = rodadaIda + 1;
+    const ehIda = rodadaAtual % 2 !== 0; 
+    const rodadaIda = ehIda ? rodadaAtual : rodadaAtual - 1;
+    const rodadaVolta = rodadaIda + 1;
 
-  const { data: jogosFase } = await db.from('partidas')
-    .select('*')
-    .eq('campeonato_id', campeonatoId)
-    .in('rodada', [rodadaIda, rodadaVolta]);
+    const { data: jogosFase } = await db.from('partidas')
+      .select('*')
+      .eq('campeonato_id', campeonatoId)
+      .in('rodada', [rodadaIda, rodadaVolta]);
 
-  if (!jogosFase || jogosFase.length === 0) return;
+    if (!jogosFase || jogosFase.length === 0) return;
 
-  const pendentes = jogosFase.filter((j: any) => j.status !== 'finalizado' && j.status !== 'bye');
-  if (pendentes.length > 0) return; 
+    const pendentes = jogosFase.filter((j: any) => j.status !== 'finalizado' && j.status !== 'bye');
+    if (pendentes.length > 0) return; 
 
-  const proximaRodada = rodadaIda + 2;
-  const { data: existe } = await db.from('partidas').select('id').eq('campeonato_id', campeonatoId).eq('rodada', proximaRodada).limit(1);
-  if (existe && existe.length > 0) return; 
+    const proximaRodada = rodadaIda + 2;
+    const { data: existe } = await db.from('partidas').select('id').eq('campeonato_id', campeonatoId).eq('rodada', proximaRodada).limit(1);
+    if (existe && existe.length > 0) return; 
 
-  const classificados: number[] = [];
-  const eliminados: number[] = [];
+    const classificados: number[] = [];
+    const eliminados: number[] = [];
 
-  const jogosIdaList = jogosFase.filter((j: any) => j.rodada === rodadaIda).sort((a, b) => a.id - b.id);
+    const jogosIdaList = jogosFase.filter((j: any) => j.rodada === rodadaIda).sort((a, b) => a.id - b.id);
 
-  for (const jogo of jogosIdaList) {
-    if (jogo.status === 'bye') {
-      classificados.push(jogo.time_casa);
-      continue;
-    }
-    
-    const volta = jogosFase.find((j:any) => j.rodada === rodadaVolta && (j.time_casa === jogo.time_visitante || j.time_casa === jogo.time_casa));
-    
-    let pA = parseFloat((jogo.placar_casa || 0).toFixed(2)); 
-    let pB = parseFloat((jogo.placar_visitante || 0).toFixed(2));
+    for (const jogo of jogosIdaList) {
+      if (jogo.status === 'bye') {
+        classificados.push(jogo.time_casa);
+        continue;
+      }
+      
+      const volta = jogosFase.find((j:any) => j.rodada === rodadaVolta && (j.time_casa === jogo.time_visitante || j.time_casa === jogo.time_casa));
+      
+      let pA = parseFloat((jogo.placar_casa || 0).toFixed(2)); 
+      let pB = parseFloat((jogo.placar_visitante || 0).toFixed(2));
 
-    if (volta) {
-       if (volta.time_casa === jogo.time_visitante) { 
-           pA += (volta.placar_visitante || 0); 
-           pB += (volta.placar_casa || 0); 
-       } else { 
-           pA += (volta.placar_casa || 0); 
-           pB += (volta.placar_visitante || 0); 
-       }
-       pA = parseFloat(pA.toFixed(2));
-       pB = parseFloat(pB.toFixed(2));
-    }
+      if (volta) {
+         if (volta.time_casa === jogo.time_visitante) { 
+             pA += (volta.placar_visitante || 0); 
+             pB += (volta.placar_casa || 0); 
+         } else { 
+             pA += (volta.placar_casa || 0); 
+             pB += (volta.placar_visitante || 0); 
+         }
+         pA = parseFloat(pA.toFixed(2));
+         pB = parseFloat(pB.toFixed(2));
+      }
 
-    let vencedorId = null;
-    let perdedorId = null;
+      let vencedorId = null;
+      let perdedorId = null;
 
-    if (pA > pB) {
-        vencedorId = jogo.time_casa;
-        perdedorId = jogo.time_visitante;
-    } else if (pB > pA) {
-        vencedorId = jogo.time_visitante;
-        perdedorId = jogo.time_casa;
-    } else {
-        const jogoDecisivo = volta || jogo;
-        const dC = jogoDecisivo.desempate_casa;
-        const dV = jogoDecisivo.desempate_visitante;
-
-        if (dC === null || dC === undefined || dV === null || dV === undefined) {
-             return; 
-        }
-
-        let penaltisA = dC; 
-        let penaltisB = dV; 
-
-        if (volta && volta.time_casa === jogo.time_visitante) {
-            penaltisB = dC; 
-            penaltisA = dV; 
-        } else {
-            penaltisA = dC;
-            penaltisB = dV;
-        }
-
-        if (penaltisA > penaltisB) {
-             vencedorId = jogo.time_casa;
-             perdedorId = jogo.time_visitante;
-        } else if (penaltisB > penaltisA) {
-             vencedorId = jogo.time_visitante;
-             perdedorId = jogo.time_casa;
-        } else {
-             return; 
-        }
-    }
-
-    if (vencedorId) classificados.push(vencedorId);
-    if (perdedorId) eliminados.push(perdedorId);
-  }
-
-  if (classificados.length < 2) return;
-
-  const { data: camp } = await db.from('campeonatos').select('final_unica').eq('id', campeonatoId).single();
-  const ehFinal = classificados.length === 2;
-  const criarJogoUnico = ehFinal && (camp?.final_unica === true);
-
-  const novasPartidas = [];
-
-  for (let i = 0; i < classificados.length; i += 2) {
-    const timeA = classificados[i];
-    const timeB = classificados[i+1]; 
-    if (!timeB) {
-      novasPartidas.push({ campeonato_id: campeonatoId, rodada: proximaRodada, time_casa: timeA, time_visitante: null, placar_casa: 1, placar_visitante: 0, status: 'bye' });
-    } else {
-      if (criarJogoUnico) {
-          novasPartidas.push({ campeonato_id: campeonatoId, rodada: proximaRodada, time_casa: timeA, time_visitante: timeB, status: 'agendado' });
+      if (pA > pB) {
+          vencedorId = jogo.time_casa;
+          perdedorId = jogo.time_visitante;
+      } else if (pB > pA) {
+          vencedorId = jogo.time_visitante;
+          perdedorId = jogo.time_casa;
       } else {
-          novasPartidas.push({ campeonato_id: campeonatoId, rodada: proximaRodada, time_casa: timeA, time_visitante: timeB, status: 'agendado' });
-          novasPartidas.push({ campeonato_id: campeonatoId, rodada: proximaRodada + 1, time_casa: timeB, time_visitante: timeA, status: 'agendado' });
+          const jogoDecisivo = volta || jogo;
+          const dC = jogoDecisivo.desempate_casa;
+          const dV = jogoDecisivo.desempate_visitante;
+
+          if (dC === null || dC === undefined || dV === null || dV === undefined) {
+               return; 
+          }
+
+          let penaltisA = dC; 
+          let penaltisB = dV; 
+
+          if (volta && volta.time_casa === jogo.time_visitante) {
+              penaltisB = dC; 
+              penaltisA = dV; 
+          } else {
+              penaltisA = dC;
+              penaltisB = dV;
+          }
+
+          if (penaltisA > penaltisB) {
+               vencedorId = jogo.time_casa;
+               perdedorId = jogo.time_visitante;
+          } else if (penaltisB > penaltisA) {
+               vencedorId = jogo.time_visitante;
+               perdedorId = jogo.time_casa;
+          } else {
+               return; 
+          }
+      }
+
+      if (vencedorId) classificados.push(vencedorId);
+      if (perdedorId) eliminados.push(perdedorId);
+    }
+
+    if (classificados.length < 2) return;
+
+    const { data: camp } = await db.from('campeonatos').select('final_unica').eq('id', campeonatoId).single();
+    const ehFinal = classificados.length === 2;
+    const criarJogoUnico = ehFinal && (camp?.final_unica === true);
+
+    const novasPartidas = [];
+
+    for (let i = 0; i < classificados.length; i += 2) {
+      const timeA = classificados[i];
+      const timeB = classificados[i+1]; 
+      if (!timeB) {
+        novasPartidas.push({ campeonato_id: campeonatoId, rodada: proximaRodada, time_casa: timeA, time_visitante: null, placar_casa: 1, placar_visitante: 0, status: 'bye' });
+      } else {
+        if (criarJogoUnico) {
+            novasPartidas.push({ campeonato_id: campeonatoId, rodada: proximaRodada, time_casa: timeA, time_visitante: timeB, status: 'agendado' });
+        } else {
+            novasPartidas.push({ campeonato_id: campeonatoId, rodada: proximaRodada, time_casa: timeA, time_visitante: timeB, status: 'agendado' });
+            novasPartidas.push({ campeonato_id: campeonatoId, rodada: proximaRodada + 1, time_casa: timeB, time_visitante: timeA, status: 'agendado' });
+        }
       }
     }
-  }
 
-  if (ehFinal && eliminados.length === 2) {
-      const time3A = eliminados[0];
-      const time3B = eliminados[1];
-      if (criarJogoUnico) {
-          novasPartidas.push({ campeonato_id: campeonatoId, rodada: proximaRodada, time_casa: time3A, time_visitante: time3B, status: 'agendado' });
-      } else {
-          novasPartidas.push({ campeonato_id: campeonatoId, rodada: proximaRodada, time_casa: time3A, time_visitante: time3B, status: 'agendado' });
-          novasPartidas.push({ campeonato_id: campeonatoId, rodada: proximaRodada + 1, time_casa: time3B, time_visitante: time3A, status: 'agendado' });
-      }
-  }
+    if (ehFinal && eliminados.length === 2) {
+        const time3A = eliminados[0];
+        const time3B = eliminados[1];
+        if (criarJogoUnico) {
+            novasPartidas.push({ campeonato_id: campeonatoId, rodada: proximaRodada, time_casa: time3A, time_visitante: time3B, status: 'agendado' });
+        } else {
+            novasPartidas.push({ campeonato_id: campeonatoId, rodada: proximaRodada, time_casa: time3A, time_visitante: time3B, status: 'agendado' });
+            novasPartidas.push({ campeonato_id: campeonatoId, rodada: proximaRodada + 1, time_casa: time3B, time_visitante: time3A, status: 'agendado' });
+        }
+    }
 
-  await db.from('partidas').insert(novasPartidas);
+    await db.from('partidas').insert(novasPartidas);
+  } catch (e) {
+    console.error("Erro interno em verificarEAvancarFase:", e);
+  }
 }
 
 export async function avancarFaseMataMata(campeonatoId: number, faseAtual: number) {
-  await verificarAdmin();
-  await verificarEAvancarFase(campeonatoId, faseAtual);
-  revalidatePath(`/campeonatos/${campeonatoId}`)
-  return { success: true, msg: "Verificação concluída." };
+  try {
+    await verificarAdmin();
+    await verificarEAvancarFase(campeonatoId, faseAtual);
+    revalidatePath(`/campeonatos/${campeonatoId}`)
+    return { success: true, msg: "Verificação concluída." };
+  } catch (error: any) {
+    console.error("Erro em avancarFaseMataMata:", error);
+    return { success: false, msg: error.message || "Erro interno." };
+  }
 }
 
 // ==============================================================================
@@ -746,88 +840,104 @@ export async function avancarFaseMataMata(campeonatoId: number, faseAtual: numbe
 // ==============================================================================
 
 export async function sortearGrupos(campeonatoId: number, numGrupos: number, potes: number[][]) {
-  await verificarAdmin();
-  const db = getDb();
+  try {
+    await verificarAdmin();
+    const db = getDb();
 
-  if (potes.length === 0 || potes[0].length === 0) return { success: false, msg: "Potes vazios." };
-  
-  await db.from('classificacao').update({ grupo: null, fase_atual: 'fase_grupos' }).eq('campeonato_id', campeonatoId);
-  await db.from('partidas').delete().eq('campeonato_id', campeonatoId).lte('rodada', 20); 
+    if (potes.length === 0 || potes[0].length === 0) return { success: false, msg: "Potes vazios." };
+    
+    await db.from('classificacao').update({ grupo: null, fase_atual: 'fase_grupos' }).eq('campeonato_id', campeonatoId);
+    await db.from('partidas').delete().eq('campeonato_id', campeonatoId).lte('rodada', 20); 
 
-  const letras = ['A','B','C','D','E','F','G','H'];
-  
-  for (let i = 0; i < potes.length; i++) {
-    const pote = potes[i].sort(() => Math.random() - 0.5);
-    for (let g = 0; g < numGrupos; g++) {
-      if (pote[g]) {
-          await db.from('classificacao').update({ grupo: letras[g] }).eq('campeonato_id', campeonatoId).eq('time_id', pote[g]);
+    const letras = ['A','B','C','D','E','F','G','H'];
+    
+    for (let i = 0; i < potes.length; i++) {
+      const pote = potes[i].sort(() => Math.random() - 0.5);
+      for (let g = 0; g < numGrupos; g++) {
+        if (pote[g]) {
+            await db.from('classificacao').update({ grupo: letras[g] }).eq('campeonato_id', campeonatoId).eq('time_id', pote[g]);
+        }
       }
     }
+    
+    revalidatePath(`/campeonatos/${campeonatoId}`)
+    return { success: true, msg: "Grupos sorteados!" };
+  } catch (error: any) {
+    console.error("Erro em sortearGrupos:", error);
+    return { success: false, msg: error.message || "Erro interno." };
   }
-  
-  revalidatePath(`/campeonatos/${campeonatoId}`)
-  return { success: true, msg: "Grupos sorteados!" };
 }
 
 export async function gerarJogosFaseGrupos(campeonatoId: number) {
-  await verificarAdmin();
-  const db = getDb();
+  try {
+    await verificarAdmin();
+    const db = getDb();
 
-  await db.from('partidas').delete().eq('campeonato_id', campeonatoId);
-  await db.from('classificacao').update({ pts: 0, pj: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pp: 0, pc: 0, sp: 0 }).eq('campeonato_id', campeonatoId);
+    await db.from('partidas').delete().eq('campeonato_id', campeonatoId);
+    await db.from('classificacao').update({ pts: 0, pj: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pp: 0, pc: 0, sp: 0 }).eq('campeonato_id', campeonatoId);
 
-  const times = await listarTimesDoCampeonato(campeonatoId);
-  const letras = ['A','B','C','D','E','F','G','H'];
-  const partidas = [];
+    const times = await listarTimesDoCampeonato(campeonatoId);
+    const letras = ['A','B','C','D','E','F','G','H'];
+    const partidas = [];
 
-  for (const letra of letras) {
-    const grupo = times.filter((t:any) => t.grupo === letra).map((t:any) => t.time_id);
-    if (grupo.length < 2) continue;
-    
-    if (grupo.length % 2 !== 0) grupo.push(-1);
-    const n = grupo.length;
-    const rounds = n - 1;
-    const half = n / 2;
+    for (const letra of letras) {
+      const grupo = times.filter((t:any) => t.grupo === letra).map((t:any) => t.time_id);
+      if (grupo.length < 2) continue;
+      
+      if (grupo.length % 2 !== 0) grupo.push(-1);
+      const n = grupo.length;
+      const rounds = n - 1;
+      const half = n / 2;
 
-    for (let r = 0; r < rounds; r++) {
-        for (let i = 0; i < half; i++) {
-            const t1 = grupo[i];
-            const t2 = grupo[n - 1 - i];
-            if (t1 !== -1 && t2 !== -1) {
-                partidas.push({ campeonato_id: campeonatoId, rodada: r + 1, time_casa: t1, time_visitante: t2, status: 'agendado' });
-                partidas.push({ campeonato_id: campeonatoId, rodada: r + 1 + rounds, time_casa: t2, time_visitante: t1, status: 'agendado' });
-            }
-        }
-        grupo.splice(1, 0, grupo.pop()!);
+      for (let r = 0; r < rounds; r++) {
+          for (let i = 0; i < half; i++) {
+              const t1 = grupo[i];
+              const t2 = grupo[n - 1 - i];
+              if (t1 !== -1 && t2 !== -1) {
+                  partidas.push({ campeonato_id: campeonatoId, rodada: r + 1, time_casa: t1, time_visitante: t2, status: 'agendado' });
+                  partidas.push({ campeonato_id: campeonatoId, rodada: r + 1 + rounds, time_casa: t2, time_visitante: t1, status: 'agendado' });
+              }
+          }
+          grupo.splice(1, 0, grupo.pop()!);
+      }
     }
+    const { error } = await db.from('partidas').insert(partidas);
+    if (error) return { success: false, msg: error.message };
+    
+    await recalcularTabelaPontosCorridos(campeonatoId);
+    revalidatePath(`/campeonatos/${campeonatoId}`)
+    return { success: true, msg: "Jogos da fase de grupos gerados!" };
+  } catch (error: any) {
+    console.error("Erro em gerarJogosFaseGrupos:", error);
+    return { success: false, msg: error.message || "Erro interno." };
   }
-  const { error } = await db.from('partidas').insert(partidas);
-  if (error) return { success: false, msg: error.message };
-  
-  await recalcularTabelaPontosCorridos(campeonatoId);
-  revalidatePath(`/campeonatos/${campeonatoId}`)
-  return { success: true, msg: "Jogos da fase de grupos gerados!" };
 }
 
 export async function atualizarRodadaGrupos(campeonatoId: number, rodadaLiga: number, rodadaCartola: number) {
-  await verificarAdmin();
-  const db = getDb();
+  try {
+    await verificarAdmin();
+    const db = getDb();
 
-  const { data: partidas } = await db.from('partidas')
-    .select('*, casa:times!partidas_time_casa_fkey(*), visitante:times!partidas_time_visitante_fkey(*), campeonato:campeonatos(usar_decimais)')
-    .eq('campeonato_id', campeonatoId).eq('rodada', rodadaLiga).order('id');
+    const { data: partidas, error } = await db.from('partidas')
+      .select('*, casa:times!partidas_time_casa_fkey(*), visitante:times!partidas_time_visitante_fkey(*), campeonato:campeonatos(usar_decimais)')
+      .eq('campeonato_id', campeonatoId).eq('rodada', rodadaLiga).order('id');
 
-  if (!partidas || partidas.length === 0) return { success: false, msg: "Sem jogos." };
+    if (error) throw error;
+    if (!partidas || partidas.length === 0) return { success: false, msg: "Sem jogos." };
 
-  const p = partidas as any[];
-  const usarDecimais = partidas[0].campeonato?.usar_decimais === true;
+    const p = partidas as any[];
+    const usarDecimais = partidas[0].campeonato?.usar_decimais === true;
 
-  for (const jogo of partidas) {
-      await atualizarJogoIndividual(jogo, rodadaCartola, usarDecimais);
+    for (const jogo of partidas) {
+        await atualizarJogoIndividual(jogo, rodadaCartola, usarDecimais);
+    }
+    await recalcularTabelaPontosCorridos(campeonatoId);
+    revalidatePath(`/campeonatos/${campeonatoId}`)
+    return { success: true, msg: "Rodada atualizada!" };
+  } catch (error: any) {
+    console.error("Erro em atualizarRodadaGrupos:", error);
+    return { success: false, msg: error.message || "Erro interno." };
   }
-  await recalcularTabelaPontosCorridos(campeonatoId);
-  revalidatePath(`/campeonatos/${campeonatoId}`)
-  return { success: true, msg: "Rodada atualizada!" };
 }
 
 export async function buscarTabelaGrupos(campeonatoId: number) {
@@ -871,6 +981,7 @@ export async function buscarTabelaGrupos(campeonatoId: number) {
 }
 
 export async function excluirMataMata(campeonatoId: number, rodadaInicio: number) {
+  try {
     await verificarAdmin();
     const db = getDb();
 
@@ -878,122 +989,131 @@ export async function excluirMataMata(campeonatoId: number, rodadaInicio: number
     if (error) return { success: false, msg: error.message };
     revalidatePath(`/campeonatos/${campeonatoId}`)
     return { success: true, msg: "Mata-mata limpo." };
+  } catch (error: any) {
+    console.error("Erro em excluirMataMata:", error);
+    return { success: false, msg: error.message || "Erro interno." };
+  }
 }
 
 export async function gerarMataMataCopa(campeonatoId: number) {
-  await verificarAdmin();
-  const db = getDb();
+  try {
+    await verificarAdmin();
+    const db = getDb();
 
-  const { data: jogos } = await db.from('partidas').select('rodada').eq('campeonato_id', campeonatoId);
-  const rodadas = jogos?.map(j => j.rodada).filter(r => r <= 20) || [];
-  const maxRodadaGrupos = rodadas.length > 0 ? Math.max(...rodadas) : 6;
-  const inicioMataMata = maxRodadaGrupos + 1;
+    const { data: jogos } = await db.from('partidas').select('rodada').eq('campeonato_id', campeonatoId);
+    const rodadas = jogos?.map(j => j.rodada).filter(r => r <= 20) || [];
+    const maxRodadaGrupos = rodadas.length > 0 ? Math.max(...rodadas) : 6;
+    const inicioMataMata = maxRodadaGrupos + 1;
 
-  const { count } = await db
-    .from('partidas')
-    .select('id', { count: 'exact', head: true })
-    .eq('campeonato_id', campeonatoId)
-    .gte('rodada', inicioMataMata);
+    const { count } = await db
+      .from('partidas')
+      .select('id', { count: 'exact', head: true })
+      .eq('campeonato_id', campeonatoId)
+      .gte('rodada', inicioMataMata);
 
-  if (count && count > 0) {
-    return { 
-      success: false, 
-      msg: "A Fase Final já foi gerada! Para recriar, use o botão de 'Limpar Mata-Mata' ou 'Resetar Liga' antes." 
-    };
+    if (count && count > 0) {
+      return { 
+        success: false, 
+        msg: "A Fase Final já foi gerada! Para recriar, use o botão de 'Limpar Mata-Mata' ou 'Resetar Liga' antes." 
+      };
+    }
+
+    const grupos = await buscarTabelaGrupos(campeonatoId);
+    const letras = Object.keys(grupos).sort();
+    if (letras.length === 0) return { success: false, msg: "Fase de grupos vazia." };
+
+    const pot1: any[] = []; 
+    const pot2: any[] = []; 
+
+    letras.forEach(l => {
+        if (grupos[l][0]) pot1.push({ ...grupos[l][0], gp_origem: l });
+        if (grupos[l][1]) pot2.push({ ...grupos[l][1], gp_origem: l });
+    });
+
+    if (pot1.length < 2) return { success: false, msg: "Times insuficientes." };
+
+    pot1.sort((a, b) => b.pts - a.pts || b.v - a.v || b.sp - a.sp || b.pp - a.pp);
+
+    const numConfrontos = pot1.length; 
+    const metadeBracket = Math.floor(numConfrontos / 2);
+
+    const mandantes = new Array(numConfrontos).fill(null);
+    const seed1 = pot1[0]; 
+    const seed2 = pot1[1]; 
+    const outrosCabecas = pot1.slice(2);
+
+    mandantes[0] = seed1;                
+    mandantes[metadeBracket] = seed2;   
+
+    outrosCabecas.sort(() => Math.random() - 0.5);
+    let idxOutros = 0;
+    for (let i = 0; i < numConfrontos; i++) {
+        if (mandantes[i] === null) {
+            mandantes[i] = outrosCabecas[idxOutros];
+            idxOutros++;
+        }
+    }
+
+    let oponentes: any[] = [];
+    let sucesso = false;
+    let tentativas = 0;
+
+    while (!sucesso && tentativas < 1000) {
+        tentativas++;
+        const pool = [...pot2].sort(() => Math.random() - 0.5);
+        const tempOponentes = [];
+        let valido = true;
+
+        for (let i = 0; i < numConfrontos; i++) {
+            const mandante = mandantes[i];
+            const matchIndex = pool.findIndex(p => p.gp_origem !== mandante.gp_origem);
+            if (matchIndex === -1) {
+                valido = false;
+                break; 
+            }
+            tempOponentes[i] = pool[matchIndex];
+            pool.splice(matchIndex, 1);
+        }
+
+        if (valido) {
+            oponentes = tempOponentes;
+            sucesso = true;
+        }
+    }
+
+    if (!sucesso) return { success: false, msg: "Não foi possível gerar confrontos válidos (trava de grupos)." };
+
+    const partidasNovas: any[] = [];
+    for (let i = 0; i < numConfrontos; i++) {
+        const mandante = mandantes[i];  
+        const visitante = oponentes[i]; 
+
+        partidasNovas.push({ 
+            campeonato_id: campeonatoId, 
+            rodada: inicioMataMata, 
+            time_casa: visitante.time_id, 
+            time_visitante: mandante.time_id, 
+            status: 'agendado' 
+        });
+
+        partidasNovas.push({ 
+            campeonato_id: campeonatoId, 
+            rodada: inicioMataMata + 1, 
+            time_casa: mandante.time_id, 
+            time_visitante: visitante.time_id, 
+            status: 'agendado' 
+        });
+    }
+
+    const { error } = await db.from('partidas').insert(partidasNovas);
+    if (error) return { success: false, msg: error.message };
+
+    revalidatePath(`/campeonatos/${campeonatoId}`)
+    return { success: true, msg: "Mata-mata sorteado com sucesso!" };
+  } catch (error: any) {
+    console.error("Erro em gerarMataMataCopa:", error);
+    return { success: false, msg: error.message || "Erro interno." };
   }
-
-  const grupos = await buscarTabelaGrupos(campeonatoId);
-  const letras = Object.keys(grupos).sort();
-  if (letras.length === 0) return { success: false, msg: "Fase de grupos vazia." };
-
-  const pot1: any[] = []; 
-  const pot2: any[] = []; 
-
-  letras.forEach(l => {
-      if (grupos[l][0]) pot1.push({ ...grupos[l][0], gp_origem: l });
-      if (grupos[l][1]) pot2.push({ ...grupos[l][1], gp_origem: l });
-  });
-
-  if (pot1.length < 2) return { success: false, msg: "Times insuficientes." };
-
-  pot1.sort((a, b) => b.pts - a.pts || b.v - a.v || b.sp - a.sp || b.pp - a.pp);
-
-  const numConfrontos = pot1.length; 
-  const metadeBracket = Math.floor(numConfrontos / 2);
-
-  const mandantes = new Array(numConfrontos).fill(null);
-  const seed1 = pot1[0]; 
-  const seed2 = pot1[1]; 
-  const outrosCabecas = pot1.slice(2);
-
-  mandantes[0] = seed1;                
-  mandantes[metadeBracket] = seed2;   
-
-  outrosCabecas.sort(() => Math.random() - 0.5);
-  let idxOutros = 0;
-  for (let i = 0; i < numConfrontos; i++) {
-      if (mandantes[i] === null) {
-          mandantes[i] = outrosCabecas[idxOutros];
-          idxOutros++;
-      }
-  }
-
-  let oponentes: any[] = [];
-  let sucesso = false;
-  let tentativas = 0;
-
-  while (!sucesso && tentativas < 1000) {
-      tentativas++;
-      const pool = [...pot2].sort(() => Math.random() - 0.5);
-      const tempOponentes = [];
-      let valido = true;
-
-      for (let i = 0; i < numConfrontos; i++) {
-          const mandante = mandantes[i];
-          const matchIndex = pool.findIndex(p => p.gp_origem !== mandante.gp_origem);
-          if (matchIndex === -1) {
-              valido = false;
-              break; 
-          }
-          tempOponentes[i] = pool[matchIndex];
-          pool.splice(matchIndex, 1);
-      }
-
-      if (valido) {
-          oponentes = tempOponentes;
-          sucesso = true;
-      }
-  }
-
-  if (!sucesso) return { success: false, msg: "Não foi possível gerar confrontos válidos (trava de grupos)." };
-
-  const partidasNovas: any[] = [];
-  for (let i = 0; i < numConfrontos; i++) {
-      const mandante = mandantes[i];  
-      const visitante = oponentes[i]; 
-
-      partidasNovas.push({ 
-          campeonato_id: campeonatoId, 
-          rodada: inicioMataMata, 
-          time_casa: visitante.time_id, 
-          time_visitante: mandante.time_id, 
-          status: 'agendado' 
-      });
-
-      partidasNovas.push({ 
-          campeonato_id: campeonatoId, 
-          rodada: inicioMataMata + 1, 
-          time_casa: mandante.time_id, 
-          time_visitante: visitante.time_id, 
-          status: 'agendado' 
-      });
-  }
-
-  const { error } = await db.from('partidas').insert(partidasNovas);
-  if (error) return { success: false, msg: error.message };
-
-  revalidatePath(`/campeonatos/${campeonatoId}`)
-  return { success: true, msg: "Mata-mata sorteado com sucesso!" };
 }
 
 // ==============================================================================
@@ -1050,29 +1170,34 @@ export async function listarAnosHistorico(tipo: 'ranking' | 'recordes' = 'rankin
 }
 
 export async function salvarHistorico(dados: any[], ano: number, tipo: 'ranking' | 'recordes', titulo: string) {
-  const db = getDb();
+  try {
+    const db = getDb();
 
-  if (tipo === 'recordes') {
-      const { data: existe } = await db.from('historico_recordes').select('id').eq('ano', ano).single();
-      if (existe) {
-          await db.from('historico_recordes').update({ dados: dados, titulo: titulo, data_salvamento: new Date() }).eq('id', existe.id);
-          return { success: true, msg: `Recordes de ${ano} atualizados!` };
-      } else {
-          await db.from('historico_recordes').insert([{ ano: ano, titulo: titulo, dados: dados }]);
-          return { success: true, msg: `Recordes de ${ano} salvos!` };
-      }
-  } else {
-      const { data: existe } = await db.from('historico_temporadas').select('id').eq('ano', ano).single();
-      if (existe) {
-          await db.from('historico_temporadas').update({ ranking_json: dados, data_salvamento: new Date() }).eq('id', existe.id);
-          return { success: true, msg: `Ranking de ${ano} atualizado!` };
-      }
-      await db.from('historico_temporadas').insert([{ ano: ano, ranking_json: dados }]);
-      if (dados.length > 0) {
-          const campeao = dados[0];
-          await salvarTituloCampeao(campeao.id, campeao.time, ano);
-      }
-      return { success: true, msg: `Ranking de ${ano} salvo com sucesso!` };
+    if (tipo === 'recordes') {
+        const { data: existe } = await db.from('historico_recordes').select('id').eq('ano', ano).single();
+        if (existe) {
+            await db.from('historico_recordes').update({ dados: dados, titulo: titulo, data_salvamento: new Date() }).eq('id', existe.id);
+            return { success: true, msg: `Recordes de ${ano} atualizados!` };
+        } else {
+            await db.from('historico_recordes').insert([{ ano: ano, titulo: titulo, dados: dados }]);
+            return { success: true, msg: `Recordes de ${ano} salvos!` };
+        }
+    } else {
+        const { data: existe } = await db.from('historico_temporadas').select('id').eq('ano', ano).single();
+        if (existe) {
+            await db.from('historico_temporadas').update({ ranking_json: dados, data_salvamento: new Date() }).eq('id', existe.id);
+            return { success: true, msg: `Ranking de ${ano} atualizado!` };
+        }
+        await db.from('historico_temporadas').insert([{ ano: ano, ranking_json: dados }]);
+        if (dados.length > 0) {
+            const campeao = dados[0];
+            await salvarTituloCampeao(campeao.id, campeao.time, ano);
+        }
+        return { success: true, msg: `Ranking de ${ano} salvo com sucesso!` };
+    }
+  } catch (error: any) {
+    console.error("Erro em salvarHistorico:", error);
+    return { success: false, msg: error.message || "Erro interno." };
   }
 }
 
@@ -1086,25 +1211,35 @@ export async function buscarHistoricoPorAno(ano: number, tipo: string = 'ranking
 }
 
 export async function salvarHistoricoTemporada(rankingCompleto: any[], anoPersonalizado?: number) {
+  try {
     await verificarAdmin();
     const anoSalvar = anoPersonalizado || new Date().getFullYear();
     return await salvarHistorico(rankingCompleto, anoSalvar, "ranking", "Ranking Geral");
+  } catch (error: any) {
+    return { success: false, msg: error.message || "Erro interno." };
+  }
 }
 
 export async function salvarHistoricoRecordes(recordes: any[], anoPersonalizado?: number, titulo?: string) {
+  try {
     await verificarAdmin();
     const anoSalvar = anoPersonalizado || new Date().getFullYear();
     const tituloFinal = titulo || "Recordes Gerais"; 
     return await salvarHistorico(recordes, anoSalvar, "recordes", tituloFinal);
+  } catch (error: any) {
+    return { success: false, msg: error.message || "Erro interno." };
+  }
 }
 
 async function salvarTituloCampeao(timeId: number, nomeTime: string, ano: number) {
+  try {
     const db = getDb();
     const { data } = await db.from('titulos_manuais').select('id').eq('time_id', timeId).eq('nome_campeonato', 'Campeão Geral').single();
     if (!data) {
         await db.from('titulos_manuais').insert([{ time_id: timeId, nome_campeonato: 'Campeão Geral', ano: ano }]);
         revalidatePath('/campeoes');
     }
+  } catch (e) { console.error("Erro interno em salvarTituloCampeao:", e); }
 }
 
 export async function buscarLigaOficial() {
@@ -1290,9 +1425,14 @@ export async function buscarParciaisAoVivo(jogos: any[]) {
 }
 
 export async function recalcularTabela(id: number) { 
-  await verificarAdmin(); 
-  await recalcularTabelaPontosCorridos(id); 
-  return { success: true } 
+  try {
+    await verificarAdmin(); 
+    await recalcularTabelaPontosCorridos(id); 
+    return { success: true } 
+  } catch (error: any) {
+    console.error("Erro em recalcularTabela:", error);
+    return { success: false, msg: error.message || "Erro interno." };
+  }
 }
 
 export async function buscarTabela(id: number) { 
@@ -1334,21 +1474,31 @@ export async function buscarTodosRecordes() {
 }
 
 export async function adicionarTituloManual(timeId: number, nome: string, ano: number) {
-  await verificarAdmin();
-  const db = getDb();
-  
-  const { error } = await db.from('titulos_manuais').insert([{ time_id: timeId, nome_campeonato: nome, ano }]);
-  if (!error) { revalidatePath('/campeoes'); revalidatePath('/admin/titulos'); }
-  return { success: !error, msg: error ? error.message : 'Título adicionado!' };
+  try {
+    await verificarAdmin();
+    const db = getDb();
+    
+    const { error } = await db.from('titulos_manuais').insert([{ time_id: timeId, nome_campeonato: nome, ano }]);
+    if (!error) { revalidatePath('/campeoes'); revalidatePath('/admin/titulos'); }
+    return { success: !error, msg: error ? error.message : 'Título adicionado!' };
+  } catch (error: any) {
+    console.error("Erro em adicionarTituloManual:", error);
+    return { success: false, msg: error.message || "Erro interno." };
+  }
 }
 
 export async function removerTituloManual(id: number) {
-  await verificarAdmin();
-  const db = getDb();
+  try {
+    await verificarAdmin();
+    const db = getDb();
 
-  const { error } = await db.from('titulos_manuais').delete().eq('id', id);
-  if (!error) { revalidatePath('/campeoes'); revalidatePath('/admin/titulos'); }
-  return { success: !error };
+    const { error } = await db.from('titulos_manuais').delete().eq('id', id);
+    if (!error) { revalidatePath('/campeoes'); revalidatePath('/admin/titulos'); }
+    return { success: !error };
+  } catch (error: any) {
+    console.error("Erro em removerTituloManual:", error);
+    return { success: false, msg: error.message || "Erro interno." };
+  }
 }
 
 export async function listarTitulosManuais() {
@@ -1408,14 +1558,19 @@ export async function buscarGaleriaDeTrofeus() {
 }
 
 export async function excluirCampeonato(id: number) {
-  await verificarAdmin();
-  const db = getDb();
+  try {
+    await verificarAdmin();
+    const db = getDb();
 
-  await db.from('partidas').delete().eq('campeonato_id', id)
-  await db.from('classificacao').delete().eq('campeonato_id', id)
-  const { error } = await db.from('campeonatos').delete().eq('id', id)
-  if (!error) { revalidatePath('/admin/ligas'); revalidatePath('/campeonatos'); revalidatePath('/campeoes'); }
-  return { success: !error, msg: error ? error.message : 'Liga excluída!' }
+    await db.from('partidas').delete().eq('campeonato_id', id)
+    await db.from('classificacao').delete().eq('campeonato_id', id)
+    const { error } = await db.from('campeonatos').delete().eq('id', id)
+    if (!error) { revalidatePath('/admin/ligas'); revalidatePath('/campeonatos'); revalidatePath('/campeoes'); }
+    return { success: !error, msg: error ? error.message : 'Liga excluída!' }
+  } catch (error: any) {
+    console.error("Erro em excluirCampeonato:", error);
+    return { success: false, msg: error.message || "Erro interno." };
+  }
 }
 
 export async function buscarPodium(campeonatoId: number) {
@@ -1507,57 +1662,67 @@ export async function buscarPodium(campeonatoId: number) {
 }
 
 export async function finalizarCampeonato(id: number) {
-  await verificarAdmin();
-  const db = getDb();
+  try {
+    await verificarAdmin();
+    const db = getDb();
 
-  const { data: camp } = await db.from('campeonatos').select('*').eq('id', id).single();
-  if (!camp) return { success: false, msg: "Campeonato não encontrado." };
+    const { data: camp } = await db.from('campeonatos').select('*').eq('id', id).single();
+    if (!camp) return { success: false, msg: "Campeonato não encontrado." };
 
-  const podium = await buscarPodium(id);
+    const podium = await buscarPodium(id);
 
-  const { error } = await db.from('campeonatos').update({ ativo: false, data_fim: new Date().toISOString() }).eq('id', id);
-  
-  if (!error) {
-    if (podium && podium.length > 0 && podium[0]) {
-        // Verifica se já tem título para não duplicar
-        const { data: temTitulo } = await db.from('titulos_manuais')
-            .select('id')
-            .eq('time_id', podium[0].id)
-            .eq('nome_campeonato', camp.nome)
-            .eq('ano', camp.ano)
-            .single();
-            
-        if (!temTitulo) {
-            await db.from('titulos_manuais').insert([{ 
-                time_id: podium[0].id, 
-                nome_campeonato: camp.nome, 
-                ano: camp.ano 
-            }]);
-        }
+    const { error } = await db.from('campeonatos').update({ ativo: false, data_fim: new Date().toISOString() }).eq('id', id);
+    
+    if (!error) {
+      if (podium && podium.length > 0 && podium[0]) {
+          // Verifica se já tem título para não duplicar
+          const { data: temTitulo } = await db.from('titulos_manuais')
+              .select('id')
+              .eq('time_id', podium[0].id)
+              .eq('nome_campeonato', camp.nome)
+              .eq('ano', camp.ano)
+              .single();
+              
+          if (!temTitulo) {
+              await db.from('titulos_manuais').insert([{ 
+                  time_id: podium[0].id, 
+                  nome_campeonato: camp.nome, 
+                  ano: camp.ano 
+              }]);
+          }
+      }
+      revalidatePath('/admin/ligas'); revalidatePath(`/campeonatos/${id}`); revalidatePath('/campeoes');
+      return { success: true, msg: 'Campeonato encerrado com sucesso!', podium };
     }
-    revalidatePath('/admin/ligas'); revalidatePath(`/campeonatos/${id}`); revalidatePath('/campeoes');
-    return { success: true, msg: 'Campeonato encerrado com sucesso!', podium };
+    return { success: !error, msg: error ? error.message : 'Erro ao finalizar.' };
+  } catch (error: any) {
+    console.error("Erro em finalizarCampeonato:", error);
+    return { success: false, msg: error.message || "Erro interno." };
   }
-  return { success: !error, msg: error ? error.message : 'Erro ao finalizar.' };
 }
 
 export async function excluirHistorico(ano: number, tipo: 'ranking' | 'recordes') {
-  await verificarAdmin();
-  const db = getDb();
+  try {
+    await verificarAdmin();
+    const db = getDb();
 
-  let tabela = 'historico_temporadas';
-  if (tipo === 'recordes') tabela = 'historico_recordes';
-  const { error } = await db.from(tabela).delete().eq('ano', ano);
-  if (error) return { success: false, msg: 'Erro ao excluir histórico.' };
-  revalidatePath('/historico'); revalidatePath(`/historico/${ano}`);
-  return { success: true, msg: `${tipo === 'recordes' ? 'Recordes' : 'Ranking'} de ${ano} excluído!` };
+    let tabela = 'historico_temporadas';
+    if (tipo === 'recordes') tabela = 'historico_recordes';
+    const { error } = await db.from(tabela).delete().eq('ano', ano);
+    if (error) return { success: false, msg: 'Erro ao excluir histórico.' };
+    revalidatePath('/historico'); revalidatePath(`/historico/${ano}`);
+    return { success: true, msg: `${tipo === 'recordes' ? 'Recordes' : 'Ranking'} de ${ano} excluído!` };
+  } catch (error: any) {
+    console.error("Erro em excluirHistorico:", error);
+    return { success: false, msg: error.message || "Erro interno." };
+  }
 }
 
 export async function salvarRecordes(ano: number) {
-  await verificarAdmin();
-  const db = getDb();
-
   try {
+    await verificarAdmin();
+    const db = getDb();
+
     const ranking = await buscarRankingCompleto();
     const maiorPontuador = ranking.length > 0 ? ranking[0] : null;
 
@@ -1609,8 +1774,8 @@ export async function salvarRecordes(ano: number) {
 }
 
 export async function salvarRankingAtual(ano: number) {
-    await verificarAdmin();
     try {
+        await verificarAdmin();
         const ranking = await buscarRankingCompleto();
         
         if (!ranking || ranking.length === 0) {
@@ -1621,59 +1786,64 @@ export async function salvarRankingAtual(ano: number) {
 
     } catch (error: any) {
         console.error("Erro ao salvar ranking:", error);
-        return { success: false, msg: "Falha interna ao salvar ranking." };
+        return { success: false, msg: error.message || "Falha interna ao salvar ranking." };
     }
 }
 
 export async function atualizarTodosDadosTimes() {
-  await verificarAdmin();
-  const db = getDb();
+  try {
+    await verificarAdmin();
+    const db = getDb();
 
-  const { data: times } = await db.from('times').select('id, time_id_cartola, nome');
-  
-  if (!times || times.length === 0) {
-    return { success: false, msg: "Nenhum time encontrado no banco de dados." };
-  }
+    const { data: times } = await db.from('times').select('id, time_id_cartola, nome');
+    
+    if (!times || times.length === 0) {
+      return { success: false, msg: "Nenhum time encontrado no banco de dados." };
+    }
 
-  let sucesso = 0;
-  let falha = 0;
+    let sucesso = 0;
+    let falha = 0;
 
-  for (const time of times) {
-    try {
-      const respostaApi = await fetchCartola(`https://api.cartola.globo.com/time/id/${time.time_id_cartola}`);
-      const dadosReais = respostaApi?.time; 
+    for (const time of times) {
+      try {
+        const respostaApi = await fetchCartola(`https://api.cartola.globo.com/time/id/${time.time_id_cartola}`);
+        const dadosReais = respostaApi?.time; 
 
-      if (dadosReais && dadosReais.time_id) {
-        await db.from('times').update({
-          nome: dadosReais.nome,
-          nome_cartola: dadosReais.nome_cartola,
-          escudo: dadosReais.url_escudo_png,
-          slug: dadosReais.slug 
-        }).eq('id', time.id);
-        
-        sucesso++;
-      } else {
+        if (dadosReais && dadosReais.time_id) {
+          await db.from('times').update({
+            nome: dadosReais.nome,
+            nome_cartola: dadosReais.nome_cartola,
+            escudo: dadosReais.url_escudo_png,
+            slug: dadosReais.slug 
+          }).eq('id', time.id);
+          
+          sucesso++;
+        } else {
+          falha++;
+        }
+      } catch (error) {
         falha++;
       }
-    } catch (error) {
-      falha++;
     }
+
+    revalidatePath('/admin/times');
+    revalidatePath('/ranking');
+
+    return { 
+      success: true, 
+      msg: `Atualização concluída! ${sucesso} times atualizados, ${falha} falhas.` 
+    };
+  } catch (error: any) {
+    console.error("Erro em atualizarTodosDadosTimes:", error);
+    return { success: false, msg: error.message || "Erro interno ao atualizar times." };
   }
-
-  revalidatePath('/admin/times');
-  revalidatePath('/ranking');
-
-  return { 
-    success: true, 
-    msg: `Atualização concluída! ${sucesso} times atualizados, ${falha} falhas.` 
-  };
 }
 
 export async function salvarTimePorId(timeId: number) {
-  await verificarAdmin();
-  const db = getDb();
-
   try {
+    await verificarAdmin();
+    const db = getDb();
+
     const dados = await fetchCartola(`https://api.cartola.globo.com/time/id/${timeId}`);
     const timeToSave = dados?.time;
 
@@ -1712,6 +1882,7 @@ export async function salvarTimePorId(timeId: number) {
     return { success: true, msg: `Time "${timeToSave.nome}" salvo com sucesso!`, time: timeSalvo };
 
   } catch (error: any) {
+    console.error("Erro em salvarTimePorId:", error);
     return { success: false, msg: "Erro interno: " + error.message };
   }
 }
@@ -1721,6 +1892,7 @@ export async function salvarTimePorId(timeId: number) {
 // ==============================================================================
 
 export async function atualizarRodadaGrid(campeonatoId: number, rodadaCartola: number) {
+  try {
     await verificarAdmin();
     const db = getDb();
 
@@ -1768,9 +1940,14 @@ export async function atualizarRodadaGrid(campeonatoId: number, rodadaCartola: n
     await recalcularTabelaGrid(campeonatoId);
     revalidatePath(`/campeonatos/${campeonatoId}`);
     return { success: true, msg: "Grid atualizado com sucesso!" };
+  } catch (error: any) {
+    console.error("Erro em atualizarRodadaGrid:", error);
+    return { success: false, msg: error.message || "Erro interno." };
+  }
 }
 
 export async function recalcularTabelaGrid(campeonatoId: number) {
+  try {
     const db = getDb();
 
     // 1. Zera a pontuação atual de todos os times da liga
@@ -1815,6 +1992,9 @@ export async function recalcularTabelaGrid(campeonatoId: number) {
             .eq('campeonato_id', campeonatoId)
             .eq('time_id', timeId);
     }
+  } catch (e) {
+    console.error("Erro interno em recalcularTabelaGrid:", e);
+  }
 }
 
 export async function buscarTabelaGrid(campeonatoId: number) {

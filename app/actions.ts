@@ -2167,3 +2167,23 @@ export async function buscarParciaisGrid(campeonatoId: number) {
 
   return { success: true, parciais: resultados };
 }
+
+async function handleSalvarConfiguracoes() {
+    setIsSaving(true);
+    
+    // 1. Salva os dados gerais do campeonato (Nome, Ano, Tipo, Pagamento, Decimais)
+    // Nota: Mantemos o tipo original da liga para não quebrar a estrutura.
+    const resGeral = await atualizarCampeonato(campeonatoId, nomeLiga, anoLiga, liga.tipo, isPaga, usarDecimais);
+    
+    // 2. Salva a configuração de Final Única (que está em outra action na sua arquitetura)
+    const resConfig = await atualizarConfiguracaoLiga(campeonatoId, finalUnica);
+
+    if (resGeral.success && resConfig.success) {
+      toast.success("Configurações atualizadas com sucesso!");
+      await carregarDados(); // Dá um refresh na tela com os novos dados
+    } else {
+      toast.error(resGeral.msg || resConfig.msg || "Erro ao atualizar.");
+    }
+    
+    setIsSaving(false);
+  }

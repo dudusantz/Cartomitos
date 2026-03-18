@@ -3,8 +3,13 @@
 import { useState, useEffect } from 'react'
 import toast from 'react-hot-toast'
 import { 
-  gerarJogosPontosCorridos, atualizarRodadaPontosCorridos, 
-  buscarTabelaPontosCorridos, zerarJogos, atualizarPlacarManual, listarPartidas, recalcularTabelaPontosCorridos 
+  gerarJogosPontosCorridos, 
+  buscarPreviaRodadaPontosCorridos, // <-- Importação da função oficial
+  buscarTabelaPontosCorridos, 
+  zerarJogos, 
+  atualizarPlacarManual, 
+  listarPartidas, 
+  recalcularTabelaPontosCorridos 
 } from '@/app/actions'
 import { ModalConfirmacao } from './ModalConfirmacao'
 import { Trophy, RefreshCw, Trash2, Save, X, Calendar, PlayCircle } from 'lucide-react'
@@ -14,7 +19,6 @@ interface Props {
   times?: any[] 
 }
 
-// Alterações pendentes: { [jogoId]: { casa: string, visitante: string } }
 type Pendentes = Record<number, { casa: string; visitante: string }>
 
 export default function PainelPontosCorridos({ campeonatoId, times = [] }: Props) {
@@ -26,7 +30,6 @@ export default function PainelPontosCorridos({ campeonatoId, times = [] }: Props
   const [saving, setSaving] = useState(false)
   const [viewAdjusted, setViewAdjusted] = useState(false)
   
-  // Modal e Edição
   const [modalOpen, setModalOpen] = useState(false)
   const [modalConfig, setModalConfig] = useState<any>({})
   const [editingId, setEditingId] = useState<number | null>(null)
@@ -38,7 +41,6 @@ export default function PainelPontosCorridos({ campeonatoId, times = [] }: Props
   const [escudoCasa, setEscudoCasa] = useState('')
   const [escudoVisitante, setEscudoVisitante] = useState('')
 
-  // *** NOVO: alterações pendentes acumuladas ***
   const [pendentes, setPendentes] = useState<Pendentes>({})
   const [salvandoTudo, setSalvandoTudo] = useState(false)
   const temPendentes = Object.keys(pendentes).length > 0
@@ -114,17 +116,28 @@ export default function PainelPontosCorridos({ campeonatoId, times = [] }: Props
     setLoading(false)
   }
 
+  // ====================================================================
+  // LÓGICA CORRIGIDA: Usa a pontuação oficial do Cartola para a prévia
+  // ====================================================================
   async function handleAtualizarRodada() {
-    if (!rodadaCartola) return toast.error("Informe a rodada do Cartola.")
+    const rodadaBusca = rodadaCartola ? Number(rodadaCartola) : rodadaView;
     setLoading(true)
-    const res = await atualizarRodadaPontosCorridos(campeonatoId, rodadaView, Number(rodadaCartola))
-    if (res.success) { toast.success(res.msg); carregarDados() } else toast.error(res.msg)
+    
+    // Chama a função que pega a pontuação oficial e exata
+    const res = await buscarPreviaRodadaPontosCorridos(campeonatoId, rodadaView, rodadaBusca);
+    
+    if (res.success && res.pendentes) { 
+      toast.success("Pontuações carregadas! Revise e clique em Salvar.")
+      setPendentes(prev => ({ ...prev, ...res.pendentes }))
+    } else { 
+      toast.error(res.msg || "Erro ao buscar pontuações.") 
+    }
+    
     setLoading(false)
   }
 
   function abrirModalEdicao(jogo: any) {
     setEditingId(jogo.id)
-    // Se já tem pendente, abre com ele; senão usa o valor salvo no banco
     setTempCasa(pendentes[jogo.id]?.casa ?? String(jogo.placar_casa ?? ''))
     setTempVisitante(pendentes[jogo.id]?.visitante ?? String(jogo.placar_visitante ?? ''))
     
@@ -136,7 +149,6 @@ export default function PainelPontosCorridos({ campeonatoId, times = [] }: Props
     setEscudoVisitante(visitante?.escudo || '/shield-placeholder.png')
   }
 
-  // *** NOVO: guarda localmente sem ir ao banco ***
   function guardarPlacarLocal() {
     if (!editingId) return
     const id = editingId
@@ -149,7 +161,6 @@ export default function PainelPontosCorridos({ campeonatoId, times = [] }: Props
     }))
   }
 
-  // *** NOVO: envia todos os pendentes ao banco de uma vez ***
   async function salvarTudo() {
     if (!temPendentes) return
     setSalvandoTudo(true)
@@ -190,7 +201,6 @@ export default function PainelPontosCorridos({ campeonatoId, times = [] }: Props
         textoBotao={modalConfig.textoBotao || "Confirmar"}
       />
       
-      {/* MODAL DE EDIÇÃO — idêntico ao original */}
       {editingId && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[9999] backdrop-blur-sm p-4">
           <div className="bg-[#1a1a1a] border border-gray-700 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden transform transition-all scale-100">
@@ -231,7 +241,6 @@ export default function PainelPontosCorridos({ campeonatoId, times = [] }: Props
                 <button onClick={() => setEditingId(null)} disabled={saving} className="flex-1 bg-gray-800 text-gray-300 py-3 rounded-lg font-bold hover:bg-gray-700 transition text-xs uppercase tracking-wider disabled:opacity-50">
                   Cancelar
                 </button>
-                {/* Botão agora guarda localmente em vez de ir direto ao banco */}
                 <button onClick={guardarPlacarLocal} className="flex-1 bg-blue-600 text-white py-3 rounded-lg font-bold hover:bg-blue-500 transition text-xs uppercase tracking-wider shadow-lg shadow-blue-900/20 flex items-center justify-center gap-2">
                   <Save className="w-4 h-4" /> Confirmar
                 </button>
@@ -241,7 +250,6 @@ export default function PainelPontosCorridos({ campeonatoId, times = [] }: Props
         </div>
       )}
 
-      {/* CLASSIFICAÇÃO — sem nenhuma alteração visual */}
       <div className="lg:col-span-2 space-y-6">
         <div className="flex flex-col md:flex-row justify-between items-center bg-[#121212] p-5 rounded-2xl border border-gray-800 shadow-lg gap-4">
           <div className="flex items-center gap-3">
@@ -319,11 +327,9 @@ export default function PainelPontosCorridos({ campeonatoId, times = [] }: Props
         </div>
       </div>
 
-      {/* JOGOS */}
       <div className="lg:col-span-1 space-y-6">
         <div className="bg-[#121212] border border-gray-800 rounded-2xl p-6 sticky top-6 shadow-xl h-fit">
 
-          {/* Cabeçalho: título + navegação de rodada */}
           <div className="flex justify-between items-center mb-4 shrink-0">
             <h3 className="text-sm font-black text-white uppercase tracking-widest flex items-center gap-2">
               <Calendar className="text-yellow-500 w-4 h-4" /> Jogos
@@ -335,7 +341,6 @@ export default function PainelPontosCorridos({ campeonatoId, times = [] }: Props
             </div>
           </div>
 
-          {/* Botão salvar — sempre visível, desabilitado quando sem pendentes */}
           <button
             onClick={salvarTudo}
             disabled={salvandoTudo || !temPendentes}
@@ -357,7 +362,7 @@ export default function PainelPontosCorridos({ campeonatoId, times = [] }: Props
           <div className="flex gap-2 mb-6 shrink-0">
             <input type="number" placeholder="Rodada Cartola" className="flex-1 bg-black border border-gray-800 text-white text-[11px] font-bold p-3 rounded-lg focus:border-yellow-500 outline-none transition" value={rodadaCartola} onChange={e => setRodadaCartola(e.target.value)} />
             <button onClick={handleAtualizarRodada} disabled={loading} className="bg-blue-600 hover:bg-blue-500 text-white px-4 rounded-lg text-[10px] font-bold uppercase transition disabled:opacity-50">
-              {loading ? <RefreshCw className="animate-spin w-4 h-4" /> : 'Atualizar'}
+              {loading ? <RefreshCw className="animate-spin w-4 h-4" /> : 'Carregar'}
             </button>
           </div>
           
@@ -370,7 +375,6 @@ export default function PainelPontosCorridos({ campeonatoId, times = [] }: Props
               const visitante = Array.isArray(j.visitante) ? j.visitante[0] : j.visitante
               const editado = !!pendentes[j.id]
 
-              // Placar exibido no card: usa o pendente se existir
               const placarCasa = editado ? pendentes[j.id].casa : (j.placar_casa ?? '-')
               const placarVisitante = editado ? pendentes[j.id].visitante : (j.placar_visitante ?? '-')
 
@@ -386,7 +390,6 @@ export default function PainelPontosCorridos({ campeonatoId, times = [] }: Props
                     editado ? 'border-yellow-500/40' : 'border-gray-800/50'
                   }`}
                 >
-                  {/* bolinha indicadora: amarela = pendente, verde = salvo */}
                   {editado
                     ? <div className="absolute top-0 right-0 w-2 h-2 bg-yellow-500 rounded-bl-lg" />
                     : finalizado && <div className="absolute top-0 right-0 w-2 h-2 bg-green-500 rounded-bl-lg" />
@@ -417,8 +420,6 @@ export default function PainelPontosCorridos({ campeonatoId, times = [] }: Props
           </div>
         </div>
       </div>
-
-
     </div>
   )
 }

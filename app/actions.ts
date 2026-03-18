@@ -278,6 +278,53 @@ export async function removerTimeDaLiga(campeonatoId: number, timeId: number) {
   }
 }
 
+export async function substituirTimeNaLiga(campeonatoId: number, timeAntigoId: number, timeNovoId: number) {
+  try {
+    await verificarAdmin();
+    const db = getDb();
+
+    // 1. Verifica se o time novo já está na liga para evitar duplicações
+    const { data: existe } = await db.from('classificacao')
+      .select('id')
+      .eq('campeonato_id', campeonatoId)
+      .eq('time_id', timeNovoId)
+      .single();
+      
+    if (existe) return { success: false, msg: "O time substituto já está nesta liga." };
+
+    // 2. Transfere a vaga na classificação (Herda os pontos)
+    const { error: errClass } = await db.from('classificacao')
+      .update({ time_id: timeNovoId })
+      .eq('campeonato_id', campeonatoId)
+      .eq('time_id', timeAntigoId);
+      
+    if (errClass) return { success: false, msg: errClass.message };
+
+    // 3. Transfere todas as partidas onde o time era Mandante
+    await db.from('partidas')
+      .update({ time_casa: timeNovoId })
+      .eq('campeonato_id', campeonatoId)
+      .eq('time_casa', timeAntigoId);
+
+    // 4. Transfere todas as partidas onde o time era Visitante
+    await db.from('partidas')
+      .update({ time_visitante: timeNovoId })
+      .eq('campeonato_id', campeonatoId)
+      .eq('time_visitante', timeAntigoId);
+
+    // 5. Recalcula a tabela para processar os novos dados
+    await recalcularTabelaPontosCorridos(campeonatoId);
+    
+    revalidatePath(`/campeonatos/${campeonatoId}`);
+    revalidatePath(`/admin/ligas/${campeonatoId}`);
+    
+    return { success: true, msg: "Time substituído! O novo time assumiu a vaga." };
+  } catch (error: any) {
+    console.error("Erro em substituirTime:", error);
+    return { success: false, msg: error.message || "Erro interno." };
+  }
+}
+
 export async function listarTimesDoCampeonato(campeonatoId: number) {
   const { data } = await supabase.from('classificacao').select('*, times(*)').eq('campeonato_id', campeonatoId)
   return data || []

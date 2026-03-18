@@ -4,7 +4,7 @@ import { useState } from 'react'
 import toast from 'react-hot-toast'
 import { adicionarTimeAoCampeonato, removerTimeDaLiga, substituirTimeNaLiga } from '@/app/actions'
 import { ModalConfirmacao } from './ModalConfirmacao'
-import { RefreshCw } from 'lucide-react' // <-- Adicionado ícone novo
+import { RefreshCw } from 'lucide-react'
 
 interface Props {
   campeonatoId: number
@@ -119,7 +119,8 @@ export default function PainelTimes({ campeonatoId, timesLiga, todosTimes, aoAtu
                 <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">Selecione o Substituto</label>
                 <select 
                   value={timeEntrando} 
-                  onChange={e => setTimeEntrando(e.target.value)}
+                  /* CORREÇÃO DO TYPESCRIPT AQUI: CONVERSÃO PARA NUMBER */
+                  onChange={e => setTimeEntrando(e.target.value ? Number(e.target.value) : '')}
                   className="w-full bg-black border border-gray-700 text-white p-4 rounded-xl focus:border-blue-500 outline-none cursor-pointer transition font-bold text-sm"
                 >
                   <option value="" disabled>-- Escolha um time do banco --</option>

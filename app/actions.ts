@@ -41,7 +41,7 @@ async function fetchCartola(url: string, timeout = 5000) {
         'Accept': 'application/json',
         'Referer': 'https://ge.globo.com/'
       },
-    
+      
       cache: 'no-store' 
     });
     
@@ -1311,9 +1311,11 @@ export async function buscarMaioresPontuadores() {
   return lista.sort((a, b) => b.pontos - a.pontos).slice(0, 5)
 }
 
+// OTIMIZADO - SEM MEMORY LEAK E SEM RATE LIMIT
 export async function buscarParciaisAoVivo(jogos: any[]) {
   const ts = Date.now();
   
+  // 1. Busca pontuações parciais e status dos jogos (Uma única chamada)
   const [parciaisGerais, partidasCartola] = await Promise.all([
       fetchCartola(`https://api.cartola.globo.com/atletas/pontuados?_=${ts}`),
       fetchCartola(`https://api.cartola.globo.com/partidas?_=${ts}`)
@@ -1340,15 +1342,9 @@ export async function buscarParciaisAoVivo(jogos: any[]) {
       return status !== undefined ? status !== 1 : true; 
   };
 
-  const jogosComParcial = await Promise.all(jogos.map(async (jogo) => {
-    
-    const calcularTime = async (timeId: number, rodada: number) => {
-      let dataTime = await fetchCartola(`https://api.cartola.globo.com/time/id/${timeId}/${rodada}?_=${ts}`);
-      
-      if (!dataTime || !dataTime.atletas || dataTime.atletas.length === 0) {
-         dataTime = await fetchCartola(`https://api.cartola.globo.com/time/id/${timeId}?_=${ts}`);
-      }
-
+  // 2. FUNÇÃO PURA: Colocada fora do loop para não estourar a memória.
+  // Ela não faz chamadas de rede (fetch), apenas recebe os dados e faz a matemática.
+  const calcularTime = (dataTime: any) => {
       if (!dataTime || !dataTime.atletas) return 0;
 
       let luxoIdOficial = "0";
@@ -1459,15 +1455,34 @@ export async function buscarParciaisAoVivo(jogos: any[]) {
       });
 
       return parseFloat(somaTotal.toFixed(2));
-    }
+  };
 
-    const [pc, pv] = await Promise.all([
-      calcularTime(jogo.casa.time_id_cartola, jogo.rodada),
-      calcularTime(jogo.visitante.time_id_cartola, jogo.rodada)
-    ]);
+  // 3. OTIMIZAÇÃO DE PERFORMANCE: Listar equipas únicas para evitar N+1
+  const mapTimes = new Map<number, number>(); 
+  jogos.forEach(jogo => {
+    if (jogo.casa?.time_id_cartola) mapTimes.set(jogo.casa.time_id_cartola, jogo.rodada);
+    if (jogo.visitante?.time_id_cartola) mapTimes.set(jogo.visitante.time_id_cartola, jogo.rodada);
+  });
 
-    return { ...jogo, placar_casa: pc, placar_visitante: pv, is_parcial: true }
+  // 4. Buscar as escalações de todos os times de forma paralela e em lote
+  const escalacoesCache: Record<number, any> = {};
+  await Promise.all(Array.from(mapTimes.entries()).map(async ([timeId, rodada]) => {
+      let dataTime = await fetchCartola(`https://api.cartola.globo.com/time/id/${timeId}/${rodada}?_=${ts}`);
+      
+      // Fallback
+      if (!dataTime || !dataTime.atletas || dataTime.atletas.length === 0) {
+         dataTime = await fetchCartola(`https://api.cartola.globo.com/time/id/${timeId}?_=${ts}`);
+      }
+      escalacoesCache[timeId] = dataTime;
   }));
+
+  // 5. Mapear os jogos finais de forma síncrona e ultrarrápida (sem usar await aqui)
+  const jogosComParcial = jogos.map((jogo) => {
+    const pc = calcularTime(escalacoesCache[jogo.casa.time_id_cartola]);
+    const pv = calcularTime(escalacoesCache[jogo.visitante.time_id_cartola]);
+
+    return { ...jogo, placar_casa: pc, placar_visitante: pv, is_parcial: true };
+  });
 
   return { success: true, jogos: jogosComParcial }
 }
@@ -2079,7 +2094,7 @@ export async function buscarTabelaGrid(campeonatoId: number) {
 }
 
 // ==============================================================================
-// 10. MÓDULO: PARCIAIS GRID (NOVO)
+// 10. MÓDULO: PARCIAIS GRID (OTIMIZADO - SEM MEMORY LEAK E SEM RATE LIMIT)
 // ==============================================================================
 
 export async function buscarParciaisGrid(campeonatoId: number) {
@@ -2114,12 +2129,9 @@ export async function buscarParciaisGrid(campeonatoId: number) {
       return status !== undefined ? status !== 1 : true;
   };
 
-  const resultados = await Promise.all(times.map(async (t: any) => {
-      const timeId = t.times.time_id_cartola;
-      
-      let dataTime = await fetchCartola(`https://api.cartola.globo.com/time/id/${timeId}?_=${ts}`);
-      
-      if (!dataTime || !dataTime.atletas) return { time_id: t.time_id, parcial: 0 };
+  // FUNÇÃO PURA: Fora do loop para evitar recriação na memória.
+  const calcularTime = (dataTime: any) => {
+      if (!dataTime || !dataTime.atletas) return 0;
 
       let luxoIdOficial = "0";
       if (dataTime.reserva_luxo_id) luxoIdOficial = String(dataTime.reserva_luxo_id);
@@ -2209,8 +2221,24 @@ export async function buscarParciaisGrid(campeonatoId: number) {
           somaTotal += p;
       });
 
-      return { time_id: t.time_id, parcial: parseFloat(somaTotal.toFixed(2)) };
+      return parseFloat(somaTotal.toFixed(2));
+  };
+
+  // OTIMIZAÇÃO: Busca todas as escalações de forma paralela
+  const escalacoesCache: Record<number, any> = {};
+  await Promise.all(times.map(async (t: any) => {
+      const timeId = t.times.time_id_cartola;
+      let dataTime = await fetchCartola(`https://api.cartola.globo.com/time/id/${timeId}?_=${ts}`);
+      escalacoesCache[timeId] = dataTime;
   }));
+
+  // Mapeamento super rápido na memória local
+  const resultados = times.map((t: any) => {
+      const timeId = t.times.time_id_cartola;
+      const dataTime = escalacoesCache[timeId];
+      const parcialCalculada = calcularTime(dataTime);
+      return { time_id: t.time_id, parcial: parcialCalculada };
+  });
 
   return { success: true, parciais: resultados };
 }

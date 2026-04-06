@@ -2301,7 +2301,7 @@ export async function buscarDetalhesConfrontoAoVivo(timeCasaIdCartola: number, t
   try {
       const tsNow = Date.now();
       
-      // 1. Identificar Rodada Atual para saber o contexto do motor
+      // 1. Identificar Rodada Atual para contexto do motor
       const statusMercadoRes = await fetchCartola(`https://api.cartola.globo.com/mercado/status?_=${tsNow}`);
       const rodadaAtualMercado = statusMercadoRes?.rodada_atual || 1;
       
@@ -2323,7 +2323,7 @@ export async function buscarDetalhesConfrontoAoVivo(timeCasaIdCartola: number, t
           urlSubVis ? fetchCartola(`${urlSubVis}?_=${tsNow}`).catch(() => ([])) : Promise.resolve([])
       ]);
 
-      // Mapa de Status de Partidas (Prova cabal se a partida iniciou)
+      // Mapa de Status de Partidas (Detecção de início agressiva)
       const statusClubes: Record<number, boolean> = {};
       if (partidasCartola?.partidas) {
           partidasCartola.partidas.forEach((p: any) => {
@@ -2347,13 +2347,11 @@ export async function buscarDetalhesConfrontoAoVivo(timeCasaIdCartola: number, t
       
       const jogoComecou = (clubeId: number) => isRodadaPassada ? true : !!statusClubes[clubeId];
 
-      // =========================================================
-      // ENGINE DE PROCESSAMENTO DE ESCALAÇÃO
-      // =========================================================
+      // Engine de Processamento de Escalação
       const processarEscalacao = (dataTime: any, subsDaAPI: any) => {
           if (!dataTime || !dataTime.atletas) return { titulares: [], reservas: [], pontosTime: 0, substituicoes: [] };
 
-          let arraySubstituicoes = Array.isArray(subsDaAPI) ? subsDaAPI : (subsDaAPI?.substituicoes || []);
+          const arraySubstituicoes = Array.isArray(subsDaAPI) ? subsDaAPI : (subsDaAPI?.substituicoes || []);
 
           let luxoIdOficial = "0";
           if (dataTime.reserva_luxo_id) luxoIdOficial = String(dataTime.reserva_luxo_id);
@@ -2364,7 +2362,7 @@ export async function buscarDetalhesConfrontoAoVivo(timeCasaIdCartola: number, t
               if (resLuxo) luxoIdOficial = String(resLuxo.atleta_id);
           }
 
-          let capitaoId = String(dataTime.capitao_id || dataTime.time?.capitao_id || "0");
+          const capitaoId = String(dataTime.capitao_id || dataTime.time?.capitao_id || "0");
 
           const getPontos = (id: string, ptsFechados?: number) => {
              if (isRodadaPassada) return ptsFechados || 0;
@@ -2391,23 +2389,24 @@ export async function buscarDetalhesConfrontoAoVivo(timeCasaIdCartola: number, t
               usado: false
           });
 
-          let titulares = dataTime.atletas.map(formatPlayer);
-          let reservas = (dataTime.reservas || []).map(formatPlayer);
+          const titulares = dataTime.atletas.map(formatPlayer);
+          const reservas = (dataTime.reservas || []).map(formatPlayer);
 
           let capitaoRealId = capitaoId;
           let somaTotal = 0;
-          let escalacaoFinalVisual: any[] = [];
+          const escalacaoFinalVisual: any[] = [];
 
+          // CASO 1: RODADA PASSADA
           if (isRodadaPassada) {
              titulares.forEach((t: any) => {
-                 let pFechado = t.pontos;
+                 const pFechado = t.pontos;
                  t.pontosCalculados = pFechado;
                  if (t.isCapitao) t.pontos = pFechado / 1.5;
                  somaTotal += pFechado;
              });
 
-             titulares.sort((a:any, b:any) => a.posicao_id - b.posicao_id);
-             reservas.sort((a:any, b:any) => a.posicao_id - b.posicao_id);
+             titulares.sort((a: any, b: any) => a.posicao_id - b.posicao_id);
+             reservas.sort((a: any, b: any) => a.posicao_id - b.posicao_id);
              
              return { 
                  titulares: titulares, 
@@ -2417,23 +2416,20 @@ export async function buscarDetalhesConfrontoAoVivo(timeCasaIdCartola: number, t
              };
           }
 
-          // =========================================================
-          // MOTOR DE SUBSTITUIÇÃO DINÂMICA AO VIVO
-          // =========================================================
+          // CASO 2: RODADA AO VIVO
           const titsByPos: Record<number, any[]> = {};
           const resByPos: Record<number, any[]> = {};
           
           titulares.forEach((t: any) => { if (!titsByPos[t.posicao_id]) titsByPos[t.posicao_id] = []; titsByPos[t.posicao_id].push(t); });
           reservas.forEach((r: any) => { if (!resByPos[r.posicao_id]) resByPos[r.posicao_id] = []; resByPos[r.posicao_id].push(r); });
 
-          // A. Substituição Normal (Titular não jogou)
+          // Substituição Normal
           for (const posId in titsByPos) {
-              let res = resByPos[posId] || [];
+              const res = resByPos[posId] || [];
               res.sort((a: any, b: any) => b.pontos - a.pontos);
 
               for (let i = 0; i < titsByPos[posId].length; i++) {
-                  let titular = titsByPos[posId][i];
-                  
+                  const titular = titsByPos[posId][i];
                   if (!titular.jogou && jogoComecou(titular.clube_id)) {
                       const rDisponivel = res.find((r: any) => r.jogou && !r.usado);
                       if (rDisponivel) {
@@ -2445,29 +2441,24 @@ export async function buscarDetalhesConfrontoAoVivo(timeCasaIdCartola: number, t
               }
           }
 
-          // B. Reserva de Luxo (CORRIGIDO: Sem trava global)
+          // Reserva de Luxo
           if (luxoIdOficial !== "0") {
               const rLuxo = reservas.find((r: any) => r.id === luxoIdOficial);
-              
               if (rLuxo && rLuxo.jogou && !rLuxo.usado) {
-                  let titsDaMesmaPosicao = titsByPos[rLuxo.posicao_id] || [];
-                  
+                  const titsDaMesmaPosicao = titsByPos[rLuxo.posicao_id] || [];
                   if (titsDaMesmaPosicao.length > 0) {
-                      // Descobre qual é o titular (ou reserva que entrou) com a MENOR pontuação
                       let piorTitular = titsDaMesmaPosicao[0];
                       let menorPts = piorTitular.substituidoPor ? piorTitular.substituidoPor.pontos : piorTitular.pontos;
 
                       for (let i = 1; i < titsDaMesmaPosicao.length; i++) {
-                          let tit = titsDaMesmaPosicao[i];
-                          let ptsSlot = tit.substituidoPor ? tit.substituidoPor.pontos : tit.pontos;
-                          
+                          const tit = titsDaMesmaPosicao[i];
+                          const ptsSlot = tit.substituidoPor ? tit.substituidoPor.pontos : tit.pontos;
                           if (ptsSlot < menorPts) {
                               menorPts = ptsSlot;
                               piorTitular = tit;
                           }
                       }
 
-                      // Troca apenas se a pontuação for maior
                       if (rLuxo.pontos > menorPts) {
                           rLuxo.usado = true;
                           if (piorTitular.id === capitaoRealId || (piorTitular.substituidoPor && piorTitular.substituidoPor.id === capitaoRealId)) {
@@ -2479,16 +2470,15 @@ export async function buscarDetalhesConfrontoAoVivo(timeCasaIdCartola: number, t
               }
           }
 
-          // C. Empacotamento
           for (const posId in titsByPos) {
               escalacaoFinalVisual.push(...titsByPos[posId]);
           }
 
           escalacaoFinalVisual.forEach((t: any) => {
-              let jogadorAtivo = t.substituidoPor ? t.substituidoPor : t;
+              const jogadorAtivo = t.substituidoPor ? t.substituidoPor : t;
               jogadorAtivo.isCapitao = jogadorAtivo.id === capitaoRealId;
               
-              let pRaw = jogadorAtivo.pontos; 
+              const pRaw = jogadorAtivo.pontos; 
               let pFinal = pRaw;
               
               if (jogadorAtivo.isCapitao) pFinal = pRaw * 1.5;
@@ -2505,8 +2495,8 @@ export async function buscarDetalhesConfrontoAoVivo(timeCasaIdCartola: number, t
               }
           });
 
-          escalacaoFinalVisual.sort((a,b) => a.posicao_id - b.posicao_id);
-          reservas.sort((a,b) => a.posicao_id - b.posicao_id);
+          escalacaoFinalVisual.sort((a: any, b: any) => a.posicao_id - b.posicao_id);
+          reservas.sort((a: any, b: any) => a.posicao_id - b.posicao_id);
 
           return { 
               titulares: escalacaoFinalVisual, 

@@ -11,6 +11,7 @@ import {
   Trophy,
 } from "lucide-react";
 import toast from "react-hot-toast";
+import ModalConfrontoAoVivo from "./ModalConfrontoAoVivo";
 
 interface Props {
   campeonatoId: number;
@@ -27,6 +28,9 @@ export default function MataMataPublico({
   const [loading, setLoading] = useState(true);
   const [loadingLive, setLoadingLive] = useState(false);
   const [modoAoVivo, setModoAoVivo] = useState(false);
+
+  // State para o Modal
+  const [jogoSelecionado, setJogoSelecionado] = useState<any>(null);
 
   // Zoom e Scroll
   const [escala, setEscala] = useState(1);
@@ -200,7 +204,15 @@ export default function MataMataPublico({
                                     p.rodada_bracket === faseId + 1 && 
                                     (p.time_casa === jogoIda.time_visitante || p.time_casa === jogoIda.time_casa)
                                 );
-                                return <CardConfronto key={jogoIda.id} ida={jogoIda} volta={jogoVolta} modoAoVivo={modoAoVivo} />
+                                return (
+                                  <CardConfronto 
+                                    key={jogoIda.id} 
+                                    ida={jogoIda} 
+                                    volta={jogoVolta} 
+                                    modoAoVivo={modoAoVivo}
+                                    onSelect={() => setJogoSelecionado(jogoIda)}
+                                  />
+                                );
                             })}
                         </div>
                     </div>
@@ -220,6 +232,14 @@ export default function MataMataPublico({
           <span className="text-[10px] uppercase tracking-widest">Scroll</span>
         </div>
       </div>
+
+      {/* MODAL DE CONFRONTO AO VIVO */}
+      {jogoSelecionado && (
+        <ModalConfrontoAoVivo 
+            jogo={jogoSelecionado} 
+            onClose={() => setJogoSelecionado(null)} 
+        />
+      )}
     </div>
   );
 }
@@ -228,7 +248,7 @@ export default function MataMataPublico({
 // SUB-COMPONENTES
 // =========================================================================
 
-function CardConfronto({ ida, volta, modoAoVivo }: { ida: any, volta?: any, modoAoVivo: boolean }) {
+function CardConfronto({ ida, volta, modoAoVivo, onSelect }: { ida: any, volta?: any, modoAoVivo: boolean, onSelect: () => void }) {
     if (ida.status === 'bye') return null;
 
     // === MUDANÇA PRINCIPAL AQUI ===
@@ -269,7 +289,10 @@ function CardConfronto({ ida, volta, modoAoVivo }: { ida: any, volta?: any, modo
     }
 
     return (
-        <div className={`bg-[#151515] border rounded-xl overflow-hidden shadow-lg relative group transition-all ${emAndamento ? 'border-green-500/40 shadow-green-900/20' : 'border-gray-800 hover:border-gray-600'}`}>
+        <div 
+            onClick={onSelect}
+            className={`cursor-pointer bg-[#151515] border rounded-xl overflow-hidden shadow-lg relative group transition-all hover:border-blue-500/50 hover:bg-[#1a1a1a] ${emAndamento ? 'border-green-500/40 shadow-green-900/20' : 'border-gray-800'}`}
+        >
             {emAndamento && <div className="absolute top-0 right-0 w-2 h-2 bg-green-500 rounded-bl-lg animate-pulse"></div>}
             
             {/* Time 1 (Mandante Ida) */}
@@ -290,7 +313,7 @@ function CardConfronto({ ida, volta, modoAoVivo }: { ida: any, volta?: any, modo
                 </div>
             </div>
 
-            <div className="h-px bg-gray-800 w-full"></div>
+            <div className="h-px bg-gray-800 w-full group-hover:bg-gray-700 transition-colors"></div>
 
             {/* Time 2 (Visitante Ida) */}
             <div className={`flex justify-between items-center p-3 ${win2 ? 'bg-green-900/10' : ''}`}>

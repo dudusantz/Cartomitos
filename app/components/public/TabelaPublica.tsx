@@ -6,6 +6,7 @@ import {
   buscarParciaisAoVivo,
   listarPartidas,
 } from "../../actions";
+import ModalConfrontoAoVivo from "./ModalConfrontoAoVivo";
 
 interface Props {
   campeonatoId: number;
@@ -21,6 +22,9 @@ export default function TabelaPublica({ campeonatoId }: Props) {
   const [rodadaView, setRodadaView] = useState(1);
   const [modoAoVivo, setModoAoVivo] = useState(false);
   const [loading, setLoading] = useState(false);
+  
+  // State para o Modal
+  const [jogoSelecionado, setJogoSelecionado] = useState<any>(null);
 
   useEffect(() => {
     async function init() {
@@ -354,8 +358,9 @@ export default function TabelaPublica({ campeonatoId }: Props) {
               return (
                 <div
                   key={j.id}
-                  className={`relative bg-gradient-to-br from-[#151515] to-[#0a0a0a] border p-4 rounded-2xl transition-all shadow-lg overflow-hidden group ${
-                    isLive ? "border-green-500/40 shadow-[0_0_15px_rgba(34,197,94,0.1)]" : "border-gray-800/60 hover:border-gray-700"
+                  onClick={() => setJogoSelecionado(j)}
+                  className={`cursor-pointer relative bg-gradient-to-br from-[#151515] to-[#0a0a0a] border p-4 rounded-2xl transition-all shadow-lg overflow-hidden group hover:border-blue-500/50 hover:bg-[#1a1a1a] ${
+                    isLive ? "border-green-500/40 shadow-[0_0_15px_rgba(34,197,94,0.1)]" : "border-gray-800/60"
                   }`}
                 >
                   {isLive && (
@@ -403,6 +408,14 @@ export default function TabelaPublica({ campeonatoId }: Props) {
           </div>
         </div>
       </div>
+
+      {/* MODAL DE CONFRONTO AO VIVO */}
+      {jogoSelecionado && (
+        <ModalConfrontoAoVivo 
+          jogo={jogoSelecionado} 
+          onClose={() => setJogoSelecionado(null)} 
+        />
+      )}
     </div>
   );
 }

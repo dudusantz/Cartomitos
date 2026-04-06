@@ -6,6 +6,7 @@ import {
   listarPartidas,
   buscarParciaisAoVivo,
 } from "../../actions";
+import ModalConfrontoAoVivo from "./ModalConfrontoAoVivo";
 
 interface Props {
   campeonatoId: number;
@@ -25,6 +26,9 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
   const [loading, setLoading] = useState(true);
   const [loadingLive, setLoadingLive] = useState(false);
   const [modoAoVivo, setModoAoVivo] = useState(false);
+  
+  // State para controlar a abertura do modal de escalações
+  const [jogoSelecionado, setJogoSelecionado] = useState<any>(null);
 
   useEffect(() => {
     async function carregar() {
@@ -427,8 +431,9 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
               return (
                 <div
                   key={j.id}
+                  onClick={() => setJogoSelecionado(j)}
                   className={`
-                                bg-gradient-to-br from-[#121212] to-[#0a0a0a] border rounded-2xl p-4 transition-all relative overflow-hidden shadow-lg
+                                cursor-pointer bg-gradient-to-br from-[#121212] to-[#0a0a0a] border rounded-2xl p-4 transition-all relative overflow-hidden shadow-lg hover:border-blue-500/50 hover:bg-[#1a1a1a]
                                 ${
                                   parcial
                                     ? "border-green-500/40 shadow-[0_0_10px_rgba(34,197,94,0.1)]"
@@ -523,6 +528,14 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
           </div>
         </div>
       </div>
+      
+      {/* RENDERIZAÇÃO DO MODAL DE CONFRONTO */}
+      {jogoSelecionado && (
+          <ModalConfrontoAoVivo 
+              jogo={jogoSelecionado} 
+              onClose={() => setJogoSelecionado(null)} 
+          />
+      )}
     </div>
   );
 }

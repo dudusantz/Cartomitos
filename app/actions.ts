@@ -41,7 +41,6 @@ async function fetchCartola(url: string, timeout = 5000) {
         'Accept': 'application/json',
         'Referer': 'https://ge.globo.com/'
       },
-      
       cache: 'no-store' 
     });
     
@@ -51,7 +50,18 @@ async function fetchCartola(url: string, timeout = 5000) {
         console.error(`🚨 Erro na API do Cartola (${res.status}) para a URL: ${url}`);
         return null;
     }
-    return await res.json();
+
+    // 1. Extrai a resposta como TEXTO bruto para evitar o erro de 'Unexpected end of JSON input'
+    const text = await res.text();
+
+    // 2. Se a resposta for vazia (comportamento padrão do Cartola sem parciais no momento), encerra suavemente
+    if (!text || text.trim() === "") {
+        return null;
+    }
+
+    // 3. Se tiver conteúdo, faz o parse com segurança
+    return JSON.parse(text);
+
   } catch (error) {
     console.error(`🚨 Falha Crítica no fetchCartola para a URL ${url}:`, error);
     return null;
@@ -2284,5 +2294,252 @@ export async function buscarPreviaRodadaPontosCorridos(campeonatoId: number, rod
   } catch (error: any) {
     console.error("Erro em buscarPrevia:", error);
     return { success: false, msg: error.message || "Erro interno." };
+  }
+}
+
+export async function buscarDetalhesConfrontoAoVivo(timeCasaIdCartola: number, timeVisIdCartola: number, rodada?: number) {
+  try {
+      const tsNow = Date.now();
+      
+      // 1. Identificar Rodada Atual para saber o contexto do motor
+      const statusMercadoRes = await fetchCartola(`https://api.cartola.globo.com/mercado/status?_=${tsNow}`);
+      const rodadaAtualMercado = statusMercadoRes?.rodada_atual || 1;
+      
+      const isRodadaPassada = rodada !== undefined && rodada < rodadaAtualMercado;
+
+      const urlCasa = rodada ? `https://api.cartola.globo.com/time/id/${timeCasaIdCartola}/${rodada}` : `https://api.cartola.globo.com/time/id/${timeCasaIdCartola}`;
+      const urlVis = rodada ? `https://api.cartola.globo.com/time/id/${timeVisIdCartola}/${rodada}` : `https://api.cartola.globo.com/time/id/${timeVisIdCartola}`;
+
+      const urlSubCasa = isRodadaPassada ? `https://api.cartola.globo.com/time/substituicoes/${timeCasaIdCartola}/${rodada}` : null;
+      const urlSubVis = isRodadaPassada ? `https://api.cartola.globo.com/time/substituicoes/${timeVisIdCartola}/${rodada}` : null;
+
+      // 2. Busca paralela inteligente
+      const [parciais, timeCasa, timeVis, partidasCartola, subsCasa, subsVis] = await Promise.all([
+          isRodadaPassada ? Promise.resolve(null) : fetchCartola(`https://api.cartola.globo.com/atletas/pontuados?_=${tsNow}`),
+          fetchCartola(`${urlCasa}?_=${tsNow}`),
+          fetchCartola(`${urlVis}?_=${tsNow}`),
+          fetchCartola(`https://api.cartola.globo.com/partidas?_=${tsNow}`),
+          urlSubCasa ? fetchCartola(`${urlSubCasa}?_=${tsNow}`).catch(() => ([])) : Promise.resolve([]),
+          urlSubVis ? fetchCartola(`${urlSubVis}?_=${tsNow}`).catch(() => ([])) : Promise.resolve([])
+      ]);
+
+      // Mapa de Status de Partidas (Prova cabal se a partida iniciou)
+      const statusClubes: Record<number, boolean> = {};
+      if (partidasCartola?.partidas) {
+          partidasCartola.partidas.forEach((p: any) => {
+              let started = false;
+              if (p.status_partida_id && [2, 3, 4].includes(p.status_partida_id)) {
+                  started = true;
+              } else if (p.partida_data) {
+                  const dateStr = p.partida_data.replace(' ', 'T') + '-03:00';
+                  if (tsNow >= new Date(dateStr).getTime()) started = true;
+              }
+              statusClubes[p.clube_casa_id] = started;
+              statusClubes[p.clube_visitante_id] = started;
+          });
+      }
+
+      if (parciais?.atletas) {
+          Object.values(parciais.atletas).forEach((a: any) => {
+              if (a.clube_id) statusClubes[a.clube_id] = true;
+          });
+      }
+      
+      const jogoComecou = (clubeId: number) => isRodadaPassada ? true : !!statusClubes[clubeId];
+
+      // =========================================================
+      // ENGINE DE PROCESSAMENTO DE ESCALAÇÃO
+      // =========================================================
+      const processarEscalacao = (dataTime: any, subsDaAPI: any) => {
+          if (!dataTime || !dataTime.atletas) return { titulares: [], reservas: [], pontosTime: 0, substituicoes: [] };
+
+          let arraySubstituicoes = Array.isArray(subsDaAPI) ? subsDaAPI : (subsDaAPI?.substituicoes || []);
+
+          let luxoIdOficial = "0";
+          if (dataTime.reserva_luxo_id) luxoIdOficial = String(dataTime.reserva_luxo_id);
+          else if (dataTime.id_reserva_luxo) luxoIdOficial = String(dataTime.id_reserva_luxo);
+          else if (dataTime.time?.reserva_luxo_id) luxoIdOficial = String(dataTime.time.reserva_luxo_id);
+          else if (dataTime.reservas) {
+              const resLuxo = dataTime.reservas.find((r: any) => r.luxo === true || r.is_luxo === true || r.reserva_luxo === true);
+              if (resLuxo) luxoIdOficial = String(resLuxo.atleta_id);
+          }
+
+          let capitaoId = String(dataTime.capitao_id || dataTime.time?.capitao_id || "0");
+
+          const getPontos = (id: string, ptsFechados?: number) => {
+             if (isRodadaPassada) return ptsFechados || 0;
+             return parciais?.atletas?.[id] ? parseFloat(parciais.atletas[id].pontuacao) : 0;
+          };
+          
+          const checarJogou = (id: string, ptsFechados?: number) => {
+             if (isRodadaPassada) return (ptsFechados !== undefined && ptsFechados !== 0) || arraySubstituicoes.some((s:any) => String(s.entrou?.atleta_id || s.entrou?.id || s.entrou) === id);
+             return !!parciais?.atletas?.[id];
+          };
+
+          const formatPlayer = (at: any) => ({
+              id: String(at.atleta_id),
+              nome: at.apelido,
+              foto: at.foto ? at.foto.replace('FORMATO', '140x140') : '/user-placeholder.png',
+              posicao: dataTime.posicoes?.[at.posicao_id]?.abreviacao || '-',
+              posicao_id: at.posicao_id,
+              clube_id: at.clube_id,
+              pontos: getPontos(String(at.atleta_id), at.pontos_num),
+              jogou: checarJogou(String(at.atleta_id), at.pontos_num),
+              isCapitao: String(at.atleta_id) === capitaoId,
+              isLuxo: String(at.atleta_id) === luxoIdOficial,
+              substituidoPor: null as any,
+              usado: false
+          });
+
+          let titulares = dataTime.atletas.map(formatPlayer);
+          let reservas = (dataTime.reservas || []).map(formatPlayer);
+
+          let capitaoRealId = capitaoId;
+          let somaTotal = 0;
+          let escalacaoFinalVisual: any[] = [];
+
+          if (isRodadaPassada) {
+             titulares.forEach((t: any) => {
+                 let pFechado = t.pontos;
+                 t.pontosCalculados = pFechado;
+                 if (t.isCapitao) t.pontos = pFechado / 1.5;
+                 somaTotal += pFechado;
+             });
+
+             titulares.sort((a:any, b:any) => a.posicao_id - b.posicao_id);
+             reservas.sort((a:any, b:any) => a.posicao_id - b.posicao_id);
+             
+             return { 
+                 titulares: titulares, 
+                 reservas: reservas, 
+                 pontosTime: dataTime.pontos || parseFloat(somaTotal.toFixed(2)),
+                 substituicoes: arraySubstituicoes 
+             };
+          }
+
+          // =========================================================
+          // MOTOR DE SUBSTITUIÇÃO DINÂMICA AO VIVO
+          // =========================================================
+          const titsByPos: Record<number, any[]> = {};
+          const resByPos: Record<number, any[]> = {};
+          
+          titulares.forEach((t: any) => { if (!titsByPos[t.posicao_id]) titsByPos[t.posicao_id] = []; titsByPos[t.posicao_id].push(t); });
+          reservas.forEach((r: any) => { if (!resByPos[r.posicao_id]) resByPos[r.posicao_id] = []; resByPos[r.posicao_id].push(r); });
+
+          // A. Substituição Normal (Titular não jogou)
+          for (const posId in titsByPos) {
+              let res = resByPos[posId] || [];
+              res.sort((a: any, b: any) => b.pontos - a.pontos);
+
+              for (let i = 0; i < titsByPos[posId].length; i++) {
+                  let titular = titsByPos[posId][i];
+                  
+                  if (!titular.jogou && jogoComecou(titular.clube_id)) {
+                      const rDisponivel = res.find((r: any) => r.jogou && !r.usado);
+                      if (rDisponivel) {
+                          rDisponivel.usado = true;
+                          if (titular.id === capitaoRealId) capitaoRealId = rDisponivel.id;
+                          titular.substituidoPor = { ...rDisponivel };
+                      }
+                  }
+              }
+          }
+
+          // B. Reserva de Luxo (CORRIGIDO: Sem trava global)
+          if (luxoIdOficial !== "0") {
+              const rLuxo = reservas.find((r: any) => r.id === luxoIdOficial);
+              
+              if (rLuxo && rLuxo.jogou && !rLuxo.usado) {
+                  let titsDaMesmaPosicao = titsByPos[rLuxo.posicao_id] || [];
+                  
+                  if (titsDaMesmaPosicao.length > 0) {
+                      // Descobre qual é o titular (ou reserva que entrou) com a MENOR pontuação
+                      let piorTitular = titsDaMesmaPosicao[0];
+                      let menorPts = piorTitular.substituidoPor ? piorTitular.substituidoPor.pontos : piorTitular.pontos;
+
+                      for (let i = 1; i < titsDaMesmaPosicao.length; i++) {
+                          let tit = titsDaMesmaPosicao[i];
+                          let ptsSlot = tit.substituidoPor ? tit.substituidoPor.pontos : tit.pontos;
+                          
+                          if (ptsSlot < menorPts) {
+                              menorPts = ptsSlot;
+                              piorTitular = tit;
+                          }
+                      }
+
+                      // Troca apenas se a pontuação for maior
+                      if (rLuxo.pontos > menorPts) {
+                          rLuxo.usado = true;
+                          if (piorTitular.id === capitaoRealId || (piorTitular.substituidoPor && piorTitular.substituidoPor.id === capitaoRealId)) {
+                              capitaoRealId = rLuxo.id;
+                          }
+                          piorTitular.substituidoPor = { ...rLuxo, isLuxoEntry: true };
+                      }
+                  }
+              }
+          }
+
+          // C. Empacotamento
+          for (const posId in titsByPos) {
+              escalacaoFinalVisual.push(...titsByPos[posId]);
+          }
+
+          escalacaoFinalVisual.forEach((t: any) => {
+              let jogadorAtivo = t.substituidoPor ? t.substituidoPor : t;
+              jogadorAtivo.isCapitao = jogadorAtivo.id === capitaoRealId;
+              
+              let pRaw = jogadorAtivo.pontos; 
+              let pFinal = pRaw;
+              
+              if (jogadorAtivo.isCapitao) pFinal = pRaw * 1.5;
+              somaTotal += pFinal;
+              
+              if (t.substituidoPor) {
+                  t.substituidoPor.isCapitao = jogadorAtivo.isCapitao;
+                  t.substituidoPor.pontosCalculados = pFinal;
+                  t.substituidoPor.pontos = pRaw; 
+              } else {
+                  t.isCapitao = jogadorAtivo.isCapitao;
+                  t.pontosCalculados = pFinal;
+                  t.pontos = pRaw; 
+              }
+          });
+
+          escalacaoFinalVisual.sort((a,b) => a.posicao_id - b.posicao_id);
+          reservas.sort((a,b) => a.posicao_id - b.posicao_id);
+
+          return { 
+              titulares: escalacaoFinalVisual, 
+              reservas: reservas, 
+              pontosTime: parseFloat(somaTotal.toFixed(2)),
+              substituicoes: arraySubstituicoes
+          };
+      };
+
+      const dadosCasa = processarEscalacao(timeCasa, subsCasa);
+      const dadosVis = processarEscalacao(timeVis, subsVis);
+
+      return {
+          success: true,
+          casa: {
+              nome: timeCasa?.time?.nome || 'Mandante',
+              escudo: timeCasa?.time?.url_escudo_png || '/shield-placeholder.png',
+              pontos: dadosCasa.pontosTime,
+              titulares: dadosCasa.titulares,
+              reservas: dadosCasa.reservas,
+              substituicoes: dadosCasa.substituicoes
+          },
+          visitante: {
+              nome: timeVis?.time?.nome || 'Visitante',
+              escudo: timeVis?.time?.url_escudo_png || '/shield-placeholder.png',
+              pontos: dadosVis.pontosTime,
+              titulares: dadosVis.titulares,
+              reservas: dadosVis.reservas,
+              substituicoes: dadosVis.substituicoes
+          }
+      };
+  } catch (error: any) {
+      console.error("Erro ao buscar detalhes do confronto:", error);
+      return { success: false, msg: "Falha ao carregar escalações." };
   }
 }

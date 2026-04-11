@@ -32,17 +32,17 @@ export default function ModalConfrontoAoVivo({ jogo, onClose }: Props) {
   const handleContentClick = (e: React.MouseEvent) => e.stopPropagation();
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 backdrop-blur-md p-2 md:p-6" onClick={onClose}>
-      <div className="bg-[#0a0a0a] border border-gray-800 rounded-3xl w-full max-w-7xl h-[95vh] md:h-[90vh] overflow-hidden flex flex-col shadow-2xl animate-fadeIn relative" onClick={handleContentClick}>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-md p-0 md:p-6" onClick={onClose}>
+      <div className="bg-[#0a0a0a] border-0 md:border md:border-gray-800 rounded-none md:rounded-3xl w-full max-w-7xl h-full md:h-[90vh] overflow-hidden flex flex-col shadow-2xl animate-fadeIn relative" onClick={handleContentClick}>
         
-        {/* HEADER */}
-        <div className="bg-[#121212] border-b border-gray-800 p-4 flex justify-between items-center shrink-0 z-20">
-          <h3 className="text-white font-black uppercase tracking-widest text-sm flex items-center gap-2">
-            <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span> Análise Tática e Parciais (Rod. {jogo.rodada})
+        {/* HEADER FIXO DO MODAL */}
+        <div className="bg-[#121212] border-b border-gray-800 p-4 flex justify-between items-center shrink-0 z-[110] sticky top-0">
+          <h3 className="text-white font-black uppercase tracking-widest text-xs md:text-sm flex items-center gap-2">
+            <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span> Análise Tática (Rod. {jogo.rodada})
           </h3>
-          <div className="flex gap-4 items-center">
-            <button onClick={carregarDetalhes} className="flex items-center gap-2 bg-black border border-gray-800 px-3 py-1.5 rounded-lg text-xs text-gray-400 font-bold hover:text-white hover:border-gray-600 transition">
-              <RefreshCw size={14} className={loading ? "animate-spin" : ""} /> Atualizar
+          <div className="flex gap-2 md:gap-4 items-center">
+            <button onClick={carregarDetalhes} className="flex items-center gap-2 bg-black border border-gray-800 px-2 md:px-3 py-1.5 rounded-lg text-[10px] md:text-xs text-gray-400 font-bold hover:text-white transition">
+              <RefreshCw size={14} className={loading ? "animate-spin" : ""} /> <span className="hidden sm:inline">Atualizar</span>
             </button>
             <button onClick={onClose} className="text-gray-500 hover:text-red-500 transition bg-black p-1.5 rounded-lg border border-gray-800">
               <X size={18} />
@@ -50,15 +50,15 @@ export default function ModalConfrontoAoVivo({ jogo, onClose }: Props) {
           </div>
         </div>
 
-        {/* CONTENT */}
+        {/* CONTENT COM SCROLL */}
         <div className="overflow-y-auto p-4 md:p-6 custom-scrollbar flex-1 relative bg-[url('/bg-grid.svg')] bg-repeat">
           {loading ? (
-            <div className="flex flex-col items-center justify-center h-full text-gray-500 gap-4">
+            <div className="flex flex-col items-center justify-center h-64 text-gray-500 gap-4">
               <RefreshCw size={32} className="animate-spin text-blue-500" />
-              <p className="font-bold text-xs uppercase tracking-widest text-center">Cruzando inteligência tática...</p>
+              <p className="font-bold text-[10px] uppercase tracking-widest text-center">Processando dados oficiais...</p>
             </div>
           ) : dados ? (
-            <div className="flex flex-col lg:flex-row gap-6 md:gap-10 max-w-7xl mx-auto items-stretch h-full">
+            <div className="flex flex-col lg:flex-row gap-8 lg:gap-10 max-w-7xl mx-auto items-stretch h-full">
               <TeamColumn team={dados.casa} placar={jogo.placar_casa} isCasa={true} title="Mandante" />
               <div className="hidden lg:flex w-px bg-gradient-to-b from-transparent via-gray-800 to-transparent shrink-0"></div>
               <TeamColumn team={dados.visitante} placar={jogo.placar_visitante} isCasa={false} title="Visitante" />
@@ -203,7 +203,10 @@ function TeamColumn({ team, placar, isCasa, title }: { team: any, placar: number
 
     return (
         <div className="flex-1 flex flex-col gap-4 md:gap-5 w-full max-w-[500px] mx-auto h-full">
-            <TeamScoreBoard team={team} placar={placar} isCasa={isCasa} title={title} />
+            {/* PLACAR STICKY NO MOBILE */}
+            <div className="sticky top-0 z-[105] bg-[#0a0a0a]/80 backdrop-blur-md pb-2 -mx-2 px-2 pt-1 md:relative md:top-auto md:bg-transparent md:p-0 md:m-0">
+                <TeamScoreBoard team={team} placar={placar} isCasa={isCasa} title={title} />
+            </div>
             <HalfField fieldPlayers={currentPitchPlayers} />
             <BenchList benchPlayers={activeBenchPlayers} isCasa={isCasa} />
         </div>
@@ -238,13 +241,13 @@ function HalfField({ fieldPlayers }: { fieldPlayers: any[] }) {
   });
 
   return (
-    <div className="relative w-full aspect-[4/5] min-h-[450px] bg-gradient-to-b from-green-800 to-green-950 border-[5px] border-[#151515] rounded-xl overflow-hidden shadow-2xl shrink-0">
-        <div className="absolute inset-0 border-[3px] border-white/20 m-3 rounded pointer-events-none z-0"></div>
-        <div className="absolute top-0 left-0 right-0 h-[3px] bg-white/20 pointer-events-none z-0"></div>
-        <div className="absolute top-0 left-1/2 w-28 h-14 md:w-36 md:h-18 border-[3px] border-white/20 rounded-b-full -translate-x-1/2 pointer-events-none z-0"></div>
+    <div className="relative w-full aspect-[4/5] min-h-[420px] md:min-h-[450px] bg-gradient-to-b from-green-800 to-green-950 border-[4px] md:border-[5px] border-[#151515] rounded-xl overflow-hidden shadow-2xl shrink-0">
+        <div className="absolute inset-0 border-[2px] md:border-[3px] border-white/20 m-3 rounded pointer-events-none z-0"></div>
+        <div className="absolute top-0 left-0 right-0 h-[2px] md:h-[3px] bg-white/20 pointer-events-none z-0"></div>
+        <div className="absolute top-0 left-1/2 w-28 h-14 md:w-36 md:h-18 border-[2px] md:border-[3px] border-white/20 rounded-b-full -translate-x-1/2 pointer-events-none z-0"></div>
         
-        <div className="absolute bottom-3 left-1/2 w-44 h-22 md:w-52 md:h-26 border-[3px] border-white/20 -translate-x-1/2 pointer-events-none z-0"></div>
-        <div className="absolute bottom-3 left-1/2 w-18 h-8 md:w-22 md:h-10 border-[3px] border-white/20 -translate-x-1/2 pointer-events-none z-0"></div>
+        <div className="absolute bottom-3 left-1/2 w-44 h-22 md:w-52 md:h-26 border-[2px] md:border-[3px] border-white/20 -translate-x-1/2 pointer-events-none z-0"></div>
+        <div className="absolute bottom-3 left-1/2 w-18 h-8 md:w-22 md:h-10 border-[2px] md:border-[3px] border-white/20 -translate-x-1/2 pointer-events-none z-0"></div>
 
         <div className="absolute inset-0 w-full h-full z-10 pointer-events-none">
         {fieldPlayers.map((atleta) => {
@@ -297,54 +300,54 @@ function PlayerPin({ atleta, style, isDNP }: { atleta: any, style: React.CSSProp
                        'border-[#151515] group-hover:border-gray-400';
 
   return (
-    <div className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center gap-1 w-[70px] pointer-events-auto group hover:z-30 z-10" style={style}>
+    <div className="absolute -translate-x-1/2 -translate-y-1/2 flex flex-col items-center gap-1 w-[60px] md:w-[70px] pointer-events-auto group hover:z-30 z-10" style={style}>
       <div className="relative shrink-0">
         <img 
             src={atleta.foto} 
-            className={`w-10 h-10 md:w-12 md:h-12 rounded-full border-[2.5px] bg-black object-cover shadow-[0_5px_15px_rgba(0,0,0,0.6)] group-hover:scale-110 transition-transform ${borderColor}`} 
+            className={`w-9 h-9 md:w-12 md:h-12 rounded-full border-[2px] md:border-[2.5px] bg-black object-cover shadow-[0_5px_15px_rgba(0,0,0,0.6)] group-hover:scale-110 transition-transform ${borderColor}`} 
         />
         
         {atleta.isSubIn && (
-            <IconEntrou className="absolute -top-1.5 -left-1.5 w-5 h-5 z-20" />
+            <IconEntrou className="absolute -top-1 -left-1 md:-top-1.5 md:-left-1.5 w-4 h-4 md:w-5 md:h-5 z-20" />
         )}
         
         {atleta.isCapitao && (
-          <div className="absolute -top-1.5 -right-1.5 bg-yellow-500 w-5 h-5 md:w-5.5 md:h-5.5 rounded-full border border-black flex items-center justify-center z-10 shadow-[0_0_10px_rgba(234,179,8,0.6)]">
-            <span className="text-black font-black text-xs md:text-[13px] leading-none">C</span>
+          <div className="absolute -top-1 -right-1 md:-top-1.5 md:-right-1.5 bg-yellow-500 w-4 h-4 md:w-5.5 md:h-5.5 rounded-full border border-black flex items-center justify-center z-10 shadow-[0_0_10px_rgba(234,179,8,0.6)]">
+            <span className="text-black font-black text-[10px] md:text-[13px] leading-none">C</span>
           </div>
         )}
         
         {atleta.isLuxo && (
-          <div className="absolute -bottom-1 -right-1.5 bg-black rounded-full border border-black flex items-center justify-center z-10 shadow-[0_0_10px_rgba(249,115,22,0.6)]">
-            <LuxoIcon className="w-3.5 h-3.5 md:w-4 md:h-4" />
+          <div className="absolute -bottom-1 -right-1 md:-bottom-1.5 md:-right-1.5 bg-black rounded-full border border-black flex items-center justify-center z-10 shadow-[0_0_10px_rgba(249,115,22,0.6)]">
+            <LuxoIcon className="w-3 h-3 md:w-4 md:h-4" />
           </div>
         )}
       </div>
       
-      <div className="bg-black/90 backdrop-blur-sm px-1.5 py-1.5 rounded border border-white/10 text-center w-[125%] shadow-lg transition-colors group-hover:bg-[#1a1a1a] group-hover:border-gray-400 flex flex-col items-center justify-center">
+      <div className="bg-black/90 backdrop-blur-sm px-1 py-1 md:px-1.5 md:py-1.5 rounded border border-white/10 text-center w-[125%] shadow-lg transition-colors group-hover:bg-[#1a1a1a] group-hover:border-gray-400 flex flex-col items-center justify-center">
         
         <div className="flex items-center justify-center gap-0.5 w-full mb-0.5">
-            {atleta.isCapitao && <span className="text-yellow-400 font-black text-[9px] shrink-0 leading-none">C</span>}
-            {atleta.isLuxo && <LuxoIcon className="w-2.5 h-2.5 shrink-0" />}
-            {atleta.isSubIn && <ChevronUp size={8} className="text-green-500 shrink-0" strokeWidth={4} />}
-            <span className="text-[7px] md:text-[8px] font-black text-gray-200 uppercase truncate tracking-wide">{atleta.nome}</span>
+            {atleta.isCapitao && <span className="text-yellow-400 font-black text-[7px] md:text-[9px] shrink-0 leading-none">C</span>}
+            {atleta.isLuxo && <LuxoIcon className="w-2 h-2 md:w-2.5 md:h-2.5 shrink-0" />}
+            {atleta.isSubIn && <ChevronUp size={6} className="text-green-500 shrink-0 md:w-8 md:h-8" strokeWidth={4} />}
+            <span className="text-[6px] md:text-[8px] font-black text-gray-200 uppercase truncate tracking-wide">{atleta.nome}</span>
         </div>
         
         <div className="flex items-center justify-center w-full whitespace-nowrap mt-[1px]">
             {isDNP && !atleta.isSubIn ? (
-                <span className="text-gray-500 font-black font-mono text-[10px] md:text-[12px] leading-none">-</span>
+                <span className="text-gray-500 font-black font-mono text-[9px] md:text-[12px] leading-none">-</span>
             ) : atleta.isCapitao ? (
                 <div className="flex flex-col items-center justify-center">
-                    <span className={`${colorClass} font-black font-mono text-[10px] md:text-[11px] leading-none mt-[1px]`}>
+                    <span className={`${colorClass} font-black font-mono text-[9px] md:text-[11px] leading-none mt-[1px]`}>
                         {pts.toFixed(1)}
                     </span>
-                    <div className="flex items-center justify-center gap-[2px] mt-[3px] opacity-95">
-                        <span className={`${baseColorClass} font-mono font-bold text-[7px] md:text-[8px] leading-none`}>{basePts.toFixed(1)}</span>
-                        <span className="text-yellow-500 font-black text-[7px] md:text-[8px] leading-none">x1.5</span>
+                    <div className="flex items-center justify-center gap-[2px] mt-[2px] md:mt-[3px] opacity-95">
+                        <span className={`${baseColorClass} font-mono font-bold text-[6px] md:text-[8px] leading-none`}>{basePts.toFixed(1)}</span>
+                        <span className="text-yellow-500 font-black text-[6px] md:text-[8px] leading-none">x1.5</span>
                     </div>
                 </div>
             ) : (
-                <span className={`${colorClass} font-black font-mono text-[9px] md:text-[11px] leading-none mt-[1px]`}>
+                <span className={`${colorClass} font-black font-mono text-[8px] md:text-[11px] leading-none mt-[1px]`}>
                     {pts.toFixed(1)}
                 </span>
             )}
@@ -360,7 +363,7 @@ function BenchList({ benchPlayers, isCasa }: { benchPlayers: any[], isCasa: bool
     const bgContainer = isCasa ? 'bg-blue-950/5' : 'bg-red-950/5';
 
     return (
-        <div className={`border ${borderColor} ${bgContainer} rounded-2xl p-3 md:p-4 w-full shadow-lg flex-1 min-h-[150px]`}>
+        <div className={`border ${borderColor} ${bgContainer} rounded-2xl p-3 md:p-4 w-full shadow-lg flex-1 min-h-[150px] mb-6 md:mb-0`}>
             <div className="text-[9px] md:text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-3.5 flex items-center gap-2">
                 <div className="flex-1 h-px bg-gray-800"></div>
                 <span>Banco / Substituídos</span>

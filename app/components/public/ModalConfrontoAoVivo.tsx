@@ -97,6 +97,7 @@ function IconSaiu({ className }: { className?: string }) {
 
 function TeamColumn({ team, placar, isCasa, title }: { team: any, placar: number, isCasa: boolean, title: string }) {
     
+    // O FILTRO FOI REMOVIDO DAQUI! O TÉCNICO AGORA PASSA PARA O CAMPO.
     const currentPitchPlayers = team.titulares.map((t: any) => {
         const tId = String(t.id || t.atleta_id);
         const isLuxo = t.isLuxo || t.luxo;
@@ -127,7 +128,7 @@ function TeamColumn({ team, placar, isCasa, title }: { team: any, placar: number
         }
 
         return t; 
-    }).filter((p: any) => p.posicao_id !== 6); 
+    }); 
 
     const inFieldIds: string[] = currentPitchPlayers.map((p:any) => String(p.id || p.atleta_id));
 
@@ -229,8 +230,8 @@ function HalfField({ fieldPlayers }: { fieldPlayers: any[] }) {
 
         <div className="absolute inset-0 w-full h-full z-10 pointer-events-none">
         {fieldPlayers.map((atleta) => {
-            const indexNaPos = playersByPos[atleta.posicao_id].indexOf(atleta);
-            const totalNaPos = playersByPos[atleta.posicao_id].length;
+            const indexNaPos = playersByPos[atleta.posicao_id]?.indexOf(atleta) || 0;
+            const totalNaPos = playersByPos[atleta.posicao_id]?.length || 1;
             const coords = getCoordinatesByPosition(atleta.posicao_id, indexNaPos, totalNaPos);
             
             return (
@@ -255,6 +256,7 @@ function getCoordinatesByPosition(posicaoId: number, indexNaPosicao: number, tot
       case 3: y = 65; if (totalNaPosicao === 2) x = indexNaPosicao === 0 ? 35 : 65; else x = [25, 50, 75][indexNaPosicao]; break;
       case 4: y = 38; if (totalNaPosicao === 3) x = [25, 50, 75][indexNaPosicao]; else if (totalNaPosicao === 4) x = [18, 38, 62, 82][indexNaPosicao]; else x = [10, 30, 50, 70, 90][indexNaPosicao]; break;
       case 5: y = 15; if (totalNaPosicao === 1) x = 50; else if (totalNaPosicao === 2) x = [30, 70][indexNaPosicao]; else x = [15, 50, 85][indexNaPosicao]; break;
+      case 6: y = 88; x = 85; break; // <-- COORDENADA DO TÉCNICO (Canto inferior direito)
     }
     return { top: `${y}%`, left: `${x}%` };
 }

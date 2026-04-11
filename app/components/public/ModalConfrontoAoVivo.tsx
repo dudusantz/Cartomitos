@@ -35,7 +35,6 @@ export default function ModalConfrontoAoVivo({ jogo, onClose }: Props) {
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-md p-0 md:p-6" onClick={onClose}>
       <div className="bg-[#0a0a0a] border-0 md:border md:border-gray-800 rounded-none md:rounded-3xl w-full max-w-7xl h-full md:h-[90vh] overflow-hidden flex flex-col shadow-2xl animate-fadeIn relative" onClick={handleContentClick}>
         
-        {/* HEADER FIXO DO MODAL */}
         <div className="bg-[#121212] border-b border-gray-800 p-4 flex justify-between items-center shrink-0 z-[110] sticky top-0">
           <h3 className="text-white font-black uppercase tracking-widest text-xs md:text-sm flex items-center gap-2">
             <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span> Análise Tática (Rod. {jogo.rodada})
@@ -50,7 +49,6 @@ export default function ModalConfrontoAoVivo({ jogo, onClose }: Props) {
           </div>
         </div>
 
-        {/* CONTENT COM SCROLL */}
         <div className="overflow-y-auto p-4 md:p-6 custom-scrollbar flex-1 relative bg-[url('/bg-grid.svg')] bg-repeat">
           {loading ? (
             <div className="flex flex-col items-center justify-center h-64 text-gray-500 gap-4">
@@ -58,7 +56,7 @@ export default function ModalConfrontoAoVivo({ jogo, onClose }: Props) {
               <p className="font-bold text-[10px] uppercase tracking-widest text-center">Processando dados oficiais...</p>
             </div>
           ) : dados ? (
-            <div className="flex flex-col lg:flex-row gap-8 lg:gap-10 max-w-7xl mx-auto items-stretch h-full">
+            <div className="flex flex-col lg:flex-row gap-12 lg:gap-10 max-w-7xl mx-auto pb-8 md:pb-0 h-auto">
               <TeamColumn team={dados.casa} placar={jogo.placar_casa} isCasa={true} title="Mandante" />
               <div className="hidden lg:flex w-px bg-gradient-to-b from-transparent via-gray-800 to-transparent shrink-0"></div>
               <TeamColumn team={dados.visitante} placar={jogo.placar_visitante} isCasa={false} title="Visitante" />
@@ -71,10 +69,6 @@ export default function ModalConfrontoAoVivo({ jogo, onClose }: Props) {
     </div>
   );
 }
-
-// ==========================================================
-// ÍCONES CUSTOMIZADOS
-// ==========================================================
 
 function LuxoIcon({ className }: { className?: string }) {
   return (
@@ -100,10 +94,6 @@ function IconSaiu({ className }: { className?: string }) {
     </div>
   );
 }
-
-// ==========================================================
-// COMPONENTES LÓGICOS E ORDENAÇÃO DE POSIÇÕES
-// ==========================================================
 
 function TeamColumn({ team, placar, isCasa, title }: { team: any, placar: number, isCasa: boolean, title: string }) {
     
@@ -169,7 +159,6 @@ function TeamColumn({ team, placar, isCasa, title }: { team: any, placar: number
                         pontosCalculados: ptsSaiu,
                         pontos: ptsSaiu,
                         isSubOut: true,
-                        // Se pontuou algo diferente de 0, significa que jogou (Ex: Reserva de luxo)
                         jogou: ptsSaiu !== 0 
                     });
                 }
@@ -177,7 +166,6 @@ function TeamColumn({ team, placar, isCasa, title }: { team: any, placar: number
         });
     }
 
-    // Limpeza Final do Banco
     activeBenchPlayers = activeBenchPlayers.filter((r: any) => {
         const rId = String(r.id || r.atleta_id);
         if (r.isSubOut) return true; 
@@ -185,16 +173,7 @@ function TeamColumn({ team, placar, isCasa, title }: { team: any, placar: number
         return true; 
     });
 
-    // Ordenação Estrita: 1 (Goleiro), 3 (Zagueiro), 2 (Lateral), 4 (Meia), 5 (Atacante)
-    const ordemPosicao: Record<number, number> = {
-        1: 1, 
-        3: 2, 
-        2: 3, 
-        4: 4, 
-        5: 5, 
-        6: 6  
-    };
-
+    const ordemPosicao: Record<number, number> = { 1: 1, 3: 2, 2: 3, 4: 4, 5: 5, 6: 6 };
     activeBenchPlayers.sort((a: any, b: any) => {
         const pesoA = ordemPosicao[a.posicao_id] || 99;
         const pesoB = ordemPosicao[b.posicao_id] || 99;
@@ -202,9 +181,8 @@ function TeamColumn({ team, placar, isCasa, title }: { team: any, placar: number
     });
 
     return (
-        <div className="flex-1 flex flex-col gap-4 md:gap-5 w-full max-w-[500px] mx-auto h-full">
-            {/* PLACAR STICKY NO MOBILE */}
-            <div className="sticky top-0 z-[105] bg-[#0a0a0a]/80 backdrop-blur-md pb-2 -mx-2 px-2 pt-1 md:relative md:top-auto md:bg-transparent md:p-0 md:m-0">
+        <div className="flex flex-col gap-4 md:gap-5 w-full max-w-[500px] mx-auto h-auto">
+            <div className="sticky top-0 z-[105] bg-[#0a0a0a] md:bg-transparent pb-2 -mx-2 px-2 pt-1 md:relative md:top-auto md:p-0 md:m-0">
                 <TeamScoreBoard team={team} placar={placar} isCasa={isCasa} title={title} />
             </div>
             <HalfField fieldPlayers={currentPitchPlayers} />
@@ -363,7 +341,7 @@ function BenchList({ benchPlayers, isCasa }: { benchPlayers: any[], isCasa: bool
     const bgContainer = isCasa ? 'bg-blue-950/5' : 'bg-red-950/5';
 
     return (
-        <div className={`border ${borderColor} ${bgContainer} rounded-2xl p-3 md:p-4 w-full shadow-lg flex-1 min-h-[150px] mb-6 md:mb-0`}>
+        <div className={`border ${borderColor} ${bgContainer} rounded-2xl p-3 md:p-4 w-full shadow-lg h-auto`}>
             <div className="text-[9px] md:text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-3.5 flex items-center gap-2">
                 <div className="flex-1 h-px bg-gray-800"></div>
                 <span>Banco / Substituídos</span>
@@ -383,11 +361,9 @@ function BenchPlayerCard({ atleta }: { atleta: any }) {
     const pts = atleta.pontosCalculados ?? atleta.pontos;
     const basePts = atleta.pontos; 
 
-    // Regra das Cores Dinâmicas sem Grayscale
     let colorClass = pts > 0 ? 'text-green-400' : pts < 0 ? 'text-red-400' : 'text-gray-400';
     let baseColorClass = basePts > 0 ? 'text-green-400' : basePts < 0 ? 'text-red-400' : 'text-gray-400';
 
-    // Mostra o traço APENAS se o jogador não entrou em campo E fez 0 pontos
     const showDash = !atleta.jogou && pts === 0;
 
     if (showDash) {
@@ -424,7 +400,6 @@ function BenchPlayerCard({ atleta }: { atleta: any }) {
                 </div>
             </div>
             
-            {/* PONTUAÇÃO DO BANCO: Fim do Grayscale, Mantemos Cores + Risco */}
             <div className={`flex flex-col items-end justify-center shrink-0 ml-1 bg-black/40 px-2.5 py-1 rounded-lg border border-gray-800`}>
                 {showDash ? (
                     <span className={`text-[11px] md:text-xs font-black font-mono text-gray-500 ${isSubOut ? 'line-through' : ''}`}>-</span>

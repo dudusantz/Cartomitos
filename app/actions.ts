@@ -2423,7 +2423,7 @@ export async function buscarDetalhesConfrontoAoVivo(timeCasaIdCartola: number, t
           titulares.forEach((t: any) => { if (!titsByPos[t.posicao_id]) titsByPos[t.posicao_id] = []; titsByPos[t.posicao_id].push(t); });
           reservas.forEach((r: any) => { if (!resByPos[r.posicao_id]) resByPos[r.posicao_id] = []; resByPos[r.posicao_id].push(r); });
 
-          // Substituição Normal
+          // A. Substituição Normal (Titular não jogou)
           for (const posId in titsByPos) {
               const res = resByPos[posId] || [];
               res.sort((a: any, b: any) => b.pontos - a.pontos);
@@ -2431,7 +2431,8 @@ export async function buscarDetalhesConfrontoAoVivo(timeCasaIdCartola: number, t
               for (let i = 0; i < titsByPos[posId].length; i++) {
                   const titular = titsByPos[posId][i];
                   if (!titular.jogou && jogoComecou(titular.clube_id)) {
-                      const rDisponivel = res.find((r: any) => r.jogou && !r.usado);
+                      // A REGRA OFICIAL DO CARTOLA: Reserva SÓ ENTRA se a pontuação for > 0
+                      const rDisponivel = res.find((r: any) => r.jogou && !r.usado && r.pontos > 0);
                       if (rDisponivel) {
                           rDisponivel.usado = true;
                           if (titular.id === capitaoRealId) capitaoRealId = rDisponivel.id;
@@ -2441,7 +2442,7 @@ export async function buscarDetalhesConfrontoAoVivo(timeCasaIdCartola: number, t
               }
           }
 
-          // Reserva de Luxo
+          // B. Reserva de Luxo
           if (luxoIdOficial !== "0") {
               const rLuxo = reservas.find((r: any) => r.id === luxoIdOficial);
               if (rLuxo && rLuxo.jogou && !rLuxo.usado) {
@@ -2459,6 +2460,7 @@ export async function buscarDetalhesConfrontoAoVivo(timeCasaIdCartola: number, t
                           }
                       }
 
+                      // O Luxo entra se for MAIOR que a do pior titular (Se o titular fez 0, luxo só entra se for > 0)
                       if (rLuxo.pontos > menorPts) {
                           rLuxo.usado = true;
                           if (piorTitular.id === capitaoRealId || (piorTitular.substituidoPor && piorTitular.substituidoPor.id === capitaoRealId)) {

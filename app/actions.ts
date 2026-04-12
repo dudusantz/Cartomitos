@@ -2301,7 +2301,7 @@ export async function buscarDetalhesConfrontoAoVivo(timeCasaIdCartola: number, t
   try {
       const tsNow = Date.now();
       
-      // 1. Identificar Rodada Atual para contexto do motor
+      // 1. Identificar Rodada Atual
       const statusMercadoRes = await fetchCartola(`https://api.cartola.globo.com/mercado/status?_=${tsNow}`);
       const rodadaAtualMercado = statusMercadoRes?.rodada_atual || 1;
       
@@ -2323,25 +2323,18 @@ export async function buscarDetalhesConfrontoAoVivo(timeCasaIdCartola: number, t
           urlSubVis ? fetchCartola(`${urlSubVis}?_=${tsNow}`).catch(() => ([])) : Promise.resolve([])
       ]);
 
-      // Mapa de Status de Partidas (Detecção de início agressiva)
+      // =========================================================
+      // O SEGREDO DO BUG ESTAVA AQUI: SEGURANÇA TOTAL DE STATUS
+      // =========================================================
       const statusClubes: Record<number, boolean> = {};
       if (partidasCartola?.partidas) {
           partidasCartola.partidas.forEach((p: any) => {
-              let started = false;
+              // Confia APENAS no status cravado pela API (2 = Em andamento, 3 = Encerrada, 4 = Adiada)
+              // Removemos a checagem de parciais que gerava falsos positivos!
               if (p.status_partida_id && [2, 3, 4].includes(p.status_partida_id)) {
-                  started = true;
-              } else if (p.partida_data) {
-                  const dateStr = p.partida_data.replace(' ', 'T') + '-03:00';
-                  if (tsNow >= new Date(dateStr).getTime()) started = true;
+                  statusClubes[p.clube_casa_id] = true;
+                  statusClubes[p.clube_visitante_id] = true;
               }
-              statusClubes[p.clube_casa_id] = started;
-              statusClubes[p.clube_visitante_id] = started;
-          });
-      }
-
-      if (parciais?.atletas) {
-          Object.values(parciais.atletas).forEach((a: any) => {
-              if (a.clube_id) statusClubes[a.clube_id] = true;
           });
       }
       
@@ -2396,7 +2389,6 @@ export async function buscarDetalhesConfrontoAoVivo(timeCasaIdCartola: number, t
           let somaTotal = 0;
           const escalacaoFinalVisual: any[] = [];
 
-          // CASO 1: RODADA PASSADA
           if (isRodadaPassada) {
              titulares.forEach((t: any) => {
                  const pFechado = t.pontos;
@@ -2416,22 +2408,22 @@ export async function buscarDetalhesConfrontoAoVivo(timeCasaIdCartola: number, t
              };
           }
 
-          // CASO 2: RODADA AO VIVO
+          // MOTOR AO VIVO
           const titsByPos: Record<number, any[]> = {};
           const resByPos: Record<number, any[]> = {};
           
           titulares.forEach((t: any) => { if (!titsByPos[t.posicao_id]) titsByPos[t.posicao_id] = []; titsByPos[t.posicao_id].push(t); });
           reservas.forEach((r: any) => { if (!resByPos[r.posicao_id]) resByPos[r.posicao_id] = []; resByPos[r.posicao_id].push(r); });
 
-          // A. Substituição Normal (Titular não jogou)
+          // A. Substituição Normal
           for (const posId in titsByPos) {
               const res = resByPos[posId] || [];
               res.sort((a: any, b: any) => b.pontos - a.pontos);
 
               for (let i = 0; i < titsByPos[posId].length; i++) {
                   const titular = titsByPos[posId][i];
+                  // Só executa se o jogo do clube DE FATO tiver começado
                   if (!titular.jogou && jogoComecou(titular.clube_id)) {
-                      // A REGRA OFICIAL DO CARTOLA: Reserva SÓ ENTRA se a pontuação for > 0
                       const rDisponivel = res.find((r: any) => r.jogou && !r.usado && r.pontos > 0);
                       if (rDisponivel) {
                           rDisponivel.usado = true;
@@ -2448,20 +2440,23 @@ export async function buscarDetalhesConfrontoAoVivo(timeCasaIdCartola: number, t
               if (rLuxo && rLuxo.jogou && !rLuxo.usado) {
                   const titsDaMesmaPosicao = titsByPos[rLuxo.posicao_id] || [];
                   if (titsDaMesmaPosicao.length > 0) {
-                      let piorTitular = titsDaMesmaPosicao[0];
-                      let menorPts = piorTitular.substituidoPor ? piorTitular.substituidoPor.pontos : piorTitular.pontos;
+                      
+                      let piorTitular = null;
+                      let menorPts = Infinity;
 
-                      for (let i = 1; i < titsDaMesmaPosicao.length; i++) {
+                      for (let i = 0; i < titsDaMesmaPosicao.length; i++) {
                           const tit = titsDaMesmaPosicao[i];
-                          const ptsSlot = tit.substituidoPor ? tit.substituidoPor.pontos : tit.pontos;
-                          if (ptsSlot < menorPts) {
-                              menorPts = ptsSlot;
-                              piorTitular = tit;
+                          // O Luxo SÓ AVALIA titulares cujo jogo JÁ COMEÇOU
+                          if (jogoComecou(tit.clube_id)) {
+                              const ptsSlot = tit.substituidoPor ? tit.substituidoPor.pontos : tit.pontos;
+                              if (ptsSlot < menorPts) {
+                                  menorPts = ptsSlot;
+                                  piorTitular = tit;
+                              }
                           }
                       }
 
-                      // O Luxo entra se for MAIOR que a do pior titular (Se o titular fez 0, luxo só entra se for > 0)
-                      if (rLuxo.pontos > menorPts) {
+                      if (piorTitular && rLuxo.pontos > menorPts) {
                           rLuxo.usado = true;
                           if (piorTitular.id === capitaoRealId || (piorTitular.substituidoPor && piorTitular.substituidoPor.id === capitaoRealId)) {
                               capitaoRealId = rLuxo.id;

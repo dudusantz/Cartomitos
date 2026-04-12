@@ -97,7 +97,6 @@ function IconSaiu({ className }: { className?: string }) {
 
 function TeamColumn({ team, placar, isCasa, title }: { team: any, placar: number, isCasa: boolean, title: string }) {
     
-    // O FILTRO FOI REMOVIDO DAQUI! O TÉCNICO AGORA PASSA PARA O CAMPO.
     const currentPitchPlayers = team.titulares.map((t: any) => {
         const tId = String(t.id || t.atleta_id);
         const isLuxo = t.isLuxo || t.luxo;
@@ -256,7 +255,7 @@ function getCoordinatesByPosition(posicaoId: number, indexNaPosicao: number, tot
       case 3: y = 65; if (totalNaPosicao === 2) x = indexNaPosicao === 0 ? 35 : 65; else x = [25, 50, 75][indexNaPosicao]; break;
       case 4: y = 38; if (totalNaPosicao === 3) x = [25, 50, 75][indexNaPosicao]; else if (totalNaPosicao === 4) x = [18, 38, 62, 82][indexNaPosicao]; else x = [10, 30, 50, 70, 90][indexNaPosicao]; break;
       case 5: y = 15; if (totalNaPosicao === 1) x = 50; else if (totalNaPosicao === 2) x = [30, 70][indexNaPosicao]; else x = [15, 50, 85][indexNaPosicao]; break;
-      case 6: y = 88; x = 85; break; // <-- COORDENADA DO TÉCNICO (Canto inferior direito)
+      case 6: y = 88; x = 85; break; 
     }
     return { top: `${y}%`, left: `${x}%` };
 }
@@ -306,10 +305,11 @@ function PlayerPin({ atleta, style, isDNP }: { atleta: any, style: React.CSSProp
       
       <div className="bg-black/90 backdrop-blur-sm px-1 py-1 md:px-1.5 md:py-1.5 rounded border border-white/10 text-center w-[125%] shadow-lg transition-colors group-hover:bg-[#1a1a1a] group-hover:border-gray-400 flex flex-col items-center justify-center">
         
+        {/* ÁREA DO NOME: ÍCONE REMOVIDO DAQUI */}
         <div className="flex items-center justify-center gap-0.5 w-full mb-0.5">
             {atleta.isCapitao && <span className="text-yellow-400 font-black text-[7px] md:text-[9px] shrink-0 leading-none">C</span>}
             {atleta.isLuxo && <LuxoIcon className="w-2 h-2 md:w-2.5 md:h-2.5 shrink-0" />}
-            {atleta.isSubIn && <ChevronUp size={6} className="text-green-500 shrink-0 md:w-8 md:h-8" strokeWidth={4} />}
+            {/* O ChevronUp (seta de entrada) ficava aqui e foi removido */}
             <span className="text-[6px] md:text-[8px] font-black text-gray-200 uppercase truncate tracking-wide">{atleta.nome}</span>
         </div>
         

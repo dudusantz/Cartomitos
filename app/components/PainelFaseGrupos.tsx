@@ -2,12 +2,13 @@
 
 import { useState, useEffect } from 'react'
 import toast from 'react-hot-toast'
+import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import { 
   sortearGrupos, gerarJogosFaseGrupos, buscarTabelaGrupos, 
-  atualizarRodadaGrupos, listarPartidas, atualizarPlacarManual, zerarJogos 
+  atualizarRodadaGrupos, listarPartidas, atualizarPlacarManual 
 } from '@/app/actions' 
 import { ModalConfirmacao } from './ModalConfirmacao' 
-import { RefreshCw, Trash2, Trophy, Save, X, Calendar, PlayCircle, Grid, Shuffle } from 'lucide-react'
+import { RefreshCw, Save, X, Calendar, PlayCircle, GripVertical } from 'lucide-react'
 
 interface Props {
   campeonatoId: number
@@ -103,27 +104,24 @@ export default function PainelFaseGrupos({ campeonatoId, times = [] }: Props) {
     setModalOpen(true)
   }
 
-  // === LÓGICA DE SORTEIO (SEEDS) ===
-  function moverTime(index: number, direcao: 'cima' | 'baixo') {
-      if (direcao === 'cima' && index === 0) return;
-      if (direcao === 'baixo' && index === timesOrdenados.length - 1) return;
-
-      const novaLista = [...timesOrdenados];
-      const indexTroca = direcao === 'cima' ? index - 1 : index + 1;
-      const temp = novaLista[index];
-      novaLista[index] = novaLista[indexTroca];
-      novaLista[indexTroca] = temp;
-      setTimesOrdenados(novaLista);
-  }
-
+  // === LÓGICA DE DRAG AND DROP ===
   const numPotes = 4
   const timesPorPote = timesOrdenados.length > 0 ? Math.ceil(timesOrdenados.length / numPotes) : 0
-  const previewPotes = []
-  if (timesOrdenados.length > 0) {
-      for (let i = 0; i < numPotes; i++) {
-          const slice = timesOrdenados.slice(i * timesPorPote, (i + 1) * timesPorPote)
-          if (slice.length > 0) previewPotes.push({ numero: i+1, times: slice, startIndex: i * timesPorPote })
-      }
+
+  const onDragEnd = (result: DropResult) => {
+    const { source, destination } = result
+
+    if (!destination) return
+
+    // Calcula o índice real no array flat de times baseando-se no pote
+    const sourceGlobalIndex = (parseInt(source.droppableId) * timesPorPote) + source.index
+    const destGlobalIndex = (parseInt(destination.droppableId) * timesPorPote) + destination.index
+
+    const novosTimes = Array.from(timesOrdenados)
+    const [timeMovido] = novosTimes.splice(sourceGlobalIndex, 1)
+    novosTimes.splice(destGlobalIndex, 0, timeMovido)
+
+    setTimesOrdenados(novosTimes)
   }
 
   function abrirTelaSorteio() { setGrupos({}); setModoSorteio(true); }
@@ -131,7 +129,7 @@ export default function PainelFaseGrupos({ campeonatoId, times = [] }: Props) {
   async function handleSortear() {
     if (!timesOrdenados || timesOrdenados.length < 4) return toast.error("Mínimo 4 times para sortear.")
     
-    // Monta os potes baseados na ordem visual definida pelo usuário
+    // Monta os potes baseados na ordem definida pelo Drag and Drop
     const potes: number[][] = []
     for (let i = 0; i < numPotes; i++) {
         const slice = timesOrdenados.slice(i * timesPorPote, (i + 1) * timesPorPote)
@@ -140,10 +138,9 @@ export default function PainelFaseGrupos({ campeonatoId, times = [] }: Props) {
     }
 
     confirm("Confirmar Sorteio", `Grupos atuais serão apagados e novos serão gerados. Confirmar?`, async () => {
-        const res = await sortearGrupos(campeonatoId, timesPorPote, potes) // Aqui timesPorPote age como numGrupos aprox
+        const res = await sortearGrupos(campeonatoId, timesPorPote, potes) 
         if(res.success) { 
             toast.success(res.msg); 
-            // Já gera os jogos automaticamente após sortear
             await gerarJogosFaseGrupos(campeonatoId);
             await carregarDados();
         } else { 
@@ -202,7 +199,6 @@ export default function PainelFaseGrupos({ campeonatoId, times = [] }: Props) {
     }
   }
 
-  // Helper de Formatação Decimal
   const formatDecimal = (val: number) => {
       if (val === undefined || val === null) return 0;
       return val % 1 !== 0 ? val.toFixed(1) : val;
@@ -211,7 +207,7 @@ export default function PainelFaseGrupos({ campeonatoId, times = [] }: Props) {
   const jogosDaRodada = jogos.filter(j => j.rodada === rodadaView)
   const totalRodadas = jogos.length > 0 ? Math.max(...jogos.map(j => j.rodada)) : 1
 
-  // === RENDER: TELA DE SORTEIO ===
+  // === RENDER: TELA DE SORTEIO COM DRAG AND DROP ===
   if (modoSorteio) {
       return (
         <div className="flex flex-col items-center animate-fadeIn py-4">
@@ -226,35 +222,54 @@ export default function PainelFaseGrupos({ campeonatoId, times = [] }: Props) {
             />
             <div className="text-center mb-6">
                 <h3 className="text-xl font-bold text-white">Definição dos Potes (Seeds)</h3>
-                <p className="text-gray-500 text-xs mt-1">Use as setas para organizar os times. O Pote 1 contém os cabeças de chave.</p>
+                <p className="text-gray-500 text-xs mt-1">Arraste e solte os times para organizá-los. O Pote 1 contém os cabeças de chave.</p>
             </div>
             
-            {/* GRID DE POTES */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full mb-8">
-                {previewPotes.map(pote => (
-                    <div key={pote.numero} className="bg-[#121212] border border-gray-800 rounded-xl p-4 flex flex-col h-full">
-                        <h4 className={`text-xs font-bold uppercase mb-3 border-b border-gray-800 pb-2 ${pote.numero === 1 ? 'text-green-400' : 'text-blue-400'}`}>
-                            {pote.numero === 1 ? '🏆 Pote 1 (Cabeças)' : `Pote ${pote.numero}`}
-                        </h4>
-                        <div className="space-y-2 flex-1 overflow-y-auto custom-scrollbar pr-1 max-h-[400px]">
-                            {pote.times.map((t:any, idx: number) => {
-                                const globalIndex = pote.startIndex + idx;
-                                return (
-                                <div key={t.time_id} className="flex items-center justify-between bg-[#0a0a0a] p-2 rounded border border-gray-800/50 group hover:border-gray-600 transition">
-                                    <div className="flex items-center gap-2 text-xs text-gray-300 overflow-hidden">
-                                        <img src={t.escudo || t.times?.escudo || '/shield-placeholder.png'} className="w-5 h-5 object-contain shrink-0" />
-                                        <span className="truncate max-w-[80px]">{t.nome || t.times?.nome}</span>
-                                    </div>
-                                    <div className="flex gap-1 opacity-50 group-hover:opacity-100 transition">
-                                        <button onClick={() => moverTime(globalIndex, 'cima')} className="text-gray-400 hover:text-white px-1 hover:bg-gray-700 rounded">▲</button>
-                                        <button onClick={() => moverTime(globalIndex, 'baixo')} className="text-gray-400 hover:text-white px-1 hover:bg-gray-700 rounded">▼</button>
-                                    </div>
-                                </div>
-                            )})}
-                        </div>
-                    </div>
-                ))}
-            </div>
+            <DragDropContext onDragEnd={onDragEnd}>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 w-full mb-8">
+                  {[0, 1, 2, 3].map((poteIndex) => (
+                      <div key={poteIndex} className="bg-[#121212] border border-gray-800 rounded-xl p-4 flex flex-col h-full">
+                          <h4 className={`text-xs font-bold uppercase mb-3 border-b border-gray-800 pb-2 ${poteIndex === 0 ? 'text-green-400' : 'text-blue-400'}`}>
+                              {poteIndex === 0 ? '🏆 Pote 1 (Cabeças)' : `Pote ${poteIndex + 1}`}
+                          </h4>
+                          
+                          <Droppable droppableId={String(poteIndex)}>
+                            {(provided, snapshot) => (
+                              <div 
+                                ref={provided.innerRef} 
+                                {...provided.droppableProps}
+                                className={`flex-1 space-y-2 min-h-[200px] transition-colors rounded p-1 ${snapshot.isDraggingOver ? 'bg-white/[0.02]' : ''}`}
+                              >
+                                  {timesOrdenados.slice(poteIndex * timesPorPote, (poteIndex + 1) * timesPorPote).map((t:any, idx: number) => (
+                                      <Draggable key={String(t.time_id)} draggableId={String(t.time_id)} index={idx}>
+                                        {(provided, snapshot) => (
+                                          <div 
+                                            ref={provided.innerRef}
+                                            {...provided.draggableProps}
+                                            {...provided.dragHandleProps}
+                                            className={`flex items-center justify-between bg-[#0a0a0a] p-2 rounded border transition-all ${snapshot.isDragging ? 'border-blue-500 shadow-xl shadow-black/50 z-50 scale-[1.02]' : 'border-gray-800/50 hover:border-gray-600'}`}
+                                            style={provided.draggableProps.style}
+                                          >
+                                              <div className="flex items-center gap-2 text-xs text-gray-300 overflow-hidden">
+                                                  <img src={t.escudo || t.times?.escudo || '/shield-placeholder.png'} className="w-5 h-5 object-contain shrink-0 pointer-events-none" />
+                                                  <span className="truncate max-w-[80px] md:max-w-[120px] pointer-events-none">{t.nome || t.times?.nome}</span>
+                                              </div>
+                                              <div className="text-gray-600">
+                                                  <GripVertical size={14} />
+                                              </div>
+                                          </div>
+                                        )}
+                                      </Draggable>
+                                  ))}
+                                  {provided.placeholder}
+                              </div>
+                            )}
+                          </Droppable>
+                      </div>
+                  ))}
+              </div>
+            </DragDropContext>
+
             <div className="flex gap-4">
                 <button onClick={carregarDados} className="text-gray-500 hover:text-white px-6 py-4 rounded-xl font-bold transition uppercase tracking-widest text-xs border border-transparent hover:border-gray-700">Cancelar</button>
                 <button onClick={handleSortear} className="bg-green-600 hover:bg-green-500 text-white px-8 py-4 rounded-xl font-bold transition shadow-lg shadow-green-900/20 uppercase tracking-widest text-xs flex items-center gap-2"><span>🎲</span> Confirmar Ordem e Sortear</button>
@@ -293,7 +308,7 @@ export default function PainelFaseGrupos({ campeonatoId, times = [] }: Props) {
                             <span className="text-[10px] text-gray-400 font-bold uppercase text-center line-clamp-1">{timeCasaNome}</span>
                             <input 
                                 type="number" 
-                                step="0.1" // <--- DECIMAIS
+                                step="0.1" 
                                 autoFocus 
                                 className="mt-2 w-20 h-16 bg-black border border-gray-700 focus:border-blue-500 text-white text-3xl font-black text-center rounded-xl outline-none transition" 
                                 value={tempCasa} 
@@ -306,7 +321,7 @@ export default function PainelFaseGrupos({ campeonatoId, times = [] }: Props) {
                             <span className="text-[10px] text-gray-400 font-bold uppercase text-center line-clamp-1">{timeVisitanteNome}</span>
                             <input 
                                 type="number" 
-                                step="0.1" // <--- DECIMAIS
+                                step="0.1" 
                                 className="mt-2 w-20 h-16 bg-black border border-gray-700 focus:border-blue-500 text-white text-3xl font-black text-center rounded-xl outline-none transition" 
                                 value={tempVisitante} 
                                 onChange={e => setTempVisitante(e.target.value)} 

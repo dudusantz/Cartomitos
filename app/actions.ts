@@ -2323,14 +2323,11 @@ export async function buscarDetalhesConfrontoAoVivo(timeCasaIdCartola: number, t
           urlSubVis ? fetchCartola(`${urlSubVis}?_=${tsNow}`).catch(() => ([])) : Promise.resolve([])
       ]);
 
-      // =========================================================
-      // O SEGREDO DO BUG ESTAVA AQUI: SEGURANÇA TOTAL DE STATUS
-      // =========================================================
+      // Mapa de Status de Partidas
       const statusClubes: Record<number, boolean> = {};
       if (partidasCartola?.partidas) {
           partidasCartola.partidas.forEach((p: any) => {
-              // Confia APENAS no status cravado pela API (2 = Em andamento, 3 = Encerrada, 4 = Adiada)
-              // Removemos a checagem de parciais que gerava falsos positivos!
+              // Confia APENAS no status oficial da API (2 = Em andamento, 3 = Encerrada, 4 = Adiada)
               if (p.status_partida_id && [2, 3, 4].includes(p.status_partida_id)) {
                   statusClubes[p.clube_casa_id] = true;
                   statusClubes[p.clube_visitante_id] = true;
@@ -2418,13 +2415,13 @@ export async function buscarDetalhesConfrontoAoVivo(timeCasaIdCartola: number, t
           // A. Substituição Normal
           for (const posId in titsByPos) {
               const res = resByPos[posId] || [];
-              res.sort((a: any, b: any) => b.pontos - a.pontos);
-
+              
               for (let i = 0; i < titsByPos[posId].length; i++) {
                   const titular = titsByPos[posId][i];
-                  // Só executa se o jogo do clube DE FATO tiver começado
+                  // Se o jogo do titular começou e ele NÃO JOGOU
                   if (!titular.jogou && jogoComecou(titular.clube_id)) {
-                      const rDisponivel = res.find((r: any) => r.jogou && !r.usado && r.pontos > 0);
+                      // Procura um banco disponível que JÁ JOGOU ou ESTÁ JOGANDO
+                      const rDisponivel = res.find((r: any) => r.jogou && !r.usado);
                       if (rDisponivel) {
                           rDisponivel.usado = true;
                           if (titular.id === capitaoRealId) capitaoRealId = rDisponivel.id;
@@ -2441,27 +2438,30 @@ export async function buscarDetalhesConfrontoAoVivo(timeCasaIdCartola: number, t
                   const titsDaMesmaPosicao = titsByPos[rLuxo.posicao_id] || [];
                   if (titsDaMesmaPosicao.length > 0) {
                       
-                      let piorTitular = null;
-                      let menorPts = Infinity;
+                      // TRAVA ESTRATÉGICA: Verifica se TODOS os titulares da posição já começaram a jogar
+                      const todosJogosDaPosicaoComecaram = titsDaMesmaPosicao.every((tit: any) => jogoComecou(tit.clube_id));
 
-                      for (let i = 0; i < titsDaMesmaPosicao.length; i++) {
-                          const tit = titsDaMesmaPosicao[i];
-                          // O Luxo SÓ AVALIA titulares cujo jogo JÁ COMEÇOU
-                          if (jogoComecou(tit.clube_id)) {
+                      if (todosJogosDaPosicaoComecaram) {
+                          let piorTitular = titsDaMesmaPosicao[0];
+                          let menorPts = piorTitular.substituidoPor ? piorTitular.substituidoPor.pontos : piorTitular.pontos;
+
+                          for (let i = 1; i < titsDaMesmaPosicao.length; i++) {
+                              const tit = titsDaMesmaPosicao[i];
                               const ptsSlot = tit.substituidoPor ? tit.substituidoPor.pontos : tit.pontos;
                               if (ptsSlot < menorPts) {
                                   menorPts = ptsSlot;
                                   piorTitular = tit;
                               }
                           }
-                      }
 
-                      if (piorTitular && rLuxo.pontos > menorPts) {
-                          rLuxo.usado = true;
-                          if (piorTitular.id === capitaoRealId || (piorTitular.substituidoPor && piorTitular.substituidoPor.id === capitaoRealId)) {
-                              capitaoRealId = rLuxo.id;
+                          // Se o Luxo fez MAIS pontos que o pior titular, a troca é realizada
+                          if (rLuxo.pontos > menorPts) {
+                              rLuxo.usado = true;
+                              if (piorTitular.id === capitaoRealId || (piorTitular.substituidoPor && piorTitular.substituidoPor.id === capitaoRealId)) {
+                                  capitaoRealId = rLuxo.id;
+                              }
+                              piorTitular.substituidoPor = { ...rLuxo, isLuxoEntry: true };
                           }
-                          piorTitular.substituidoPor = { ...rLuxo, isLuxoEntry: true };
                       }
                   }
               }

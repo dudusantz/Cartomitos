@@ -1,6 +1,9 @@
 import Link from 'next/link'
 import { buscarMaioresPontuadores, buscarLigaOficial } from '@/app/actions'
 
+// ADDED THIS LINE TO FIX THE VERCEL BUILD ERROR
+export const dynamic = 'force-dynamic';
+
 // Atualiza a cada 60 segundos
 export const revalidate = 60
 

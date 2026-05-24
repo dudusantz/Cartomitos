@@ -5,7 +5,7 @@ import toast from 'react-hot-toast'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import { 
   sortearGrupos, gerarJogosFaseGrupos, buscarTabelaGrupos, 
-  atualizarRodadaGrupos, listarPartidas, atualizarPlacarManual 
+  buscarPreviaRodadaGrupos, atualizarRodadaGrupos, listarPartidas, atualizarPlacarManual 
 } from '@/app/actions' 
 import { ModalConfirmacao } from './ModalConfirmacao' 
 import { RefreshCw, Save, X, Calendar, PlayCircle, GripVertical } from 'lucide-react'
@@ -27,6 +27,9 @@ export default function PainelFaseGrupos({ campeonatoId, times = [] }: Props) {
   const [saving, setSaving] = useState(false)
   const [viewAdjusted, setViewAdjusted] = useState(false)
   
+  // PREVIEW (Rascunho)
+  const [previewPlacares, setPreviewPlacares] = useState<Record<number, { casa: string, visitante: string }>>({});
+
   // Sorteio
   const [timesOrdenados, setTimesOrdenados] = useState<any[]>([])
   const [modoSorteio, setModoSorteio] = useState(false)
@@ -52,12 +55,16 @@ export default function PainelFaseGrupos({ campeonatoId, times = [] }: Props) {
       }
   }, [times])
 
+  // Limpa o preview sempre que mudar de rodada
+  useEffect(() => {
+      setPreviewPlacares({})
+  }, [rodadaView])
+
   async function carregarDados() {
     setLoading(true)
     const dadosGrupos = await buscarTabelaGrupos(campeonatoId)
     setGrupos(dadosGrupos || {})
     
-    // Mapeia qual time está em qual grupo para filtrar jogos corretamente
     const mapaGrupos: Record<number, string> = {}
     if (dadosGrupos) {
         Object.keys(dadosGrupos).forEach(letra => {
@@ -68,7 +75,6 @@ export default function PainelFaseGrupos({ campeonatoId, times = [] }: Props) {
     }
 
     const dadosJogos = await listarPartidas(campeonatoId)
-    // Filtra apenas jogos internos de grupo (segurança) e da fase de grupos (rodada <= 20)
     const jogosGrupos = dadosJogos.filter((j: any) => {
         const gCasa = mapaGrupos[j.time_casa]
         const gVis = mapaGrupos[j.time_visitante]
@@ -77,12 +83,10 @@ export default function PainelFaseGrupos({ campeonatoId, times = [] }: Props) {
     
     setJogos(jogosGrupos)
 
-    // Se não tiver grupos formados e nem jogos, abre modo sorteio
     if ((!dadosGrupos || Object.keys(dadosGrupos).length === 0) && jogosGrupos.length === 0) {
         setModoSorteio(true)
     } else {
         setModoSorteio(false)
-        // Ajusta rodada inicial para a primeira pendente
         if (!viewAdjusted && jogosGrupos.length > 0) {
             const pendentes = jogosGrupos.filter((j: any) => j.status !== 'finalizado').map((j: any) => j.rodada)
             const r = pendentes.length > 0 ? Math.min(...pendentes) : Math.max(...jogosGrupos.map((j:any) => j.rodada))
@@ -104,23 +108,17 @@ export default function PainelFaseGrupos({ campeonatoId, times = [] }: Props) {
     setModalOpen(true)
   }
 
-  // === LÓGICA DE DRAG AND DROP ===
   const numPotes = 4
   const timesPorPote = timesOrdenados.length > 0 ? Math.ceil(timesOrdenados.length / numPotes) : 0
 
   const onDragEnd = (result: DropResult) => {
     const { source, destination } = result
-
     if (!destination) return
-
-    // Calcula o índice real no array flat de times baseando-se no pote
     const sourceGlobalIndex = (parseInt(source.droppableId) * timesPorPote) + source.index
     const destGlobalIndex = (parseInt(destination.droppableId) * timesPorPote) + destination.index
-
     const novosTimes = Array.from(timesOrdenados)
     const [timeMovido] = novosTimes.splice(sourceGlobalIndex, 1)
     novosTimes.splice(destGlobalIndex, 0, timeMovido)
-
     setTimesOrdenados(novosTimes)
   }
 
@@ -128,8 +126,6 @@ export default function PainelFaseGrupos({ campeonatoId, times = [] }: Props) {
 
   async function handleSortear() {
     if (!timesOrdenados || timesOrdenados.length < 4) return toast.error("Mínimo 4 times para sortear.")
-    
-    // Monta os potes baseados na ordem definida pelo Drag and Drop
     const potes: number[][] = []
     for (let i = 0; i < numPotes; i++) {
         const slice = timesOrdenados.slice(i * timesPorPote, (i + 1) * timesPorPote)
@@ -162,13 +158,36 @@ export default function PainelFaseGrupos({ campeonatoId, times = [] }: Props) {
       if(res.success) { toast.success(res.msg); await carregarDados(); setRodadaView(1); } else { toast.error(res.msg) }
   }
 
-  // === AÇÕES DE JOGO ===
-  async function handleAtualizarRodada() {
+  // === AÇÕES DE JOGO (NOVO FLUXO PREVIEW -> SALVAR) ===
+  async function handleBuscarPrevia() {
     if(!rodadaCartola) return toast.error("Informe a rodada do Cartola.")
     setLoading(true)
-    const res = await atualizarRodadaGrupos(campeonatoId, rodadaView, Number(rodadaCartola))
-    if(res.success) { toast.success(res.msg); await carregarDados(); } else toast.error(res.msg)
+    const res = await buscarPreviaRodadaGrupos(campeonatoId, rodadaView, Number(rodadaCartola))
+    if(res.success && res.pendentes) { 
+        setPreviewPlacares(res.pendentes)
+        toast.success("Pontuações carregadas! Verifique e clique em Salvar.")
+    } else {
+        toast.error(res.msg || "Erro ao buscar dados.")
+    }
     setLoading(false)
+  }
+
+  async function handleSalvarRodada() {
+    if(!rodadaCartola) return toast.error("Rodada do Cartola vazia.")
+    setSaving(true)
+    const res = await atualizarRodadaGrupos(campeonatoId, rodadaView, Number(rodadaCartola))
+    if(res.success) { 
+        toast.success(res.msg); 
+        setPreviewPlacares({}) // Limpa o preview após salvar
+        await carregarDados(); 
+    } else {
+        toast.error(res.msg || "Erro ao salvar resultados.")
+    }
+    setSaving(false)
+  }
+
+  function cancelarPreview() {
+      setPreviewPlacares({})
   }
 
   function abrirModalEdicao(jogo: any) {
@@ -207,7 +226,8 @@ export default function PainelFaseGrupos({ campeonatoId, times = [] }: Props) {
   const jogosDaRodada = jogos.filter(j => j.rodada === rodadaView)
   const totalRodadas = jogos.length > 0 ? Math.max(...jogos.map(j => j.rodada)) : 1
 
-  // === RENDER: TELA DE SORTEIO COM DRAG AND DROP ===
+  const isPreviewMode = Object.keys(previewPlacares).length > 0;
+
   if (modoSorteio) {
       return (
         <div className="flex flex-col items-center animate-fadeIn py-4">
@@ -278,7 +298,6 @@ export default function PainelFaseGrupos({ campeonatoId, times = [] }: Props) {
       )
   }
 
-  // === RENDER: TELA PRINCIPAL ===
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-fadeIn items-start pb-20">
       <ModalConfirmacao 
@@ -291,7 +310,6 @@ export default function PainelFaseGrupos({ campeonatoId, times = [] }: Props) {
           textoBotao={modalConfig.textoBotao || "Confirmar"}
       />
       
-      {/* MODAL DE EDIÇÃO */}
       {editingId && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[9999] backdrop-blur-sm p-4">
             <div className="bg-[#1a1a1a] border border-gray-700 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden transform transition-all scale-100">
@@ -418,7 +436,7 @@ export default function PainelFaseGrupos({ campeonatoId, times = [] }: Props) {
         </div>
       </div>
 
-      {/* COLUNA 2: JOGOS */}
+      {/* COLUNA 2: JOGOS E CONTROLES */}
       <div className="lg:col-span-1 space-y-6">
          <div className="bg-[#121212] border border-gray-800 rounded-3xl p-6 sticky top-6 shadow-xl h-fit">
             <div className="flex justify-between items-center mb-6 pb-4 border-b border-gray-800 shrink-0">
@@ -429,31 +447,69 @@ export default function PainelFaseGrupos({ campeonatoId, times = [] }: Props) {
                     <button onClick={() => setRodadaView(r => Math.min(totalRodadas, r + 1))} className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800 rounded transition disabled:opacity-30">›</button>
                 </div>
             </div>
-            <div className="flex gap-2 mb-6 shrink-0">
-                <input type="number" placeholder="Rodada Cartola" className="flex-1 bg-black border border-gray-800 text-white text-[11px] font-bold p-3 rounded-lg focus:border-orange-500 outline-none transition" value={rodadaCartola} onChange={e => setRodadaCartola(e.target.value)} />
-                <button onClick={handleAtualizarRodada} disabled={loading} className="bg-blue-600 hover:bg-blue-500 text-white px-4 rounded-lg text-[10px] font-bold uppercase transition disabled:opacity-50">{loading ? <RefreshCw className="animate-spin w-4 h-4"/> : 'Atualizar'}</button>
-            </div>
+
+            {/* BARRA DE CONTROLE: ATUALIZAR / SALVAR */}
+            {!isPreviewMode ? (
+                <div className="flex gap-2 mb-6 shrink-0">
+                    <input type="number" placeholder="Rodada Cartola" className="flex-1 bg-black border border-gray-800 text-white text-[11px] font-bold p-3 rounded-lg focus:border-blue-500 outline-none transition" value={rodadaCartola} onChange={e => setRodadaCartola(e.target.value)} />
+                    <button onClick={handleBuscarPrevia} disabled={loading} className="bg-blue-600 hover:bg-blue-500 text-white px-4 rounded-lg text-[10px] font-bold uppercase transition disabled:opacity-50 flex items-center justify-center min-w-[100px]">
+                        {loading ? <RefreshCw className="animate-spin w-4 h-4"/> : 'Atualizar'}
+                    </button>
+                </div>
+            ) : (
+                <div className="flex gap-2 mb-6 shrink-0 bg-yellow-500/10 border border-yellow-500/30 p-2 rounded-xl">
+                    <button onClick={cancelarPreview} disabled={saving} className="bg-gray-800 hover:bg-gray-700 text-gray-300 px-3 py-2 rounded-lg text-[10px] font-bold uppercase transition disabled:opacity-50">Cancelar</button>
+                    <button onClick={handleSalvarRodada} disabled={saving} className="flex-1 bg-yellow-600 hover:bg-yellow-500 text-black px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition disabled:opacity-50 shadow-lg shadow-yellow-900/20 flex items-center justify-center gap-2">
+                        {saving ? <RefreshCw className="animate-spin w-4 h-4"/> : <Save size={14} />} {saving ? 'Salvando...' : 'Salvar Resultados'}
+                    </button>
+                </div>
+            )}
             
             <div className="space-y-3 max-h-[600px] overflow-y-auto custom-scrollbar pr-1">
                 {jogosDaRodada.length === 0 && <div className="text-center text-gray-600 text-xs py-10 border border-dashed border-gray-800 rounded-xl">Sem jogos.</div>}
+                
                 {jogosDaRodada.map(j => {
                     const casa = Array.isArray(j.casa) ? j.casa[0] : j.casa;
                     const visitante = Array.isArray(j.visitante) ? j.visitante[0] : j.visitante;
-                    const finalizado = j.status === 'finalizado';
-                    const cVenceu = finalizado && (j.placar_casa ?? 0) > (j.placar_visitante ?? 0);
-                    const vVenceu = finalizado && (j.placar_visitante ?? 0) > (j.placar_casa ?? 0);
+                    
+                    // Se estiver em modo preview, usa os placares temporários. Se não, usa os oficiais.
+                    let placarC = j.placar_casa;
+                    let placarV = j.placar_visitante;
+                    let isPreviewCurrent = false;
+
+                    if (isPreviewMode && previewPlacares[j.id]) {
+                        placarC = previewPlacares[j.id].casa;
+                        placarV = previewPlacares[j.id].visitante;
+                        isPreviewCurrent = true;
+                    }
+
+                    const finalizado = j.status === 'finalizado' || isPreviewCurrent;
+                    const cVenceu = finalizado && Number(placarC) > Number(placarV);
+                    const vVenceu = finalizado && Number(placarV) > Number(placarC);
                     
                     return (
-                    <div key={j.id} onClick={() => abrirModalEdicao(j)} className="bg-black/40 border border-gray-800/50 p-4 rounded-xl cursor-pointer hover:border-orange-500/50 hover:bg-white/[0.02] transition group relative overflow-hidden">
-                        {finalizado && <div className="absolute top-0 right-0 w-2 h-2 bg-green-500 rounded-bl-lg"></div>}
+                    <div key={j.id} onClick={() => !isPreviewMode && abrirModalEdicao(j)} className={`border p-4 rounded-xl transition group relative overflow-hidden ${isPreviewCurrent ? 'bg-yellow-500/5 border-yellow-500/50 cursor-default' : 'bg-black/40 border-gray-800/50 cursor-pointer hover:border-orange-500/50 hover:bg-white/[0.02]'}`}>
+                        
+                        {/* Indicadores de canto */}
+                        {isPreviewCurrent ? (
+                            <div className="absolute top-0 right-0 w-2 h-2 bg-yellow-500 rounded-bl-lg animate-pulse"></div>
+                        ) : (
+                            finalizado && <div className="absolute top-0 right-0 w-2 h-2 bg-green-500 rounded-bl-lg"></div>
+                        )}
+
                         <div className="flex justify-between items-center text-xs mt-1">
                             <div className="flex items-center justify-end gap-3 w-[40%]">
                                 <span className={`text-[10px] font-bold text-right leading-tight ${cVenceu ? 'text-green-400' : 'text-gray-400'}`}>{casa?.nome || 'Time'}</span>
                                 <img src={casa?.escudo || '/shield-placeholder.png'} className="w-8 h-8 object-contain drop-shadow-md" />
                             </div>
-                            <div className={`border px-2 py-1.5 rounded-lg text-sm font-black font-mono flex items-center justify-center min-w-[50px] ${finalizado ? 'bg-[#151515] border-gray-800' : 'bg-[#0a0a0a] border-gray-800 text-gray-600'}`}>
-                                <span className={cVenceu ? 'text-green-400' : 'text-white'}>{j.placar_casa ?? '-'}</span><span className="text-gray-700 mx-1">:</span><span className={vVenceu ? 'text-green-400' : 'text-white'}>{j.placar_visitante ?? '-'}</span>
+                            
+                            <div className={`border px-2 py-1.5 rounded-lg text-sm font-black font-mono flex items-center justify-center min-w-[50px] 
+                                ${isPreviewCurrent ? 'bg-yellow-500/10 border-yellow-500/30 text-yellow-500' : finalizado ? 'bg-[#151515] border-gray-800' : 'bg-[#0a0a0a] border-gray-800 text-gray-600'}`}>
+                                <span className={cVenceu ? 'text-green-400' : isPreviewCurrent ? 'text-yellow-500' : 'text-white'}>{placarC ?? '-'}</span>
+                                <span className="text-gray-700 mx-1">:</span>
+                                <span className={vVenceu ? 'text-green-400' : isPreviewCurrent ? 'text-yellow-500' : 'text-white'}>{placarV ?? '-'}</span>
                             </div>
+
                             <div className="flex items-center justify-start gap-3 w-[40%]">
                                 <img src={visitante?.escudo || '/shield-placeholder.png'} className="w-8 h-8 object-contain drop-shadow-md" />
                                 <span className={`text-[10px] font-bold text-left leading-tight ${vVenceu ? 'text-green-400' : 'text-gray-400'}`}>{visitante?.nome || 'Time'}</span>

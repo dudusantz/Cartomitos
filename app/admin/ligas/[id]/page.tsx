@@ -49,6 +49,11 @@ export default function GerenciarLiga() {
   const [anoLiga, setAnoLiga] = useState<number>(new Date().getFullYear());
   const [isPaga, setIsPaga] = useState(false);
   const [usarDecimais, setUsarDecimais] = useState(false);
+  
+  // ZONAS DE CLASSIFICAÇÃO (COPAS)
+  const [qtdClassificados, setQtdClassificados] = useState<number>(2);
+  const [qtdSulamericana, setQtdSulamericana] = useState<number>(0);
+  
   const [isSaving, setIsSaving] = useState(false);
 
   // Valores originais para detectar alterações
@@ -57,14 +62,18 @@ export default function GerenciarLiga() {
   const [origIsPaga, setOrigIsPaga] = useState(false);
   const [origUsarDecimais, setOrigUsarDecimais] = useState(false);
   const [origFinalUnica, setOrigFinalUnica] = useState(false);
+  const [origQtdClassificados, setOrigQtdClassificados] = useState<number>(2);
+  const [origQtdSulamericana, setOrigQtdSulamericana] = useState<number>(0);
 
-  // FIX 3: detecta se há alterações comparando com originais
+  // Detecta se há alterações comparando com originais
   const temAlteracoes =
     nomeLiga !== origNome ||
     anoLiga !== origAno ||
     isPaga !== origIsPaga ||
     usarDecimais !== origUsarDecimais ||
-    finalUnica !== origFinalUnica;
+    finalUnica !== origFinalUnica ||
+    qtdClassificados !== origQtdClassificados ||
+    qtdSulamericana !== origQtdSulamericana;
 
   useEffect(() => {
     if (id) carregarDados();
@@ -95,13 +104,19 @@ export default function GerenciarLiga() {
     setAnoLiga(data?.ano || new Date().getFullYear());
     setIsPaga(data?.is_paga || false);
     setUsarDecimais(data?.usar_decimais || false);
+    
+    // Carrega zonas de classificação
+    setQtdClassificados(data?.qtd_classificados ?? 2);
+    setQtdSulamericana(data?.qtd_sulamericana ?? 0);
 
-    // FIX 3: salva os originais também
+    // Salva os originais
     setOrigNome(data?.nome || "");
     setOrigAno(data?.ano || new Date().getFullYear());
     setOrigIsPaga(data?.is_paga || false);
     setOrigUsarDecimais(data?.usar_decimais || false);
     setOrigFinalUnica(data?.final_unica || false);
+    setOrigQtdClassificados(data?.qtd_classificados ?? 2);
+    setOrigQtdSulamericana(data?.qtd_sulamericana ?? 0);
 
     if (data && !data.ativo) {
       const p = await buscarPodium(campeonatoId);
@@ -178,23 +193,43 @@ export default function GerenciarLiga() {
       atualizarCampeonato(campeonatoId, nomeLiga.trim(), anoLiga, liga.tipo, isPaga, usarDecimais),
       atualizarConfiguracaoLiga(campeonatoId, finalUnica),
     ]);
+    
+    // Salva as Zonas de Classificação direto no banco
+    const { error: errZonas } = await supabase
+      .from('campeonatos')
+      .update({
+          qtd_classificados: qtdClassificados,
+          qtd_sulamericana: qtdSulamericana
+      })
+      .eq('id', campeonatoId);
 
     setIsSaving(false);
 
-    if (resGeral.success && resConfig.success) {
-      toast.success("Configurações atualizadas!");
+    if (resGeral.success && resConfig.success && !errZonas) {
+      toast.success("Configurações salvas com sucesso!");
 
-      // FIX 2: atualiza o estado local diretamente — sem re-fetch desnecessário
-      setLiga((prev: any) => ({ ...prev, nome: nomeLiga.trim(), ano: anoLiga, is_paga: isPaga, usar_decimais: usarDecimais, final_unica: finalUnica }));
+      setLiga((prev: any) => ({ 
+          ...prev, 
+          nome: nomeLiga.trim(), 
+          ano: anoLiga, 
+          is_paga: isPaga, 
+          usar_decimais: usarDecimais, 
+          final_unica: finalUnica,
+          qtd_classificados: qtdClassificados,
+          qtd_sulamericana: qtdSulamericana
+      }));
 
-      // Sincroniza os originais para limpar o indicador de "não salvo"
+      // Sincroniza os originais
       setOrigNome(nomeLiga.trim());
       setOrigAno(anoLiga);
       setOrigIsPaga(isPaga);
       setOrigUsarDecimais(usarDecimais);
       setOrigFinalUnica(finalUnica);
+      setOrigQtdClassificados(qtdClassificados);
+      setOrigQtdSulamericana(qtdSulamericana);
     } else {
-      toast.error(resGeral.msg || resConfig.msg || "Erro ao atualizar.");
+      toast.error("Erro ao atualizar algumas configurações.");
+      if (errZonas) console.error("Erro ao salvar zonas:", errZonas);
     }
   }
 
@@ -234,7 +269,6 @@ export default function GerenciarLiga() {
               <h1 className="text-4xl font-black tracking-tighter text-white">
                 {liga?.nome}
               </h1>
-              {/* FIX 4: removida a condição liga.ativo — o componente já alterna entre Encerrar/Reabrir */}
               <div className="ml-4">
                 <BotaoFinalizarCampeonato campeonatoId={campeonatoId} />
               </div>
@@ -253,7 +287,6 @@ export default function GerenciarLiga() {
 
           {/* Abas de Navegação */}
           <div className="flex gap-2 bg-[#121212] p-1.5 rounded-xl border border-gray-800 shadow-xl overflow-x-auto max-w-full">
-
             {tipoLiga === "pontos_corridos" && (
               <button
                 onClick={() => setTabAtiva("classificacao")}
@@ -297,13 +330,11 @@ export default function GerenciarLiga() {
               Times
             </button>
 
-            {/* FIX 1: aba Config disponível para todos os tipos */}
             <button
               onClick={() => setTabAtiva("config")}
               className={`px-5 py-2.5 rounded-lg font-bold text-xs uppercase transition tracking-wider whitespace-nowrap flex items-center gap-1.5 ${tabAtiva === "config" ? "bg-gray-700 text-white shadow-lg" : "text-gray-500 hover:text-white hover:bg-white/5"}`}
             >
               Config
-              {/* FIX 3: badge de alterações pendentes na aba */}
               {temAlteracoes && (
                 <span className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" />
               )}
@@ -313,7 +344,6 @@ export default function GerenciarLiga() {
       </div>
 
       <div className="p-8 max-w-[1600px] mx-auto">
-
         {["mata_mata", "copa", "pontos_corridos", "grid"].indexOf(tipoLiga) === -1 && (
           <div className="mb-6 bg-red-500/10 border border-red-500/50 p-4 rounded-xl flex items-center gap-3 text-red-200">
             <AlertCircle />
@@ -429,9 +459,9 @@ export default function GerenciarLiga() {
                     </div>
                     <div className="space-y-1">
                       {pote1.map((t, idx) => (
-                        <div key={t.time_id} className={`flex justify-between items-center p-2 rounded ${idx < 2 ? "bg-yellow-500/10 border border-yellow-500/30" : "bg-white/5"}`}>
+                        <div key={t.time_id} className={`flex justify-between items-center p-2 rounded ${idx < (liga.qtd_classificados || 2) ? "bg-yellow-500/10 border border-yellow-500/30" : "bg-white/5"}`}>
                           <div className="flex items-center gap-3">
-                            <span className={`font-mono font-bold text-[10px] w-4 ${idx < 2 ? "text-yellow-500" : "text-gray-500"}`}>#{idx + 1}</span>
+                            <span className={`font-mono font-bold text-[10px] w-4 ${idx < (liga.qtd_classificados || 2) ? "text-yellow-500" : "text-gray-500"}`}>#{idx + 1}</span>
                             <img src={t.times?.escudo || "/shield-placeholder.png"} className="w-5 h-5 object-contain" />
                             <span className="text-xs font-bold text-gray-300">{t.times?.nome}</span>
                           </div>
@@ -478,7 +508,6 @@ export default function GerenciarLiga() {
           <PainelTimes campeonatoId={campeonatoId} ativo={liga.ativo} timesLiga={timesLiga} todosTimes={todosTimes} aoAtualizar={carregarDados} />
         )}
 
-        {/* FIX 1+3+5: Aba Config para todos os tipos, com toggles visuais e botão inteligente */}
         {tabAtiva === "config" && (
           <div className="bg-[#121212] p-8 rounded-3xl border border-gray-800 max-w-4xl mx-auto animate-fadeIn space-y-6">
             <h3 className="text-xl font-bold text-white uppercase tracking-wider border-b border-gray-800 pb-4">
@@ -506,7 +535,40 @@ export default function GerenciarLiga() {
               </div>
             </div>
 
-            {/* FIX 5: Toggles visuais consistentes com o restante do sistema */}
+            {/* ZONAS DE CLASSIFICAÇÃO PARA COPAS */}
+            {tipoLiga === "copa" && (
+              <div className="pt-6 border-t border-gray-800 mt-6 space-y-4">
+                <h4 className="text-sm font-bold text-white uppercase tracking-wider">Zonas de Classificação (Fase de Grupos)</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="flex flex-col gap-2">
+                    <label className="text-xs font-bold text-green-500 uppercase tracking-wider">Passam de Fase (Ex: 2)</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="4"
+                      value={qtdClassificados}
+                      onChange={e => setQtdClassificados(Number(e.target.value))}
+                      className="bg-[#080808] border border-gray-700 focus:border-green-500 focus:ring-1 focus:ring-green-500 p-3 rounded-xl text-white outline-none transition"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <label className="text-xs font-bold text-yellow-500 uppercase tracking-wider">Vão para Sul-Americana (Ex: 1)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      max="4"
+                      value={qtdSulamericana}
+                      onChange={e => setQtdSulamericana(Number(e.target.value))}
+                      className="bg-[#080808] border border-gray-700 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 p-3 rounded-xl text-white outline-none transition"
+                    />
+                  </div>
+                </div>
+                <p className="text-[10px] text-gray-500">
+                  Esses valores definem as cores da tabela e a legenda para quem acompanha o campeonato.
+                </p>
+              </div>
+            )}
+
             <div className="space-y-3 pt-4 border-t border-gray-800">
               <ToggleVisual
                 label="Final em Jogo Único"
@@ -532,7 +594,6 @@ export default function GerenciarLiga() {
             </div>
 
             <div className="flex justify-end items-center gap-4 pt-6 border-t border-gray-800">
-              {/* FIX 3: indicador de alterações pendentes */}
               {temAlteracoes && !isSaving && (
                 <span className="text-[10px] text-yellow-500/80 font-bold uppercase tracking-wider animate-pulse">
                   ● Alterações não salvas
@@ -560,9 +621,6 @@ export default function GerenciarLiga() {
   );
 }
 
-// =============================================================================
-// Sub-componente: Toggle visual (FIX 5)
-// =============================================================================
 interface ToggleVisualProps {
   label: string;
   descricao: string;

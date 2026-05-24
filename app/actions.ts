@@ -971,6 +971,49 @@ export async function gerarJogosFaseGrupos(campeonatoId: number) {
   }
 }
 
+export async function buscarPreviaRodadaGrupos(campeonatoId: number, rodadaLiga: number, rodadaCartola: number) {
+  try {
+    await verificarAdmin();
+    const db = getDb();
+
+    const { data: partidas, error } = await db.from('partidas')
+      .select('*, casa:times!partidas_time_casa_fkey(*), visitante:times!partidas_time_visitante_fkey(*), campeonato:campeonatos(usar_decimais)')
+      .eq('campeonato_id', campeonatoId).eq('rodada', rodadaLiga).order('id');
+
+    if (error) throw error;
+    if (!partidas || partidas.length === 0) return { success: false, msg: "Sem jogos nesta rodada." };
+
+    const p = partidas as any[];
+    const campInfo: any = p[0].campeonato;
+    const usarDecimais = Array.isArray(campInfo) ? campInfo[0]?.usar_decimais === true : campInfo?.usar_decimais === true;
+
+    const pendentes: Record<number, { casa: string, visitante: string }> = {};
+
+    for (const jogo of p) {
+        const [resCasa, resVis] = await Promise.all([
+            fetchCartola(`https://api.cartola.globo.com/time/id/${jogo.casa.time_id_cartola}/${rodadaCartola}`),
+            fetchCartola(`https://api.cartola.globo.com/time/id/${jogo.visitante.time_id_cartola}/${rodadaCartola}`)
+        ]);
+
+        const ptsCasa = resCasa?.pontos || 0;
+        const ptsVis = resVis?.pontos || 0;
+
+        const placarC = usarDecimais ? ptsCasa : Math.floor(ptsCasa);
+        const placarV = usarDecimais ? ptsVis : Math.floor(ptsVis);
+
+        pendentes[jogo.id] = { 
+            casa: String(placarC), 
+            visitante: String(placarV) 
+        };
+    }
+
+    return { success: true, pendentes };
+  } catch (error: any) {
+    console.error("Erro em buscarPreviaRodadaGrupos:", error);
+    return { success: false, msg: error.message || "Erro interno." };
+  }
+}
+
 export async function atualizarRodadaGrupos(campeonatoId: number, rodadaLiga: number, rodadaCartola: number) {
   try {
     await verificarAdmin();

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
 import {
   buscarTabelaGrupos,
   listarPartidas,
@@ -21,6 +22,9 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
   const [gruposExibidos, setGruposExibidos] = useState<any>({});
   const [jogosExibidos, setJogosExibidos] = useState<any[]>([]);
 
+  // Array de zonas dinâmicas lido do banco de dados
+  const [zonasClassificacao, setZonasClassificacao] = useState<any[]>([]);
+
   const [rodadaView, setRodadaView] = useState(1);
   const [loading, setLoading] = useState(true);
   const [loadingLive, setLoadingLive] = useState(false);
@@ -31,6 +35,21 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
   useEffect(() => {
     async function carregar() {
       try {
+        // Busca as zonas salvas lá no Admin
+        const { data: camp } = await supabase
+          .from("campeonatos")
+          .select("config_zonas")
+          .eq("id", campeonatoId)
+          .single();
+
+        if (camp && camp.config_zonas) {
+          // Ordena as zonas pela posição para garantir o funcionamento do .find() depois
+          const zonasOrdenadas = Array.isArray(camp.config_zonas) 
+            ? camp.config_zonas.sort((a, b) => a.posicao - b.posicao)
+            : [];
+          setZonasClassificacao(zonasOrdenadas);
+        }
+
         const dadosGrupos = await buscarTabelaGrupos(campeonatoId);
         const dadosJogos = await listarPartidas(campeonatoId);
         
@@ -193,7 +212,7 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start animate-fadeIn max-w-[100vw] overflow-hidden">
-      <div className="lg:col-span-8">
+      <div className="lg:col-span-8 flex flex-col gap-6">
         <div className="flex items-center justify-between mb-4 px-2">
           <div className="flex items-center gap-3">
             <h2 className="text-lg font-black text-white uppercase tracking-widest flex items-center gap-2">
@@ -242,15 +261,24 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
                     <tbody className="divide-y divide-gray-800/40">
                       {gruposExibidos[letra].map((t: any, idx: number) => {
                         const time = Array.isArray(t.times) ? t.times[0] : t.times;
-                        const isClassificado = idx < 2;
+                        
+                        // Encontra a cor da zona baseada na posição do time
+                        const zonaAtiva = zonasClassificacao.find((z) => (idx + 1) <= z.posicao);
+                        const corZona = zonaAtiva ? zonaAtiva.cor : 'transparent';
+                        const isClassificado = zonaAtiva !== undefined; // Tem cor, tem destaque
 
                         return (
                           <tr key={t.id} className="hover:bg-white/[0.02]">
                             <td className="py-2 pl-3 font-bold text-gray-500 relative">
                               {isClassificado && (
-                                <div className="absolute left-0 top-1 bottom-1 w-0.5 bg-blue-500"></div>
+                                <div 
+                                  className="absolute left-0 top-1 bottom-1 w-1" 
+                                  style={{ backgroundColor: corZona }}
+                                ></div>
                               )}
-                              {idx + 1}
+                              <span style={{ color: isClassificado ? corZona : '' }}>
+                                  {idx + 1}
+                              </span>
                             </td>
                             <td className="py-2 px-1">
                               <div className="flex items-center gap-2 overflow-hidden">
@@ -260,7 +288,7 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
                                 />
                                 <span
                                   className={`font-bold whitespace-nowrap leading-tight ${
-                                    isClassificado ? "text-white" : "text-gray-400"
+                                    isClassificado ? "text-white" : "text-gray-500"
                                   }`}
                                 >
                                   {time?.nome}
@@ -300,6 +328,25 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
               </div>
             ))}
         </div>
+
+        {/* LEGENDA DE CLASSIFICAÇÃO AUTOMÁTICA */}
+        {zonasClassificacao.length > 0 && (
+          <div className="bg-[#121212] border border-gray-800 rounded-xl p-4 flex flex-wrap gap-6 items-center shadow-lg mt-4">
+              <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Legenda:</span>
+              
+              {zonasClassificacao.map((zona, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                      <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: zona.cor }}></div>
+                      <span className="text-[10px] text-gray-300 font-bold uppercase tracking-wider">{zona.texto || `Posição ${zona.posicao}`}</span>
+                  </div>
+              ))}
+              
+              <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 bg-transparent border border-gray-600 rounded-sm"></div>
+                  <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Eliminados</span>
+              </div>
+          </div>
+        )}
       </div>
 
       <div className="lg:col-span-4 space-y-4 sticky top-6">
@@ -419,7 +466,6 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
         </div>
       </div>
       
-      {/* CORREÇÃO DO MODAL DE CONFRONTO: Mapear a rodada_cartola correta */}
       {jogoSelecionado && (
           <ModalConfrontoAoVivo 
               jogo={{...jogoSelecionado, rodada: jogoSelecionado.rodada_cartola}} 

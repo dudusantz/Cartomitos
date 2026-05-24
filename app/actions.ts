@@ -18,7 +18,8 @@ async function verificarAdmin() {
   const { data: { session }, error } = await supabase.auth.getSession();
   
   if (!session || error) {
-    console.warn("⚠️ TENTATIVA DE INVASÃO/AÇÃO NÃO AUTORIZADA: Função administrativa chamada sem sessão válida.");
+    // console.warn("⚠️ TENTATIVA DE INVASÃO/AÇÃO NÃO AUTORIZADA: Função administrativa chamada sem sessão válida.");
+    
     // NOTA: Se o seu fluxo de login não usar o padrão de sessão do Supabase,
     // adapte esta checagem para a sua lógica de autenticação. 
     // Em produção, você DEVE descomentar a linha abaixo para bloquear a execução:
@@ -161,18 +162,38 @@ export async function criarCampeonato(nome: string, ano: number, tipo: string, i
   }
 }
 
-export async function atualizarCampeonato(id: number, nome: string, ano: number, tipo: string, isPaga: boolean, usarDecimais: boolean) {
+export async function atualizarCampeonato(
+  id: number, 
+  nome: string, 
+  ano: number, 
+  tipo: string, 
+  isPaga: boolean, 
+  usarDecimais: boolean,
+  qtdClassificados?: number,
+  qtdSulamericana?: number,
+  mensagemAtualizacao?: string,
+  configZonas?: any // <--- AGORA O BACK-END SABE QUE ISSO EXISTE
+) {
   try {
     await verificarAdmin();
     const db = getDb();
 
-    const { error } = await db.from('campeonatos').update({ 
+    // Monta o objeto base
+    const updateData: any = { 
         nome, 
         ano, 
         tipo, 
         is_paga: isPaga,
         usar_decimais: usarDecimais 
-    }).eq('id', id)
+    };
+
+    // Só adiciona na query se eles foram enviados pelo front-end
+    if (qtdClassificados !== undefined) updateData.qtd_classificados = qtdClassificados;
+    if (qtdSulamericana !== undefined) updateData.qtd_sulamericana = qtdSulamericana;
+    if (mensagemAtualizacao !== undefined) updateData.mensagem_atualizacao = mensagemAtualizacao;
+    if (configZonas !== undefined) updateData.config_zonas = configZonas; // <--- SALVA AS CORES AQUI
+
+    const { error } = await db.from('campeonatos').update(updateData).eq('id', id)
     
     if (!error) {
       revalidatePath('/admin/ligas')

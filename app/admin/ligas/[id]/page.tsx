@@ -16,7 +16,7 @@ import {
 import { supabase } from "@/lib/supabase";
 import { ModalConfirmacao } from "@/app/components/ModalConfirmacao";
 import BotaoFinalizarCampeonato from "@/app/components/BotaoFinalizarCampeonato";
-import { Trophy, Calendar, Medal, AlertCircle, Save, RefreshCw } from "lucide-react";
+import { Trophy, Calendar, Medal, AlertCircle, Save, RefreshCw, X } from "lucide-react";
 
 import PainelPontosCorridos from "@/app/components/PainelPontosCorridos";
 import PainelMataMata from "@/app/components/PainelMataMata";
@@ -50,9 +50,9 @@ export default function GerenciarLiga() {
   const [isPaga, setIsPaga] = useState(false);
   const [usarDecimais, setUsarDecimais] = useState(false);
   
-  // ZONAS DE CLASSIFICAÇÃO (COPAS)
-  const [qtdClassificados, setQtdClassificados] = useState<number>(2);
-  const [qtdSulamericana, setQtdSulamericana] = useState<number>(0);
+  // NOVOS CAMPOS DINÂMICOS
+  const [mensagemAtualizacao, setMensagemAtualizacao] = useState("");
+  const [configZonas, setConfigZonas] = useState<any[]>([]);
   
   const [isSaving, setIsSaving] = useState(false);
 
@@ -62,8 +62,8 @@ export default function GerenciarLiga() {
   const [origIsPaga, setOrigIsPaga] = useState(false);
   const [origUsarDecimais, setOrigUsarDecimais] = useState(false);
   const [origFinalUnica, setOrigFinalUnica] = useState(false);
-  const [origQtdClassificados, setOrigQtdClassificados] = useState<number>(2);
-  const [origQtdSulamericana, setOrigQtdSulamericana] = useState<number>(0);
+  const [origMensagem, setOrigMensagem] = useState("");
+  const [origConfigZonas, setOrigConfigZonas] = useState<any[]>([]);
 
   // Detecta se há alterações comparando com originais
   const temAlteracoes =
@@ -72,8 +72,8 @@ export default function GerenciarLiga() {
     isPaga !== origIsPaga ||
     usarDecimais !== origUsarDecimais ||
     finalUnica !== origFinalUnica ||
-    qtdClassificados !== origQtdClassificados ||
-    qtdSulamericana !== origQtdSulamericana;
+    mensagemAtualizacao !== origMensagem ||
+    JSON.stringify(configZonas) !== JSON.stringify(origConfigZonas);
 
   useEffect(() => {
     if (id) carregarDados();
@@ -105,9 +105,9 @@ export default function GerenciarLiga() {
     setIsPaga(data?.is_paga || false);
     setUsarDecimais(data?.usar_decimais || false);
     
-    // Carrega zonas de classificação
-    setQtdClassificados(data?.qtd_classificados ?? 2);
-    setQtdSulamericana(data?.qtd_sulamericana ?? 0);
+    // Carrega zonas e mensagem
+    setMensagemAtualizacao(data?.mensagem_atualizacao || "");
+    setConfigZonas(data?.config_zonas || []);
 
     // Salva os originais
     setOrigNome(data?.nome || "");
@@ -115,8 +115,8 @@ export default function GerenciarLiga() {
     setOrigIsPaga(data?.is_paga || false);
     setOrigUsarDecimais(data?.usar_decimais || false);
     setOrigFinalUnica(data?.final_unica || false);
-    setOrigQtdClassificados(data?.qtd_classificados ?? 2);
-    setOrigQtdSulamericana(data?.qtd_sulamericana ?? 0);
+    setOrigMensagem(data?.mensagem_atualizacao || "");
+    setOrigConfigZonas(data?.config_zonas || []);
 
     if (data && !data.ativo) {
       const p = await buscarPodium(campeonatoId);
@@ -190,22 +190,18 @@ export default function GerenciarLiga() {
     setIsSaving(true);
 
     const [resGeral, resConfig] = await Promise.all([
-      atualizarCampeonato(campeonatoId, nomeLiga.trim(), anoLiga, liga.tipo, isPaga, usarDecimais),
+      // Passamos a mensagemAtualizacao e o configZonas para a nova função
+      atualizarCampeonato(
+        campeonatoId, nomeLiga.trim(), anoLiga, liga.tipo, isPaga, usarDecimais, 
+        undefined, undefined, // Ignoramos os campos velhos de qtd
+        mensagemAtualizacao, configZonas
+      ),
       atualizarConfiguracaoLiga(campeonatoId, finalUnica),
     ]);
-    
-    // Salva as Zonas de Classificação direto no banco
-    const { error: errZonas } = await supabase
-      .from('campeonatos')
-      .update({
-          qtd_classificados: qtdClassificados,
-          qtd_sulamericana: qtdSulamericana
-      })
-      .eq('id', campeonatoId);
 
     setIsSaving(false);
 
-    if (resGeral.success && resConfig.success && !errZonas) {
+    if (resGeral.success && resConfig.success) {
       toast.success("Configurações salvas com sucesso!");
 
       setLiga((prev: any) => ({ 
@@ -215,8 +211,8 @@ export default function GerenciarLiga() {
           is_paga: isPaga, 
           usar_decimais: usarDecimais, 
           final_unica: finalUnica,
-          qtd_classificados: qtdClassificados,
-          qtd_sulamericana: qtdSulamericana
+          mensagem_atualizacao: mensagemAtualizacao,
+          config_zonas: configZonas
       }));
 
       // Sincroniza os originais
@@ -225,11 +221,10 @@ export default function GerenciarLiga() {
       setOrigIsPaga(isPaga);
       setOrigUsarDecimais(usarDecimais);
       setOrigFinalUnica(finalUnica);
-      setOrigQtdClassificados(qtdClassificados);
-      setOrigQtdSulamericana(qtdSulamericana);
+      setOrigMensagem(mensagemAtualizacao);
+      setOrigConfigZonas(configZonas);
     } else {
       toast.error("Erro ao atualizar algumas configurações.");
-      if (errZonas) console.error("Erro ao salvar zonas:", errZonas);
     }
   }
 
@@ -245,6 +240,9 @@ export default function GerenciarLiga() {
   }
 
   const tipoLiga = getTipoNormalizado(liga.tipo);
+
+  // Lógica de compatibilidade para exibir potes na Copa (baseado na primeira zona verde se existir)
+  const qtdClassificadosCopa = configZonas.length > 0 ? configZonas[0].posicao : 2;
 
   return (
     <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-yellow-500/30">
@@ -459,9 +457,9 @@ export default function GerenciarLiga() {
                     </div>
                     <div className="space-y-1">
                       {pote1.map((t, idx) => (
-                        <div key={t.time_id} className={`flex justify-between items-center p-2 rounded ${idx < (liga.qtd_classificados || 2) ? "bg-yellow-500/10 border border-yellow-500/30" : "bg-white/5"}`}>
+                        <div key={t.time_id} className={`flex justify-between items-center p-2 rounded ${idx < qtdClassificadosCopa ? "bg-yellow-500/10 border border-yellow-500/30" : "bg-white/5"}`}>
                           <div className="flex items-center gap-3">
-                            <span className={`font-mono font-bold text-[10px] w-4 ${idx < (liga.qtd_classificados || 2) ? "text-yellow-500" : "text-gray-500"}`}>#{idx + 1}</span>
+                            <span className={`font-mono font-bold text-[10px] w-4 ${idx < qtdClassificadosCopa ? "text-yellow-500" : "text-gray-500"}`}>#{idx + 1}</span>
                             <img src={t.times?.escudo || "/shield-placeholder.png"} className="w-5 h-5 object-contain" />
                             <span className="text-xs font-bold text-gray-300">{t.times?.nome}</span>
                           </div>
@@ -509,7 +507,7 @@ export default function GerenciarLiga() {
         )}
 
         {tabAtiva === "config" && (
-          <div className="bg-[#121212] p-8 rounded-3xl border border-gray-800 max-w-4xl mx-auto animate-fadeIn space-y-6">
+          <div className="bg-[#121212] p-8 rounded-3xl border border-gray-800 max-w-4xl mx-auto animate-fadeIn space-y-8">
             <h3 className="text-xl font-bold text-white uppercase tracking-wider border-b border-gray-800 pb-4">
               Configurações Gerais
             </h3>
@@ -535,41 +533,97 @@ export default function GerenciarLiga() {
               </div>
             </div>
 
-            {/* ZONAS DE CLASSIFICAÇÃO PARA COPAS */}
-            {tipoLiga === "copa" && (
-              <div className="pt-6 border-t border-gray-800 mt-6 space-y-4">
-                <h4 className="text-sm font-bold text-white uppercase tracking-wider">Zonas de Classificação (Fase de Grupos)</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="flex flex-col gap-2">
-                    <label className="text-xs font-bold text-green-500 uppercase tracking-wider">Passam de Fase (Ex: 2)</label>
-                    <input
-                      type="number"
-                      min="1"
-                      max="4"
-                      value={qtdClassificados}
-                      onChange={e => setQtdClassificados(Number(e.target.value))}
-                      className="bg-[#080808] border border-gray-700 focus:border-green-500 focus:ring-1 focus:ring-green-500 p-3 rounded-xl text-white outline-none transition"
-                    />
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <label className="text-xs font-bold text-yellow-500 uppercase tracking-wider">Vão para Sul-Americana (Ex: 1)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      max="4"
-                      value={qtdSulamericana}
-                      onChange={e => setQtdSulamericana(Number(e.target.value))}
-                      className="bg-[#080808] border border-gray-700 focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 p-3 rounded-xl text-white outline-none transition"
-                    />
-                  </div>
-                </div>
-                <p className="text-[10px] text-gray-500">
-                  Esses valores definem as cores da tabela e a legenda para quem acompanha o campeonato.
-                </p>
-              </div>
-            )}
+            {/* Mensagem do Modal */}
+            <div className="flex flex-col gap-2">
+              <label className="text-xs font-bold text-gray-400 uppercase tracking-wider">Mensagem de Confirmação (Ao Atualizar)</label>
+              <textarea
+                value={mensagemAtualizacao}
+                onChange={e => setMensagemAtualizacao(e.target.value)}
+                className="bg-[#080808] border border-gray-700 p-3 rounded-xl text-white outline-none h-20 text-sm focus:border-yellow-500 focus:ring-1 focus:ring-yellow-500 transition"
+                placeholder="Ex: Você deseja validar os resultados da rodada X agora?"
+              />
+            </div>
 
-            <div className="space-y-3 pt-4 border-t border-gray-800">
+            {/* ZONAS DE CLASSIFICAÇÃO DINÂMICAS */}
+            <div className="space-y-4 pt-6 border-t border-gray-800">
+              <div className="flex justify-between items-center">
+                <div>
+                  <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block">Zonas de Classificação e Legendas</label>
+                  <span className="text-[10px] text-gray-500">Defina as cores e legendas das posições na tabela pública.</span>
+                </div>
+                <button 
+                  onClick={() => setConfigZonas([...configZonas, { posicao: 1, cor: "#22c55e", texto: "" }])}
+                  className="text-[10px] bg-blue-600 px-4 py-2 rounded-xl font-bold uppercase tracking-wider hover:bg-blue-500 transition shadow-lg shadow-blue-900/20"
+                >
+                  + Adicionar Zona
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                {configZonas.length === 0 && (
+                  <div className="text-center p-6 border border-dashed border-gray-800 rounded-xl text-gray-500 text-xs">
+                    Nenhuma zona de classificação configurada. A tabela ficará sem cores.
+                  </div>
+                )}
+                {configZonas.map((zona, index) => (
+                  <div key={index} className="flex items-center gap-4 bg-black/40 p-4 rounded-xl border border-gray-800 transition hover:border-gray-700">
+                    <div className="flex flex-col items-center gap-1">
+                      <span className="text-[9px] text-gray-500 font-bold uppercase">Cor</span>
+                      <input 
+                        type="color" 
+                        value={zona.cor} 
+                        onChange={e => {
+                          const novas = [...configZonas];
+                          novas[index].cor = e.target.value;
+                          setConfigZonas(novas);
+                        }}
+                        className="w-8 h-8 bg-transparent border-none cursor-pointer rounded overflow-hidden"
+                      />
+                    </div>
+                    
+                    <div className="flex flex-col">
+                      <span className="text-[9px] text-gray-500 font-bold uppercase">Até Pos.</span>
+                      <input 
+                        type="number" 
+                        min="1"
+                        value={zona.posicao} 
+                        onChange={e => {
+                          const novas = [...configZonas];
+                          novas[index].posicao = Number(e.target.value);
+                          setConfigZonas(novas);
+                        }}
+                        className="w-16 bg-[#1a1a1a] border border-gray-800 text-white font-bold outline-none rounded-lg p-2 text-center focus:border-blue-500"
+                      />
+                    </div>
+
+                    <div className="flex flex-col flex-1">
+                      <span className="text-[9px] text-gray-500 font-bold uppercase">Nome da Zona / Legenda</span>
+                      <input 
+                        type="text" 
+                        placeholder="Ex: Classificados Libertadores" 
+                        value={zona.texto}
+                        onChange={e => {
+                          const novas = [...configZonas];
+                          novas[index].texto = e.target.value;
+                          setConfigZonas(novas);
+                        }}
+                        className="w-full bg-[#1a1a1a] border border-gray-800 text-sm text-gray-200 outline-none rounded-lg p-2 focus:border-blue-500"
+                      />
+                    </div>
+
+                    <button 
+                      onClick={() => setConfigZonas(configZonas.filter((_, i) => i !== index))}
+                      className="text-red-500 hover:text-red-400 p-2 mt-4 transition"
+                      title="Remover Zona"
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-3 pt-6 border-t border-gray-800">
               <ToggleVisual
                 label="Final em Jogo Único"
                 descricao="A final será decidida em apenas uma partida."
@@ -593,7 +647,7 @@ export default function GerenciarLiga() {
               />
             </div>
 
-            <div className="flex justify-end items-center gap-4 pt-6 border-t border-gray-800">
+            <div className="flex justify-end items-center gap-4 pt-8 border-t border-gray-800">
               {temAlteracoes && !isSaving && (
                 <span className="text-[10px] text-yellow-500/80 font-bold uppercase tracking-wider animate-pulse">
                   ● Alterações não salvas

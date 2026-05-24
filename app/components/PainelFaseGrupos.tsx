@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import toast from 'react-hot-toast'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
+import { supabase } from '@/lib/supabase'
 import { 
   sortearGrupos, gerarJogosFaseGrupos, buscarTabelaGrupos, 
   buscarPreviaRodadaGrupos, atualizarRodadaGrupos, listarPartidas, atualizarPlacarManual 
@@ -27,8 +28,10 @@ export default function PainelFaseGrupos({ campeonatoId, times = [] }: Props) {
   const [saving, setSaving] = useState(false)
   const [viewAdjusted, setViewAdjusted] = useState(false)
   
-  // PREVIEW (Rascunho)
+  // PREVIEW E CONFIGURAÇÕES DINÂMICAS
   const [previewPlacares, setPreviewPlacares] = useState<Record<number, { casa: string, visitante: string }>>({});
+  const [configZonas, setConfigZonas] = useState<any[]>([]);
+  const [mensagemModal, setMensagemModal] = useState("");
 
   // Sorteio
   const [timesOrdenados, setTimesOrdenados] = useState<any[]>([])
@@ -55,13 +58,21 @@ export default function PainelFaseGrupos({ campeonatoId, times = [] }: Props) {
       }
   }, [times])
 
-  // Limpa o preview sempre que mudar de rodada
   useEffect(() => {
       setPreviewPlacares({})
   }, [rodadaView])
 
   async function carregarDados() {
     setLoading(true)
+
+    // Busca as zonas dinâmicas e a mensagem salva no banco
+    const { data: camp } = await supabase.from('campeonatos').select('config_zonas, mensagem_atualizacao').eq('id', campeonatoId).single();
+    if (camp) {
+        const zonasOrdenadas = Array.isArray(camp.config_zonas) ? camp.config_zonas.sort((a: any, b: any) => a.posicao - b.posicao) : [];
+        setConfigZonas(zonasOrdenadas);
+        setMensagemModal(camp.mensagem_atualizacao || "Deseja salvar os resultados definitivamente?");
+    }
+
     const dadosGrupos = await buscarTabelaGrupos(campeonatoId)
     setGrupos(dadosGrupos || {})
     
@@ -158,7 +169,6 @@ export default function PainelFaseGrupos({ campeonatoId, times = [] }: Props) {
       if(res.success) { toast.success(res.msg); await carregarDados(); setRodadaView(1); } else { toast.error(res.msg) }
   }
 
-  // === AÇÕES DE JOGO (NOVO FLUXO PREVIEW -> SALVAR) ===
   async function handleBuscarPrevia() {
     if(!rodadaCartola) return toast.error("Informe a rodada do Cartola.")
     setLoading(true)
@@ -174,16 +184,20 @@ export default function PainelFaseGrupos({ campeonatoId, times = [] }: Props) {
 
   async function handleSalvarRodada() {
     if(!rodadaCartola) return toast.error("Rodada do Cartola vazia.")
-    setSaving(true)
-    const res = await atualizarRodadaGrupos(campeonatoId, rodadaView, Number(rodadaCartola))
-    if(res.success) { 
-        toast.success(res.msg); 
-        setPreviewPlacares({}) // Limpa o preview após salvar
-        await carregarDados(); 
-    } else {
-        toast.error(res.msg || "Erro ao salvar resultados.")
-    }
-    setSaving(false)
+    
+    // Mostra o modal com a mensagem dinâmica lida do banco antes de salvar
+    confirm("Confirmar Resultados", mensagemModal, async () => {
+        setSaving(true)
+        const res = await atualizarRodadaGrupos(campeonatoId, rodadaView, Number(rodadaCartola))
+        if(res.success) { 
+            toast.success(res.msg); 
+            setPreviewPlacares({}) 
+            await carregarDados(); 
+        } else {
+            toast.error(res.msg || "Erro ao salvar resultados.")
+        }
+        setSaving(false)
+    });
   }
 
   function cancelarPreview() {
@@ -401,20 +415,22 @@ export default function PainelFaseGrupos({ campeonatoId, times = [] }: Props) {
                                     const timeDados = Array.isArray(t.times) ? t.times[0] : t.times;
                                     const escudo = timeDados?.escudo || '/shield-placeholder.png';
                                     const nome = timeDados?.nome || 'Time';
-                                    const isClassificado = idx < 2; 
-                                    const isSulamericana = idx === 2;
+                                    
+                                    // Acha a zona dinâmica para pintar a linha
+                                    const zonaAtiva = configZonas.find((z) => (idx + 1) <= z.posicao);
+                                    const corZona = zonaAtiva ? zonaAtiva.cor : 'transparent';
+                                    const isClassificado = zonaAtiva !== undefined;
 
                                     return (
                                         <tr key={t.id} className="hover:bg-white/[0.03] transition group relative">
                                             <td className="py-3 pl-4 text-center relative">
-                                                {isClassificado && <div className="absolute left-0 top-0 bottom-0 w-1 bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]"></div>}
-                                                {isSulamericana && <div className="absolute left-0 top-0 bottom-0 w-1 bg-yellow-500 shadow-[0_0_10px_rgba(234,179,8,0.5)]"></div>}
-                                                <span className={`font-black text-xs ${isClassificado ? 'text-green-500' : isSulamericana ? 'text-yellow-500' : 'text-gray-600'}`}>{idx + 1}</span>
+                                                {isClassificado && <div className="absolute left-0 top-1 bottom-1 w-1 rounded-r shadow-md" style={{ backgroundColor: corZona }}></div>}
+                                                <span className="font-black text-xs" style={{ color: isClassificado ? corZona : '#4b5563' }}>{idx + 1}</span>
                                             </td>
                                             <td className="py-3 px-1">
                                                 <div className="flex items-center gap-2 overflow-hidden">
                                                     <img src={escudo} className="w-6 h-6 object-contain shrink-0 drop-shadow-md" />
-                                                    <span className="font-bold text-gray-300 group-hover:text-white block whitespace-normal leading-tight">{nome}</span>
+                                                    <span className={`font-bold block whitespace-normal leading-tight ${isClassificado ? "text-gray-300 group-hover:text-white" : "text-gray-500"}`}>{nome}</span>
                                                 </div>
                                             </td>
                                             <td className="py-3 text-center font-black text-white bg-white/[0.02] text-xs shadow-inner">{formatDecimal(t.pts)}</td>
@@ -472,7 +488,6 @@ export default function PainelFaseGrupos({ campeonatoId, times = [] }: Props) {
                     const casa = Array.isArray(j.casa) ? j.casa[0] : j.casa;
                     const visitante = Array.isArray(j.visitante) ? j.visitante[0] : j.visitante;
                     
-                    // Se estiver em modo preview, usa os placares temporários. Se não, usa os oficiais.
                     let placarC = j.placar_casa;
                     let placarV = j.placar_visitante;
                     let isPreviewCurrent = false;
@@ -490,7 +505,6 @@ export default function PainelFaseGrupos({ campeonatoId, times = [] }: Props) {
                     return (
                     <div key={j.id} onClick={() => !isPreviewMode && abrirModalEdicao(j)} className={`border p-4 rounded-xl transition group relative overflow-hidden ${isPreviewCurrent ? 'bg-yellow-500/5 border-yellow-500/50 cursor-default' : 'bg-black/40 border-gray-800/50 cursor-pointer hover:border-orange-500/50 hover:bg-white/[0.02]'}`}>
                         
-                        {/* Indicadores de canto */}
                         {isPreviewCurrent ? (
                             <div className="absolute top-0 right-0 w-2 h-2 bg-yellow-500 rounded-bl-lg animate-pulse"></div>
                         ) : (

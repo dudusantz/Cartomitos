@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
 import {
   buscarTabelaPontosCorridos,
   buscarParciaisAoVivo,
@@ -23,17 +24,33 @@ export default function TabelaPublica({ campeonatoId }: Props) {
   const [modoAoVivo, setModoAoVivo] = useState(false);
   const [loading, setLoading] = useState(false);
   
+  // Zonas Dinâmicas
+  const [zonasClassificacao, setZonasClassificacao] = useState<any[]>([]);
+
   // State para o Modal
   const [jogoSelecionado, setJogoSelecionado] = useState<any>(null);
 
   useEffect(() => {
     async function init() {
+      // Busca Configuração de Zonas
+      const { data: camp } = await supabase
+        .from('campeonatos')
+        .select('config_zonas')
+        .eq('id', campeonatoId)
+        .single();
+      
+      if (camp && camp.config_zonas) {
+        const zonasOrdenadas = Array.isArray(camp.config_zonas) 
+          ? camp.config_zonas.sort((a, b) => a.posicao - b.posicao)
+          : [];
+        setZonasClassificacao(zonasOrdenadas);
+      }
+
       const [tabela, jogos] = await Promise.all([
         buscarTabelaPontosCorridos(campeonatoId),
         listarPartidas(campeonatoId),
       ]);
 
-      // Salva a posição original para comparar no modo Ao Vivo
       const tabelaComPos = tabela.map((t: any, i: number) => ({
         ...t,
         posOriginal: i + 1,
@@ -53,7 +70,6 @@ export default function TabelaPublica({ campeonatoId }: Props) {
     init();
   }, [campeonatoId]);
 
-  // Efeito para alternar entre dados estáticos e ao vivo
   useEffect(() => {
     if (dadosOriginais.tabela.length === 0) return;
 
@@ -68,7 +84,6 @@ export default function TabelaPublica({ campeonatoId }: Props) {
   async function atualizarDadosAoVivo() {
     setLoading(true);
     try {
-      // 1. Busca parciais dos jogos abertos da rodada
       const jogosParaAtualizar = dadosOriginais.jogos.filter(
         (j: any) => j.status !== "finalizado" && j.rodada === rodadaView
       );
@@ -77,7 +92,6 @@ export default function TabelaPublica({ campeonatoId }: Props) {
         jogosParaAtualizar
       );
 
-      // 2. Mescla parciais na lista de jogos
       const novosJogos = dadosOriginais.jogos.map((jogo) => {
         if (jogo.rodada === rodadaView) {
           const p = parciais?.find((x: any) => x.id === jogo.id);
@@ -94,10 +108,8 @@ export default function TabelaPublica({ campeonatoId }: Props) {
       });
       setJogosExibidos(novosJogos);
 
-      // 3. Recalcula a tabela baseada nos novos placares
       const novaTabela = dadosOriginais.tabela
         .map((time) => {
-          // Filtra apenas jogos parciais desta rodada que envolvem este time
           const jogosTime = novosJogos.filter(
             (j: any) =>
               j.is_parcial &&
@@ -126,7 +138,6 @@ export default function TabelaPublica({ campeonatoId }: Props) {
             gc += golsContra;
             sg += golsPro - golsContra;
 
-            // Lógica de Vitória/Empate/Derrota (Usa o valor decimal exato para decidir)
             if (isCasa) {
               if (c > vis) {
                 pts += 3;
@@ -155,7 +166,7 @@ export default function TabelaPublica({ campeonatoId }: Props) {
             gp: (time.gp || 0) + gp,
             gc: (time.gc || 0) + gc,
             sg: (time.sg || 0) + sg,
-            ptsExtra: pts, // Usado para mostrar "+3" verde na tabela
+            ptsExtra: pts, 
           };
         })
         .sort((a, b) => b.pts - a.pts || b.v - a.v || b.sg - a.sg);
@@ -174,7 +185,6 @@ export default function TabelaPublica({ campeonatoId }: Props) {
       : 1;
 
   return (
-    // Container Principal
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start animate-fadeIn max-w-[100vw] overflow-hidden">
       
       {/* ESQUERDA: CLASSIFICAÇÃO */}
@@ -209,10 +219,13 @@ export default function TabelaPublica({ campeonatoId }: Props) {
               </thead>
               <tbody className="divide-y divide-gray-800/40">
                 {tabelaExibida.map((t, i) => {
-                  const isG4 = i < 4;
-                  const isZ4 = i >= tabelaExibida.length - 4 && tabelaExibida.length > 4;
                   const time = Array.isArray(t.times) ? t.times[0] : t.times;
                   const diff = t.posOriginal - (i + 1);
+
+                  // Busca a cor e verifica se tem estilo na borda
+                  const zonaAtiva = zonasClassificacao.find((z) => (i + 1) <= z.posicao);
+                  const corZona = zonaAtiva ? zonaAtiva.cor : 'transparent';
+                  const isClassificado = zonaAtiva !== undefined;
 
                   return (
                     <tr
@@ -220,11 +233,15 @@ export default function TabelaPublica({ campeonatoId }: Props) {
                       className="group hover:bg-white/[0.02] transition-colors h-11 relative"
                     >
                       <td className="pl-4 text-center relative">
-                        {isG4 && <div className="absolute left-0 top-1 bottom-1 w-0.5 bg-blue-500 rounded-r"></div>}
-                        {isZ4 && <div className="absolute left-0 top-1 bottom-1 w-0.5 bg-red-500 rounded-r"></div>}
+                        {isClassificado && (
+                          <div 
+                            className="absolute left-0 top-1 bottom-1 w-1 rounded-r" 
+                            style={{ backgroundColor: corZona }}
+                          ></div>
+                        )}
 
                         <div className="flex flex-col items-center justify-center h-full">
-                          <span className={`font-black text-xs ${isG4 ? "text-blue-400" : isZ4 ? "text-red-500" : "text-gray-500"}`}>
+                          <span className="font-black text-xs" style={{ color: isClassificado ? corZona : '#6b7280' }}>
                             {i + 1}º
                           </span>
                           {modoAoVivo && diff !== 0 && (
@@ -241,7 +258,7 @@ export default function TabelaPublica({ campeonatoId }: Props) {
                             className="w-7 h-7 object-contain shrink-0 drop-shadow-md"
                           />
                           <div className="flex flex-col min-w-0 justify-center">
-                            <span className={`font-bold text-[11px] leading-tight group-hover:text-white transition whitespace-nowrap ${isG4 ? "text-gray-200" : "text-gray-400"}`}>
+                            <span className={`font-bold text-[11px] leading-tight group-hover:text-white transition whitespace-nowrap ${isClassificado ? "text-gray-200" : "text-gray-400"}`}>
                               {time?.nome}
                             </span>
                             {modoAoVivo && t.ptsExtra > 0 && (
@@ -252,28 +269,19 @@ export default function TabelaPublica({ campeonatoId }: Props) {
                           </div>
                         </div>
                       </td>
-                      
-                      {/* PONTOS (PTS): Inteiro, não precisa truncar */}
                       <td className="text-center font-black text-sm text-white bg-white/[0.02]">
                         {t.pts}
                       </td>
-                      
                       <td className="text-center text-gray-500 font-mono">{t.pj}</td>
                       <td className="text-center text-gray-500 font-mono">{t.v}</td>
                       <td className="text-center text-gray-500 font-mono">{t.e}</td>
                       <td className="text-center text-gray-500 font-mono">{t.d}</td>
-                      
-                      {/* PONTOS PRÓ (PP): TRUNCADO (Ex: 55) */}
                       <td className="text-center text-gray-400 font-mono">
                         {Math.trunc(t.gp)}
                       </td>
-                      
-                      {/* PONTOS CONTRA (PC): TRUNCADO */}
                       <td className="text-center text-gray-400 font-mono">
                         {Math.trunc(t.gc)}
                       </td>
-                      
-                      {/* SALDO (SP): TRUNCADO */}
                       <td className={`text-center font-mono font-bold ${t.sg > 0 ? "text-green-500" : t.sg < 0 ? "text-red-500" : "text-gray-500"}`}>
                         {Math.trunc(t.sg)}
                       </td>
@@ -285,15 +293,16 @@ export default function TabelaPublica({ campeonatoId }: Props) {
           </div>
         </div>
 
-        {/* Legenda */}
-        <div className="flex flex-wrap gap-4 mt-4 px-2">
-          <div className="flex items-center gap-2 text-[10px] text-gray-500 font-bold uppercase tracking-wider">
-            <span className="w-2 h-2 rounded-full bg-blue-500"></span> G4
+        {/* Legenda Dinâmica */}
+        {zonasClassificacao.length > 0 && (
+          <div className="flex flex-wrap gap-4 mt-4 px-2">
+            {zonasClassificacao.map((zona, i) => (
+               <div key={i} className="flex items-center gap-2 text-[10px] text-gray-400 font-bold uppercase tracking-wider">
+                 <span className="w-2 h-2 rounded-full" style={{ backgroundColor: zona.cor }}></span> {zona.texto}
+               </div>
+            ))}
           </div>
-          <div className="flex items-center gap-2 text-[10px] text-gray-500 font-bold uppercase tracking-wider">
-            <span className="w-2 h-2 rounded-full bg-red-500"></span> Z4
-          </div>
-        </div>
+        )}
       </div>
 
       {/* DIREITA: LISTA DE JOGOS */}
@@ -323,7 +332,6 @@ export default function TabelaPublica({ campeonatoId }: Props) {
             </div>
           </div>
 
-          {/* BOTÃO AO VIVO */}
           <button
             onClick={() => setModoAoVivo(!modoAoVivo)}
             disabled={loading}
@@ -371,7 +379,6 @@ export default function TabelaPublica({ campeonatoId }: Props) {
                   )}
 
                   <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 mt-1">
-                    {/* MANDANTE */}
                     <div className="flex flex-col items-end gap-1 overflow-hidden">
                       <img
                         src={casa?.escudo || "/shield-placeholder.png"}
@@ -382,7 +389,6 @@ export default function TabelaPublica({ campeonatoId }: Props) {
                       </span>
                     </div>
 
-                    {/* PLACAR - COM MATH.TRUNC */}
                     <div className={`flex flex-col items-center justify-center w-auto min-w-[70px] px-1 h-[36px] rounded-lg border font-mono text-sm font-black shadow-inner ${isLive ? "bg-green-900/10 border-green-500/30 text-green-400" : temPlacar ? "bg-black/40 border-gray-700 text-white" : "bg-black/20 border-gray-800 text-gray-600"}`}>
                       <div className="flex items-center gap-1">
                         <span className={cWin ? "text-green-400" : ""}>{j.placar_casa !== undefined ? Math.trunc(j.placar_casa) : "-"}</span>
@@ -391,7 +397,6 @@ export default function TabelaPublica({ campeonatoId }: Props) {
                       </div>
                     </div>
 
-                    {/* VISITANTE */}
                     <div className="flex flex-col items-start gap-1 overflow-hidden">
                       <img
                         src={visitante?.escudo || "/shield-placeholder.png"}
@@ -409,7 +414,6 @@ export default function TabelaPublica({ campeonatoId }: Props) {
         </div>
       </div>
 
-      {/* MODAL DE CONFRONTO AO VIVO */}
       {jogoSelecionado && (
         <ModalConfrontoAoVivo 
           jogo={jogoSelecionado} 

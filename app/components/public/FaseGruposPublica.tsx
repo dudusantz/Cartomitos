@@ -13,7 +13,6 @@ interface Props {
 }
 
 export default function FaseGruposPublica({ campeonatoId }: Props) {
-  // Guardamos os dados originais para poder resetar depois do "Ao Vivo"
   const [dadosOriginais, setDadosOriginais] = useState<{
     grupos: any;
     jogos: any[];
@@ -27,7 +26,6 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
   const [loadingLive, setLoadingLive] = useState(false);
   const [modoAoVivo, setModoAoVivo] = useState(false);
   
-  // State para controlar a abertura do modal de escalações
   const [jogoSelecionado, setJogoSelecionado] = useState<any>(null);
 
   useEffect(() => {
@@ -36,16 +34,12 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
         const dadosGrupos = await buscarTabelaGrupos(campeonatoId);
         const dadosJogos = await listarPartidas(campeonatoId);
         
-        // CORREÇÃO: Limita estritamente à rodada 6 (padrão Libertadores/Champions)
-        // para não puxar jogos de mata-mata (R7, R8...) na tela de grupos.
         const jogosGrupos = (dadosJogos || []).filter((j: any) => j.rodada <= 6);
 
-        // Salva estado inicial
         setDadosOriginais({ grupos: dadosGrupos, jogos: jogosGrupos });
         setGruposExibidos(dadosGrupos);
         setJogosExibidos(jogosGrupos);
 
-        // Define rodada atual (mesma lógica do admin)
         if (jogosGrupos.length > 0) {
           const rodadasPendentes = jogosGrupos
             .filter((j: any) => j.status !== "finalizado")
@@ -69,18 +63,15 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
     carregar();
   }, [campeonatoId]);
 
-  // --- LÓGICA AO VIVO ---
   async function toggleAoVivo() {
     if (!modoAoVivo) {
       setLoadingLive(true);
       try {
-        // 1. Busca parciais dos jogos não finalizados da rodada atual
         const jogosAbertos = dadosOriginais.jogos.filter(
           (j: any) => j.status !== "finalizado" && j.rodada === rodadaView
         );
         const { jogos: parciais } = await buscarParciaisAoVivo(jogosAbertos);
 
-        // 2. Atualiza a lista de jogos com os placares parciais
         const novosJogos = dadosOriginais.jogos.map((jogo) => {
           if (jogo.rodada === rodadaView) {
             const p = parciais?.find((x: any) => x.id === jogo.id);
@@ -90,7 +81,7 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
                 placar_casa: p.placar_casa,
                 placar_visitante: p.placar_visitante,
                 is_parcial: true,
-                status: "finalizado", // Simula finalizado para cálculo
+                status: "finalizado",
               };
             }
           }
@@ -98,7 +89,6 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
         });
         setJogosExibidos(novosJogos);
 
-        // 3. RECALCULA AS TABELAS DOS GRUPOS
         const stats: any = {};
         Object.values(dadosOriginais.grupos)
           .flat()
@@ -124,7 +114,6 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
             c.pj++;
             v.pj++;
             
-            // Soma pontuações exatas (decimais)
             c.pp += jogo.placar_casa;
             c.pc += jogo.placar_visitante;
             v.pp += jogo.placar_visitante;
@@ -133,7 +122,6 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
             c.sp = c.pp - c.pc;
             v.sp = v.pp - v.pc;
 
-            // Lógica de Vitória/Empate com base no valor exato (decimal)
             if (jogo.placar_casa > jogo.placar_visitante) {
               c.pts += 3;
               c.v++;
@@ -157,7 +145,6 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
           novosGrupos[time.grupo].push(time);
         });
         
-        // Ordena com precisão decimal
         for (const l in novosGrupos) {
           novosGrupos[l].sort(
             (a: any, b: any) =>
@@ -172,7 +159,6 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
       }
       setLoadingLive(false);
     } else {
-      // Reset
       setGruposExibidos(dadosOriginais.grupos);
       setJogosExibidos(dadosOriginais.jogos);
       setModoAoVivo(false);
@@ -185,10 +171,8 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
       ? Math.max(...dadosOriginais.jogos.map((j) => j.rodada))
       : 6;
 
-  // === HELPER: Formata decimais se necessário (AGORA COM TRUNCAMENTO VISUAL) ===
   const formatDecimal = (val: number) => {
     if (val === undefined || val === null) return 0;
-    // Retorna apenas a parte inteira para visualização
     return Math.trunc(val);
   };
 
@@ -209,7 +193,6 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start animate-fadeIn max-w-[100vw] overflow-hidden">
-      {/* ESQUERDA: GRADES DE GRUPOS */}
       <div className="lg:col-span-8">
         <div className="flex items-center justify-between mb-4 px-2">
           <div className="flex items-center gap-3">
@@ -246,35 +229,19 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
                       <tr>
                         <th className="py-2 pl-3 w-[6%]">#</th>
                         <th className="py-2 px-1 w-[26%]">Clube</th>
-                        <th className="py-2 text-center text-white w-[8%]">
-                          PTS
-                        </th>
+                        <th className="py-2 text-center text-white w-[8%]">PTS</th>
                         <th className="py-2 text-center w-[6%]">J</th>
                         <th className="py-2 text-center w-[6%]">V</th>
                         <th className="py-2 text-center w-[6%]">E</th>
                         <th className="py-2 text-center w-[6%]">D</th>
-                        <th
-                          className="py-2 text-center w-[8%]"
-                          title="Pontos Pró"
-                        >
-                          PP
-                        </th>
-                        <th
-                          className="py-2 text-center w-[8%]"
-                          title="Pontos Contra"
-                        >
-                          PC
-                        </th>
-                        <th className="py-2 text-center w-[8%]" title="Saldo">
-                          SP
-                        </th>
+                        <th className="py-2 text-center w-[8%]" title="Pontos Pró">PP</th>
+                        <th className="py-2 text-center w-[8%]" title="Pontos Contra">PC</th>
+                        <th className="py-2 text-center w-[8%]" title="Saldo">SP</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-800/40">
                       {gruposExibidos[letra].map((t: any, idx: number) => {
-                        const time = Array.isArray(t.times)
-                          ? t.times[0]
-                          : t.times;
+                        const time = Array.isArray(t.times) ? t.times[0] : t.times;
                         const isClassificado = idx < 2;
 
                         return (
@@ -291,46 +258,28 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
                                   src={time?.escudo}
                                   className="w-5 h-5 object-contain shrink-0"
                                 />
-                                {/* Nome completo do time sem cortes */}
                                 <span
                                   className={`font-bold whitespace-nowrap leading-tight ${
-                                    isClassificado
-                                      ? "text-white"
-                                      : "text-gray-400"
+                                    isClassificado ? "text-white" : "text-gray-400"
                                   }`}
                                 >
                                   {time?.nome}
                                 </span>
                               </div>
                             </td>
-                            {/* PONTOS (PTS não precisa truncar pois já é inteiro) */}
                             <td className="py-2 text-center font-black text-white bg-white/5">
                               {t.pts}
                             </td>
-                            <td className="py-2 text-center text-gray-600">
-                              {t.pj}
-                            </td>
-                            <td className="py-2 text-center text-gray-600">
-                              {t.v}
-                            </td>
-                            <td className="py-2 text-center text-gray-600">
-                              {t.e}
-                            </td>
-                            <td className="py-2 text-center text-gray-600">
-                              {t.d}
-                            </td>
-                            
-                            {/* Pontos Pró Truncados */}
+                            <td className="py-2 text-center text-gray-600">{t.pj}</td>
+                            <td className="py-2 text-center text-gray-600">{t.v}</td>
+                            <td className="py-2 text-center text-gray-600">{t.e}</td>
+                            <td className="py-2 text-center text-gray-600">{t.d}</td>
                             <td className="py-2 text-center text-gray-500 font-mono">
                               {formatDecimal(t.pp)}
                             </td>
-                            
-                            {/* Pontos Contra Truncados */}
                             <td className="py-2 text-center text-gray-500 font-mono">
                               {formatDecimal(t.pc)}
                             </td>
-                            
-                            {/* Saldo Truncado */}
                             <td
                               className={`py-2 text-center font-bold ${
                                 t.sp > 0
@@ -353,7 +302,6 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
         </div>
       </div>
 
-      {/* DIREITA: JOGOS E CONTROLES */}
       <div className="lg:col-span-4 space-y-4 sticky top-6">
         <div className="bg-[#121212] border border-gray-800 rounded-3xl p-5 shadow-xl">
           <div className="flex justify-between items-center mb-4">
@@ -382,24 +330,14 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
             </div>
           </div>
 
-          {/* BOTÃO AO VIVO */}
           <button
             onClick={toggleAoVivo}
             disabled={loadingLive}
-            className={`
-                        w-full py-3 mb-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg flex items-center justify-center gap-2
-                        ${
-                          modoAoVivo
-                            ? "bg-red-500/10 text-red-500 border border-red-500/50 hover:bg-red-500/20"
-                            : "bg-blue-600 text-white hover:bg-blue-500 shadow-blue-900/20"
-                        }
-                    `}
+            className={`w-full py-3 mb-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg flex items-center justify-center gap-2
+              ${modoAoVivo ? "bg-red-500/10 text-red-500 border border-red-500/50 hover:bg-red-500/20" : "bg-blue-600 text-white hover:bg-blue-500 shadow-blue-900/20"}
+            `}
           >
-            {loadingLive
-              ? "Carregando..."
-              : modoAoVivo
-              ? "Parar Simulação"
-              : "Ver Parciais Ao Vivo"}
+            {loadingLive ? "Carregando..." : modoAoVivo ? "Parar Simulação" : "Ver Parciais Ao Vivo"}
           </button>
 
           <div className="space-y-3">
@@ -411,11 +349,8 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
 
             {jogosDaRodada.map((j) => {
               const casa = Array.isArray(j.casa) ? j.casa[0] : j.casa;
-              const visitante = Array.isArray(j.visitante)
-                ? j.visitante[0]
-                : j.visitante;
+              const visitante = Array.isArray(j.visitante) ? j.visitante[0] : j.visitante;
 
-              // Lógica de Status
               const finalizado = j.status === "finalizado";
               const parcial = j.is_parcial === true;
               const temResultado = finalizado || parcial;
@@ -423,7 +358,6 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
               const c = j.placar_casa ?? 0;
               const v = j.placar_visitante ?? 0;
 
-              // Lógica de Vencedor (Internamente usa decimais)
               const vCasa = temResultado && c > v;
               const vVis = temResultado && v > c;
               const empate = temResultado && c === v;
@@ -433,91 +367,47 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
                   key={j.id}
                   onClick={() => setJogoSelecionado(j)}
                   className={`
-                                cursor-pointer bg-gradient-to-br from-[#121212] to-[#0a0a0a] border rounded-2xl p-4 transition-all relative overflow-hidden shadow-lg hover:border-blue-500/50 hover:bg-[#1a1a1a]
-                                ${
-                                  parcial
-                                    ? "border-green-500/40 shadow-[0_0_10px_rgba(34,197,94,0.1)]"
-                                    : "border-gray-800/60"
-                                }
-                            `}
+                    cursor-pointer bg-gradient-to-br from-[#121212] to-[#0a0a0a] border rounded-2xl p-4 transition-all relative overflow-hidden shadow-lg hover:border-blue-500/50 hover:bg-[#1a1a1a]
+                    ${parcial ? "border-green-500/40 shadow-[0_0_10px_rgba(34,197,94,0.1)]" : "border-gray-800/60"}
+                  `}
                 >
-                  {/* Indicador de Status */}
                   {parcial ? (
                     <div className="absolute top-2 right-2 flex items-center gap-1">
                       <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse shadow-[0_0_6px_rgba(34,197,94,0.8)]"></span>
-                      <span className="text-[8px] font-bold text-green-500 uppercase tracking-wider">
-                        Live
-                      </span>
+                      <span className="text-[8px] font-bold text-green-500 uppercase tracking-wider">Live</span>
                     </div>
                   ) : (
-                    finalizado && (
-                      <div className="absolute top-2 right-2 w-1.5 h-1.5 bg-gray-600 rounded-full"></div>
-                    )
+                    finalizado && <div className="absolute top-2 right-2 w-1.5 h-1.5 bg-gray-600 rounded-full"></div>
                   )}
 
                   <div className="grid grid-cols-[1fr_auto_1fr] gap-4 items-center">
-                    {/* Mandante */}
                     <div className="flex flex-col items-end gap-1.5 overflow-hidden">
                       <img
                         src={casa?.escudo || "/shield-placeholder.png"}
-                        className={`w-8 h-8 object-contain drop-shadow-md ${
-                          !vCasa && temResultado && !empate
-                            ? "opacity-60 grayscale"
-                            : ""
-                        }`}
+                        className={`w-8 h-8 object-contain drop-shadow-md ${!vCasa && temResultado && !empate ? "opacity-60 grayscale" : ""}`}
                       />
-                      <span
-                        className={`text-[10px] font-bold text-right leading-tight w-full truncate ${
-                          vCasa ? "text-green-400" : "text-gray-400"
-                        }`}
-                      >
+                      <span className={`text-[10px] font-bold text-right leading-tight w-full truncate ${vCasa ? "text-green-400" : "text-gray-400"}`}>
                         {casa?.nome || "Mandante"}
                       </span>
                     </div>
 
-                    {/* Placar (TRUNCADO VISUALMENTE) */}
                     <div
                       className={`
-                    flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg border font-mono font-black text-sm w-auto min-w-[80px] shadow-inner
-                    ${
-                      parcial
-                        ? "bg-green-900/10 border-green-900/40 text-green-400"
-                        : temResultado
-                        ? "bg-black/40 border-gray-700 text-white"
-                        : "bg-black/20 border-gray-800 text-gray-600"
-                    }
-`}
+                        flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg border font-mono font-black text-sm w-auto min-w-[80px] shadow-inner
+                        ${parcial ? "bg-green-900/10 border-green-900/40 text-green-400" : temResultado ? "bg-black/40 border-gray-700 text-white" : "bg-black/20 border-gray-800 text-gray-600"}
+                      `}
                     >
-                      <span className={vCasa ? "text-green-400" : ""}>
-                        {j.placar_casa !== undefined ? Math.trunc(j.placar_casa) : "-"}
-                      </span>
-                      <span
-                        className={`text-[10px] ${
-                          parcial ? "text-green-600" : "text-gray-700"
-                        }`}
-                      >
-                        ✕
-                      </span>
-                      <span className={vVis ? "text-green-400" : ""}>
-                        {j.placar_visitante !== undefined ? Math.trunc(j.placar_visitante) : "-"}
-                      </span>
+                      <span className={vCasa ? "text-green-400" : ""}>{j.placar_casa !== undefined ? Math.trunc(j.placar_casa) : "-"}</span>
+                      <span className={`text-[10px] ${parcial ? "text-green-600" : "text-gray-700"}`}>✕</span>
+                      <span className={vVis ? "text-green-400" : ""}>{j.placar_visitante !== undefined ? Math.trunc(j.placar_visitante) : "-"}</span>
                     </div>
 
-                    {/* Visitante */}
                     <div className="flex flex-col items-start gap-1.5 overflow-hidden">
                       <img
                         src={visitante?.escudo || "/shield-placeholder.png"}
-                        className={`w-8 h-8 object-contain drop-shadow-md ${
-                          !vVis && temResultado && !empate
-                            ? "opacity-60 grayscale"
-                            : ""
-                        }`}
+                        className={`w-8 h-8 object-contain drop-shadow-md ${!vVis && temResultado && !empate ? "opacity-60 grayscale" : ""}`}
                       />
-                      <span
-                        className={`text-[10px] font-bold text-left leading-tight w-full truncate ${
-                          vVis ? "text-green-400" : "text-gray-400"
-                        }`}
-                      >
+                      <span className={`text-[10px] font-bold text-left leading-tight w-full truncate ${vVis ? "text-green-400" : "text-gray-400"}`}>
                         {visitante?.nome || "Visitante"}
                       </span>
                     </div>
@@ -529,10 +419,10 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
         </div>
       </div>
       
-      {/* RENDERIZAÇÃO DO MODAL DE CONFRONTO */}
+      {/* CORREÇÃO DO MODAL DE CONFRONTO: Mapear a rodada_cartola correta */}
       {jogoSelecionado && (
           <ModalConfrontoAoVivo 
-              jogo={jogoSelecionado} 
+              jogo={{...jogoSelecionado, rodada: jogoSelecionado.rodada_cartola}} 
               onClose={() => setJogoSelecionado(null)} 
           />
       )}

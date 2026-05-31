@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { X, RefreshCw, ChevronDown, ChevronUp } from "lucide-react";
+import { X, RefreshCw, ChevronDown, ChevronUp, LayoutGrid, List } from "lucide-react";
 import { buscarDetalhesConfrontoAoVivo } from "@/app/actions";
 
 interface Props {
@@ -12,6 +12,7 @@ interface Props {
 export default function ModalConfrontoAoVivo({ jogo, onClose }: Props) {
   const [loading, setLoading] = useState(true);
   const [dados, setDados] = useState<any>(null);
+  const [viewMode, setViewMode] = useState<'pitch' | 'list'>('pitch');
 
   useEffect(() => {
     carregarDetalhes();
@@ -40,9 +41,19 @@ export default function ModalConfrontoAoVivo({ jogo, onClose }: Props) {
             <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span> Análise Tática (Rod. {jogo.rodada})
           </h3>
           <div className="flex gap-2 md:gap-4 items-center">
+            {/* BOTÃO TOGGLE CAMPINHO/LISTA */}
+            <button 
+                onClick={() => setViewMode(prev => prev === 'pitch' ? 'list' : 'pitch')} 
+                className="flex items-center gap-2 bg-[#151515] hover:bg-gray-800 border border-gray-700 px-2 md:px-3 py-1.5 rounded-lg text-[10px] md:text-xs text-gray-300 font-bold transition"
+            >
+                {viewMode === 'pitch' ? <List size={14} /> : <LayoutGrid size={14} />}
+                <span className="hidden sm:inline">{viewMode === 'pitch' ? 'Ver Lista' : 'Ver Campo'}</span>
+            </button>
+            
             <button onClick={carregarDetalhes} className="flex items-center gap-2 bg-black border border-gray-800 px-2 md:px-3 py-1.5 rounded-lg text-[10px] md:text-xs text-gray-400 font-bold hover:text-white transition">
               <RefreshCw size={14} className={loading ? "animate-spin" : ""} /> <span className="hidden sm:inline">Atualizar</span>
             </button>
+            
             <button onClick={onClose} className="text-gray-500 hover:text-red-500 transition bg-black p-1.5 rounded-lg border border-gray-800">
               <X size={18} />
             </button>
@@ -57,9 +68,9 @@ export default function ModalConfrontoAoVivo({ jogo, onClose }: Props) {
             </div>
           ) : dados ? (
             <div className="flex flex-col lg:flex-row gap-12 lg:gap-10 max-w-7xl mx-auto pb-8 md:pb-0 h-auto">
-              <TeamColumn team={dados.casa} placar={jogo.placar_casa} isCasa={true} title="Mandante" />
+              <TeamColumn team={dados.casa} placar={jogo.placar_casa} isCasa={true} title="Mandante" viewMode={viewMode} />
               <div className="hidden lg:flex w-px bg-gradient-to-b from-transparent via-gray-800 to-transparent shrink-0"></div>
-              <TeamColumn team={dados.visitante} placar={jogo.placar_visitante} isCasa={false} title="Visitante" />
+              <TeamColumn team={dados.visitante} placar={jogo.placar_visitante} isCasa={false} title="Visitante" viewMode={viewMode} />
             </div>
           ) : (
             <div className="text-center text-gray-500 py-20 font-bold uppercase text-xs tracking-widest">Erro ao carregar dados da rodada.</div>
@@ -95,7 +106,7 @@ function IconSaiu({ className }: { className?: string }) {
   );
 }
 
-function TeamColumn({ team, placar, isCasa, title }: { team: any, placar: number, isCasa: boolean, title: string }) {
+function TeamColumn({ team, placar, isCasa, title, viewMode }: { team: any, placar: number, isCasa: boolean, title: string, viewMode: 'pitch' | 'list' }) {
     
     const currentPitchPlayers = team.titulares.map((t: any) => {
         const tId = String(t.id || t.atleta_id);
@@ -185,7 +196,14 @@ function TeamColumn({ team, placar, isCasa, title }: { team: any, placar: number
             <div className="sticky top-0 z-[105] bg-[#0a0a0a] md:bg-transparent pb-2 -mx-2 px-2 pt-1 md:relative md:top-auto md:p-0 md:m-0">
                 <TeamScoreBoard team={team} placar={placar} isCasa={isCasa} title={title} />
             </div>
-            <HalfField fieldPlayers={currentPitchPlayers} />
+            
+            {/* RENDER CONDICIONAL: CAMPINHO VS LISTA */}
+            {viewMode === 'pitch' ? (
+                <HalfField fieldPlayers={currentPitchPlayers} />
+            ) : (
+                <FieldList fieldPlayers={currentPitchPlayers} isCasa={isCasa} />
+            )}
+
             <BenchList benchPlayers={activeBenchPlayers} isCasa={isCasa} />
         </div>
     );
@@ -219,7 +237,7 @@ function HalfField({ fieldPlayers }: { fieldPlayers: any[] }) {
   });
 
   return (
-    <div className="relative w-full aspect-[4/5] min-h-[420px] md:min-h-[450px] bg-gradient-to-b from-green-800 to-green-950 border-[4px] md:border-[5px] border-[#151515] rounded-xl overflow-hidden shadow-2xl shrink-0">
+    <div className="relative w-full aspect-[4/5] min-h-[420px] md:min-h-[450px] bg-gradient-to-b from-green-800 to-green-950 border-[4px] md:border-[5px] border-[#151515] rounded-xl overflow-hidden shadow-2xl shrink-0 animate-fadeIn">
         <div className="absolute inset-0 border-[2px] md:border-[3px] border-white/20 m-3 rounded pointer-events-none z-0"></div>
         <div className="absolute top-0 left-0 right-0 h-[2px] md:h-[3px] bg-white/20 pointer-events-none z-0"></div>
         <div className="absolute top-0 left-1/2 w-28 h-14 md:w-36 md:h-18 border-[2px] md:border-[3px] border-white/20 rounded-b-full -translate-x-1/2 pointer-events-none z-0"></div>
@@ -305,11 +323,9 @@ function PlayerPin({ atleta, style, isDNP }: { atleta: any, style: React.CSSProp
       
       <div className="bg-black/90 backdrop-blur-sm px-1 py-1 md:px-1.5 md:py-1.5 rounded border border-white/10 text-center w-[125%] shadow-lg transition-colors group-hover:bg-[#1a1a1a] group-hover:border-gray-400 flex flex-col items-center justify-center">
         
-        {/* ÁREA DO NOME: ÍCONE REMOVIDO DAQUI */}
         <div className="flex items-center justify-center gap-0.5 w-full mb-0.5">
             {atleta.isCapitao && <span className="text-yellow-400 font-black text-[7px] md:text-[9px] shrink-0 leading-none">C</span>}
             {atleta.isLuxo && <LuxoIcon className="w-2 h-2 md:w-2.5 md:h-2.5 shrink-0" />}
-            {/* O ChevronUp (seta de entrada) ficava aqui e foi removido */}
             <span className="text-[6px] md:text-[8px] font-black text-gray-200 uppercase truncate tracking-wide">{atleta.nome}</span>
         </div>
         
@@ -335,6 +351,100 @@ function PlayerPin({ atleta, style, isDNP }: { atleta: any, style: React.CSSProp
       </div>
     </div>
   );
+}
+
+// NOVA LISTA TÁTICA COMO ALTERNATIVA AO CAMPINHO
+function FieldList({ fieldPlayers, isCasa }: { fieldPlayers: any[], isCasa: boolean }) {
+    if (!fieldPlayers || fieldPlayers.length === 0) return null;
+    const borderColor = isCasa ? 'border-blue-900/30' : 'border-red-900/30';
+    const bgContainer = isCasa ? 'bg-blue-950/5' : 'bg-red-950/5';
+
+    const ordemPosicao: Record<number, number> = { 1: 1, 3: 2, 2: 3, 4: 4, 5: 5, 6: 6 };
+    const sortedPlayers = [...fieldPlayers].sort((a: any, b: any) => {
+        const pesoA = ordemPosicao[a.posicao_id] || 99;
+        const pesoB = ordemPosicao[b.posicao_id] || 99;
+        return pesoA - pesoB;
+    });
+
+    return (
+        <div className={`border ${borderColor} ${bgContainer} rounded-2xl p-3 md:p-4 w-full shadow-lg h-auto animate-fadeIn`}>
+            <div className="text-[9px] md:text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-3.5 flex items-center gap-2">
+                <div className="flex-1 h-px bg-gray-800"></div>
+                <span>Titulares / Entraram</span>
+                <div className="flex-1 h-px bg-gray-800"></div>
+            </div>
+            <div className="flex flex-col gap-2.5">
+                {sortedPlayers.map((atleta: any, idx: number) => (
+                    <FieldPlayerCard key={`${atleta.id}-${idx}`} atleta={atleta} />
+                ))}
+            </div>
+        </div>
+    );
+}
+
+function FieldPlayerCard({ atleta }: { atleta: any }) {
+    const pts = atleta.pontosCalculados ?? atleta.pontos;
+    const basePts = atleta.pontos; 
+    const isDNP = !atleta.jogou;
+
+    let colorClass = pts > 0 ? 'text-green-400' : pts < 0 ? 'text-red-400' : 'text-gray-400';
+    let baseColorClass = basePts > 0 ? 'text-green-400' : basePts < 0 ? 'text-red-400' : 'text-gray-400';
+
+    if (isDNP && !atleta.isSubIn) {
+        colorClass = 'text-gray-500';
+        baseColorClass = 'text-gray-500';
+    }
+
+    return (
+        <div className="flex items-center justify-between p-2 rounded-xl border border-gray-800 bg-[#151515] hover:bg-[#1a1a1a] transition-colors gap-2">
+            <div className="flex items-center gap-3 md:gap-3.5 overflow-hidden flex-1">
+                <div className="relative shrink-0">
+                    <img 
+                        src={atleta.foto} 
+                        className={`w-8 h-8 md:w-9 md:h-9 rounded-full border bg-black object-cover shadow-inner ${atleta.isSubIn ? 'border-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]' : atleta.isCapitao ? 'border-yellow-500' : atleta.isLuxo ? 'border-orange-500' : 'border-gray-700'}`} 
+                        alt="" 
+                    />
+                    
+                    {atleta.isSubIn && (
+                        <IconEntrou className="absolute -top-1 -left-1 w-4 h-4 z-10" />
+                    )}
+                    
+                    {!atleta.isSubIn && atleta.isLuxo && (
+                      <div className="absolute -bottom-1 -right-1.5 w-4 h-4 bg-black rounded-full border border-black z-10 flex items-center justify-center shadow-[0_0_8px_rgba(249,115,22,0.5)]">
+                        <LuxoIcon className="w-2.5 h-2.5" />
+                      </div>
+                    )}
+                </div>
+
+                <div className="flex flex-col truncate flex-1">
+                    <div className="flex items-center gap-1.5 truncate">
+                        <span className="text-[9px] md:text-[10px] font-black uppercase truncate leading-tight text-gray-200">{atleta.nome}</span>
+                        {atleta.isCapitao && <span className="text-[7px] font-black text-yellow-400 bg-yellow-950 px-1 py-0.5 rounded border border-yellow-500/30">C</span>}
+                        {atleta.isLuxo && <span className="text-[7px] font-black text-orange-400 bg-orange-950/40 px-1 py-0.5 rounded border border-orange-500/30">LUXO</span>}
+                    </div>
+                    <span className="text-[8px] text-gray-500 uppercase mt-1 leading-none">
+                        {atleta.posicao} {atleta.isSubIn && <span className="text-green-500 font-bold ml-1">ENTROU</span>}
+                    </span>
+                </div>
+            </div>
+            
+            <div className="flex flex-col items-end justify-center shrink-0 ml-1 bg-black/40 px-2.5 py-1 rounded-lg border border-gray-800">
+                {isDNP && !atleta.isSubIn ? (
+                    <span className="text-[11px] md:text-xs font-black font-mono text-gray-500">-</span>
+                ) : atleta.isCapitao ? (
+                    <div className="flex flex-col items-end">
+                        <span className={`${colorClass} text-[11px] md:text-[12px] font-black font-mono leading-none mt-[1px]`}>{pts.toFixed(1)}</span>
+                        <div className="flex items-center gap-[2px] mt-[3px] opacity-95">
+                            <span className={`${baseColorClass} font-mono font-bold text-[8px] md:text-[9px] leading-none`}>{basePts.toFixed(1)}</span>
+                            <span className="text-yellow-500 font-black text-[8px] md:text-[9px] leading-none">x1.5</span>
+                        </div>
+                    </div>
+                ) : (
+                    <span className={`${colorClass} text-[11px] md:text-xs font-black font-mono leading-none`}>{pts.toFixed(1)}</span>
+                )}
+            </div>
+        </div>
+    );
 }
 
 function BenchList({ benchPlayers, isCasa }: { benchPlayers: any[], isCasa: boolean }) {

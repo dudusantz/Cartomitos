@@ -1416,8 +1416,7 @@ export async function buscarParciaisAoVivo(jogos: any[]) {
       return status !== undefined ? status !== 1 : true; 
   };
 
-  // 2. FUNÇÃO PURA: Colocada fora do loop para não estourar a memória.
-  // Ela não faz chamadas de rede (fetch), apenas recebe os dados e faz a matemática.
+  // 2. FUNÇÃO PURA
   const calcularTime = (dataTime: any) => {
       if (!dataTime || !dataTime.atletas) return 0;
 
@@ -1497,21 +1496,28 @@ export async function buscarParciaisAoVivo(jogos: any[]) {
               }
           }
 
+          // B. Reserva de Luxo AGRESSIVO
           if (!houveSubstituicaoNormal && !trocaLuxoRealizada && luxoIdOficial !== "0") {
               const reservaLuxo = res.find((r: any) => r.idStr === luxoIdOficial);
 
               if (reservaLuxo && reservaLuxo.jogou && !reservaLuxo.usado) {
-                  const piorTitular = titularesDestaPosicao.reduce((min:any, curr:any) => curr.pts < min.pts ? curr : min, titularesDestaPosicao[0]);
+                  // Pega APENAS os titulares que já começaram a jogar
+                  const titsQueJaComecaram = titularesDestaPosicao.filter((tit: any) => jogoComecou(tit.clube_id));
 
-                  if (reservaLuxo.pts > piorTitular.pts) {
-                      titularesDestaPosicao = titularesDestaPosicao.map(t => {
-                          if (t.idStr === piorTitular.idStr) {
-                              if (t.idStr === capitaoId) capitaoId = reservaLuxo.idStr; 
-                              return { ...reservaLuxo, ehReservaLuxo: true };
-                          }
-                          return t;
-                      });
-                      trocaLuxoRealizada = true;
+                  if (titsQueJaComecaram.length > 0) {
+                      const piorTitular = titsQueJaComecaram.reduce((min:any, curr:any) => curr.pts < min.pts ? curr : min, titsQueJaComecaram[0]);
+
+                      // O Reserva tem mais pontos que o pior titular ativo?
+                      if (reservaLuxo.pts > piorTitular.pts) {
+                          titularesDestaPosicao = titularesDestaPosicao.map(t => {
+                              if (t.idStr === piorTitular.idStr) {
+                                  if (t.idStr === capitaoId) capitaoId = reservaLuxo.idStr; 
+                                  return { ...reservaLuxo, ehReservaLuxo: true };
+                              }
+                              return t;
+                          });
+                          trocaLuxoRealizada = true;
+                      }
                   }
               }
           }
@@ -1531,26 +1537,25 @@ export async function buscarParciaisAoVivo(jogos: any[]) {
       return parseFloat(somaTotal.toFixed(2));
   };
 
-  // 3. OTIMIZAÇÃO DE PERFORMANCE: Listar equipas únicas para evitar N+1
+  // 3. OTIMIZAÇÃO DE PERFORMANCE
   const mapTimes = new Map<number, number>(); 
   jogos.forEach(jogo => {
     if (jogo.casa?.time_id_cartola) mapTimes.set(jogo.casa.time_id_cartola, jogo.rodada);
     if (jogo.visitante?.time_id_cartola) mapTimes.set(jogo.visitante.time_id_cartola, jogo.rodada);
   });
 
-  // 4. Buscar as escalações de todos os times de forma paralela e em lote
+  // 4. Buscar as escalações
   const escalacoesCache: Record<number, any> = {};
   await Promise.all(Array.from(mapTimes.entries()).map(async ([timeId, rodada]) => {
       let dataTime = await fetchCartola(`https://api.cartola.globo.com/time/id/${timeId}/${rodada}?_=${ts}`);
       
-      // Fallback
       if (!dataTime || !dataTime.atletas || dataTime.atletas.length === 0) {
          dataTime = await fetchCartola(`https://api.cartola.globo.com/time/id/${timeId}?_=${ts}`);
       }
       escalacoesCache[timeId] = dataTime;
   }));
 
-  // 5. Mapear os jogos finais de forma síncrona e ultrarrápida (sem usar await aqui)
+  // 5. Mapear os jogos finais
   const jogosComParcial = jogos.map((jogo) => {
     const pc = calcularTime(escalacoesCache[jogo.casa.time_id_cartola]);
     const pv = calcularTime(escalacoesCache[jogo.visitante.time_id_cartola]);
@@ -2387,19 +2392,24 @@ export async function buscarDetalhesConfrontoAoVivo(timeCasaIdCartola: number, t
           urlSubVis ? fetchCartola(`${urlSubVis}?_=${tsNow}`).catch(() => ([])) : Promise.resolve([])
       ]);
 
-      // Mapa de Status de Partidas
+      // Mapa de Status de Partidas 
       const statusClubes: Record<number, boolean> = {};
       if (partidasCartola?.partidas) {
           partidasCartola.partidas.forEach((p: any) => {
-              // Confia APENAS no status oficial da API (2 = Em andamento, 3 = Encerrada, 4 = Adiada)
-              if (p.status_partida_id && [2, 3, 4].includes(p.status_partida_id)) {
+              const s1 = p.status_partida_id;
+              const s2 = p.status_transmissao_tr?.id;
+              if ((s1 && s1 !== 1) || (s2 && s2 !== 1)) {
                   statusClubes[p.clube_casa_id] = true;
                   statusClubes[p.clube_visitante_id] = true;
               }
           });
       }
       
-      const jogoComecou = (clubeId: number) => isRodadaPassada ? true : !!statusClubes[clubeId];
+      const jogoComecou = (clubeId: number, atletaJogou: boolean) => {
+          if (isRodadaPassada) return true;
+          if (atletaJogou) return true;
+          return !!statusClubes[clubeId];
+      };
 
       // Engine de Processamento de Escalação
       const processarEscalacao = (dataTime: any, subsDaAPI: any) => {
@@ -2482,9 +2492,7 @@ export async function buscarDetalhesConfrontoAoVivo(timeCasaIdCartola: number, t
               
               for (let i = 0; i < titsByPos[posId].length; i++) {
                   const titular = titsByPos[posId][i];
-                  // Se o jogo do titular começou e ele NÃO JOGOU
-                  if (!titular.jogou && jogoComecou(titular.clube_id)) {
-                      // Procura um banco disponível que JÁ JOGOU ou ESTÁ JOGANDO
+                  if (!titular.jogou && jogoComecou(titular.clube_id, titular.jogou)) {
                       const rDisponivel = res.find((r: any) => r.jogou && !r.usado);
                       if (rDisponivel) {
                           rDisponivel.usado = true;
@@ -2495,37 +2503,35 @@ export async function buscarDetalhesConfrontoAoVivo(timeCasaIdCartola: number, t
               }
           }
 
-          // B. Reserva de Luxo
+          // B. Reserva de Luxo AGRESSIVO
           if (luxoIdOficial !== "0") {
               const rLuxo = reservas.find((r: any) => r.id === luxoIdOficial);
               if (rLuxo && rLuxo.jogou && !rLuxo.usado) {
                   const titsDaMesmaPosicao = titsByPos[rLuxo.posicao_id] || [];
-                  if (titsDaMesmaPosicao.length > 0) {
-                      
-                      // TRAVA ESTRATÉGICA: Verifica se TODOS os titulares da posição já começaram a jogar
-                      const todosJogosDaPosicaoComecaram = titsDaMesmaPosicao.every((tit: any) => jogoComecou(tit.clube_id));
+                  
+                  // Pega apenas os titulares da posição que JÁ COMEÇARAM a jogar
+                  const titsQueJaComecaram = titsDaMesmaPosicao.filter((tit: any) => jogoComecou(tit.clube_id, tit.jogou));
 
-                      if (todosJogosDaPosicaoComecaram) {
-                          let piorTitular = titsDaMesmaPosicao[0];
-                          let menorPts = piorTitular.substituidoPor ? piorTitular.substituidoPor.pontos : piorTitular.pontos;
+                  if (titsQueJaComecaram.length > 0) {
+                      let piorTitular = titsQueJaComecaram[0];
+                      let menorPts = piorTitular.substituidoPor ? piorTitular.substituidoPor.pontos : piorTitular.pontos;
 
-                          for (let i = 1; i < titsDaMesmaPosicao.length; i++) {
-                              const tit = titsDaMesmaPosicao[i];
-                              const ptsSlot = tit.substituidoPor ? tit.substituidoPor.pontos : tit.pontos;
-                              if (ptsSlot < menorPts) {
-                                  menorPts = ptsSlot;
-                                  piorTitular = tit;
-                              }
+                      for (let i = 1; i < titsQueJaComecaram.length; i++) {
+                          const tit = titsQueJaComecaram[i];
+                          const ptsSlot = tit.substituidoPor ? tit.substituidoPor.pontos : tit.pontos;
+                          if (ptsSlot < menorPts) {
+                              menorPts = ptsSlot;
+                              piorTitular = tit;
                           }
+                      }
 
-                          // Se o Luxo fez MAIS pontos que o pior titular, a troca é realizada
-                          if (rLuxo.pontos > menorPts) {
-                              rLuxo.usado = true;
-                              if (piorTitular.id === capitaoRealId || (piorTitular.substituidoPor && piorTitular.substituidoPor.id === capitaoRealId)) {
-                                  capitaoRealId = rLuxo.id;
-                              }
-                              piorTitular.substituidoPor = { ...rLuxo, isLuxoEntry: true };
+                      // Troca Imediata se o reserva tiver mais pontos
+                      if (rLuxo.pontos > menorPts) {
+                          rLuxo.usado = true;
+                          if (piorTitular.id === capitaoRealId || (piorTitular.substituidoPor && piorTitular.substituidoPor.id === capitaoRealId)) {
+                              capitaoRealId = rLuxo.id;
                           }
+                          piorTitular.substituidoPor = { ...rLuxo, isLuxoEntry: true };
                       }
                   }
               }

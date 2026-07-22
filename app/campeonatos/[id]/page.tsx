@@ -229,6 +229,13 @@ export default function PaginaPublicaCampeonato() {
       </div>
 
       {/* === CONTEÚDO DAS ABAS === */}
+      {activeTab === 'fase_final' ? (
+        <MataMataPublico
+          campeonatoId={id}
+          rodadasCorte={campeonato.tipo === 'copa' ? 6 : 0}
+          usarDecimais={campeonato.usar_decimais === true}
+        />
+      ) : (
       <div className="max-w-7xl mx-auto p-6 md:p-10 min-h-[400px]">
           
           {activeTab === 'classificacao' && (
@@ -248,16 +255,8 @@ export default function PaginaPublicaCampeonato() {
                 <FaseGruposPublica campeonatoId={id} />
               </div>
           )}
-          
-          {activeTab === 'fase_final' && (
-              <div className="animate-fadeIn">
-                <MataMataPublico 
-                    campeonatoId={id} 
-                    rodadasCorte={campeonato.tipo === 'copa' ? 6 : 0}
-                />
-              </div>
-          )}
       </div>
+      )}
     </div>
   )
 }

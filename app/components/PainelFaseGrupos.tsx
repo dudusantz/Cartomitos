@@ -9,7 +9,7 @@ import {
   buscarPreviaRodadaGrupos, atualizarRodadaGrupos, listarPartidas, atualizarPlacarManual 
 } from '@/app/actions' 
 import { ModalConfirmacao } from './ModalConfirmacao' 
-import { RefreshCw, Save, X, Calendar, PlayCircle, GripVertical } from 'lucide-react'
+import { RefreshCw, Save, X, Calendar, PlayCircle, GripVertical, Eye, Shuffle, Check, RotateCcw } from 'lucide-react'
 
 interface Props {
   campeonatoId: number
@@ -36,6 +36,8 @@ export default function PainelFaseGrupos({ campeonatoId, times = [] }: Props) {
   // Sorteio
   const [timesOrdenados, setTimesOrdenados] = useState<any[]>([])
   const [modoSorteio, setModoSorteio] = useState(false)
+  const [potesSorteados, setPotesSorteados] = useState<any[][] | null>(null)
+  const [itensRevelados, setItensRevelados] = useState(0)
 
   // Edição Manual
   const [modalOpen, setModalOpen] = useState(false)
@@ -156,6 +158,47 @@ export default function PainelFaseGrupos({ campeonatoId, times = [] }: Props) {
     })
   }
 
+  function montarPotes() {
+    const potes: any[][] = []
+    for (let i = 0; i < numPotes; i++) {
+      const pote = timesOrdenados.slice(i * timesPorPote, (i + 1) * timesPorPote)
+      if (pote.length > 0) potes.push(pote)
+    }
+    return potes
+  }
+
+  function embaralhar<T>(lista: T[]) {
+    const copia = [...lista]
+    for (let i = copia.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[copia[i], copia[j]] = [copia[j], copia[i]]
+    }
+    return copia
+  }
+
+  function iniciarSorteioPassoAPasso() {
+    if (!timesOrdenados || timesOrdenados.length < 4) return toast.error('Mínimo 4 times para sortear.')
+    setPotesSorteados(montarPotes().map(embaralhar))
+    setItensRevelados(0)
+  }
+
+  async function concluirSorteioPassoAPasso() {
+    if (!potesSorteados || loading) return
+    setLoading(true)
+    const ids = potesSorteados.map(pote => pote.map((time: any) => time.time_id))
+    const res = await sortearGrupos(campeonatoId, timesPorPote, ids, true)
+    if (res.success) {
+      toast.success(res.msg)
+      await gerarJogosFaseGrupos(campeonatoId)
+      setPotesSorteados(null)
+      setItensRevelados(0)
+      await carregarDados()
+    } else {
+      toast.error(res.msg)
+      setLoading(false)
+    }
+  }
+
   async function handleGerarJogos() {
     if(jogos.length > 0) {
         confirm("Regerar Jogos", "Isso apagará os jogos existentes e recriará a tabela. Tem certeza?", async () => executarGeracaoJogos())
@@ -242,6 +285,59 @@ export default function PainelFaseGrupos({ campeonatoId, times = [] }: Props) {
 
   const isPreviewMode = Object.keys(previewPlacares).length > 0;
 
+  if (modoSorteio && potesSorteados) {
+      const letras = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
+      const sequencia = potesSorteados.flatMap((pote, poteIndex) => pote.map((time, grupoIndex) => ({ time, poteIndex, grupoIndex })))
+      const concluido = itensRevelados === sequencia.length
+      return (
+        <div className="animate-fadeIn py-4">
+          <div className="text-center mb-6">
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-green-500/10 text-green-400"><Shuffle size={24} /></div>
+            <h3 className="text-xl font-black text-white uppercase tracking-wider">Sorteio dos grupos</h3>
+            <p className="text-xs text-gray-500 mt-1">{itensRevelados} de {sequencia.length} times revelados</p>
+          </div>
+
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+            {Array.from({ length: timesPorPote }).map((_, grupoIndex) => {
+              const timesGrupo = sequencia.filter((item, index) => item.grupoIndex === grupoIndex && index < itensRevelados)
+              return (
+                <div key={grupoIndex} className="rounded-xl border border-gray-800 bg-[#121212] p-4 min-h-48">
+                  <div className="flex items-center justify-between border-b border-gray-800 pb-3 mb-3">
+                    <span className="font-black text-green-400 uppercase tracking-widest text-sm">Grupo {letras[grupoIndex]}</span>
+                    <span className="text-[10px] text-gray-600">{timesGrupo.length}/{potesSorteados.length}</span>
+                  </div>
+                  <div className="space-y-2">
+                    {timesGrupo.map(({ time, poteIndex }) => (
+                      <div key={time.time_id} className="flex items-center gap-2 rounded-lg border border-green-500/20 bg-green-500/[0.03] p-2.5 animate-fadeIn">
+                        <span className="w-5 text-[9px] font-black text-gray-600">P{poteIndex + 1}</span>
+                        <img src={time.escudo || time.times?.escudo || '/shield-placeholder.png'} className="w-6 h-6 object-contain" alt="" />
+                        <span className="truncate text-xs font-bold text-gray-200">{time.nome || time.times?.nome}</span>
+                      </div>
+                    ))}
+                    {timesGrupo.length === 0 && <div className="h-24 flex items-center justify-center text-gray-700"><Eye size={22} /></div>}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+
+          {itensRevelados > 0 && !concluido && (() => {
+            const ultimo = sequencia[itensRevelados - 1]
+            return <div className="mb-5 text-center text-sm text-gray-400"><strong className="text-white">{ultimo.time.nome || ultimo.time.times?.nome}</strong> foi para o <strong className="text-green-400">Grupo {letras[ultimo.grupoIndex]}</strong></div>
+          })()}
+
+          <div className="flex flex-col sm:flex-row gap-3">
+            <button type="button" onClick={() => { setPotesSorteados(null); setItensRevelados(0) }} disabled={loading} className="px-5 py-3 rounded-xl border border-gray-700 text-gray-400 hover:text-white font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2"><RotateCcw size={15} /> Recomeçar</button>
+            {!concluido ? (
+              <button type="button" onClick={() => setItensRevelados(v => Math.min(v + 1, sequencia.length))} className="flex-1 py-4 rounded-xl bg-green-600 hover:bg-green-500 text-white font-black uppercase tracking-widest text-sm flex items-center justify-center gap-2"><Eye size={18} /> Sortear próximo time</button>
+            ) : (
+              <button type="button" onClick={concluirSorteioPassoAPasso} disabled={loading} className="flex-1 py-4 rounded-xl bg-green-600 hover:bg-green-500 text-white font-black uppercase tracking-widest text-sm flex items-center justify-center gap-2 disabled:opacity-50">{loading ? <RefreshCw className="animate-spin" size={18} /> : <Check size={18} />} Confirmar grupos</button>
+            )}
+          </div>
+        </div>
+      )
+  }
+
   if (modoSorteio) {
       return (
         <div className="flex flex-col items-center animate-fadeIn py-4">
@@ -304,9 +400,10 @@ export default function PainelFaseGrupos({ campeonatoId, times = [] }: Props) {
               </div>
             </DragDropContext>
 
-            <div className="flex gap-4">
+            <div className="flex flex-col sm:flex-row gap-4">
                 <button onClick={carregarDados} className="text-gray-500 hover:text-white px-6 py-4 rounded-xl font-bold transition uppercase tracking-widest text-xs border border-transparent hover:border-gray-700">Cancelar</button>
-                <button onClick={handleSortear} className="bg-green-600 hover:bg-green-500 text-white px-8 py-4 rounded-xl font-bold transition shadow-lg shadow-green-900/20 uppercase tracking-widest text-xs flex items-center gap-2"><span>🎲</span> Confirmar Ordem e Sortear</button>
+                <button onClick={iniciarSorteioPassoAPasso} className="border border-green-500/40 bg-green-500/5 hover:bg-green-500/10 text-green-400 px-8 py-4 rounded-xl font-bold transition uppercase tracking-widest text-xs flex items-center justify-center gap-2"><Eye size={16} /> Sortear time a time</button>
+                <button onClick={handleSortear} className="bg-green-600 hover:bg-green-500 text-white px-8 py-4 rounded-xl font-bold transition shadow-lg shadow-green-900/20 uppercase tracking-widest text-xs flex items-center justify-center gap-2"><Shuffle size={16} /> Sortear tudo</button>
             </div>
         </div>
       )

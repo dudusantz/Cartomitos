@@ -659,7 +659,7 @@ function getBracketOrder(n: number): number[] {
   return result;
 }
 
-export async function gerarMataMataInteligente(campeonatoId: number, idsOrdenados: number[] = [], aleatorio: boolean = false) {
+export async function gerarMataMataInteligente(campeonatoId: number, idsOrdenados: number[] = [], aleatorio: boolean = false, potes: number[][] = [], manterOrdemPotes: boolean = false) {
   try {
     await verificarAdmin();
     const db = getDb();
@@ -679,11 +679,67 @@ export async function gerarMataMataInteligente(campeonatoId: number, idsOrdenado
     const timesNoBanco = await listarTimesDoCampeonato(campeonatoId);
     if (timesNoBanco.length < 2) return { success: false, msg: "Mínimo de 2 times." };
 
+    if (potes.length > 0) {
+      if (potes.length !== 2 || potes.some(pote => pote.length === 0)) {
+        return { success: false, msg: "O sorteio mata-mata precisa de dois potes preenchidos." };
+      }
+
+      const idsValidos = new Set(timesNoBanco.map(t => t.time_id));
+      const todosIds = potes.flat();
+      const idsUnicos = new Set(todosIds);
+      if (
+        idsUnicos.size !== todosIds.length ||
+        todosIds.length !== timesNoBanco.length ||
+        todosIds.some(id => !idsValidos.has(id)) ||
+        Math.abs(potes[0].length - potes[1].length) > 1
+      ) {
+        return { success: false, msg: "Os potes devem conter todos os times, sem repetições, e ter tamanhos equivalentes." };
+      }
+
+      const embaralhar = (ids: number[]) => {
+        const copia = [...ids];
+        for (let i = copia.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [copia[i], copia[j]] = [copia[j], copia[i]];
+        }
+        return copia;
+      };
+
+      const poteA = manterOrdemPotes ? [...potes[0]] : embaralhar(potes[0]);
+      const poteB = manterOrdemPotes ? [...potes[1]] : embaralhar(potes[1]);
+      const partidasParaSalvar = [];
+      const totalConfrontos = Math.max(poteA.length, poteB.length);
+
+      for (let i = 0; i < totalConfrontos; i++) {
+        const timeA = poteA[i] ?? null;
+        const timeB = poteB[i] ?? null;
+        if (timeA && timeB) {
+          partidasParaSalvar.push({ campeonato_id: campeonatoId, rodada: 1, time_casa: timeA, time_visitante: timeB, status: 'agendado' });
+          partidasParaSalvar.push({ campeonato_id: campeonatoId, rodada: 2, time_casa: timeB, time_visitante: timeA, status: 'agendado' });
+        } else {
+          const timeBye = timeA ?? timeB;
+          partidasParaSalvar.push({ campeonato_id: campeonatoId, rodada: 1, time_casa: timeBye, time_visitante: null, placar_casa: 1, placar_visitante: 0, status: 'bye' });
+        }
+      }
+
+      const { error } = await db.from('partidas').insert(partidasParaSalvar);
+      if (error) return { success: false, msg: error.message };
+
+      revalidatePath(`/campeonatos/${campeonatoId}`);
+      return { success: true, msg: `Mata-Mata sorteado por potes com ${todosIds.length} times!` };
+    }
+
     let rankingInicial: any[] = [];
 
     if (aleatorio) {
       rankingInicial = [...timesNoBanco].sort(() => Math.random() - 0.5).map(t => t.time_id);
     } else if (idsOrdenados.length > 0) {
+      const idsValidos = new Set(timesNoBanco.map(t => t.time_id));
+      const idsUnicos = new Set(idsOrdenados);
+      if (idsUnicos.size !== idsOrdenados.length || idsOrdenados.some(id => !idsValidos.has(id))) {
+        return { success: false, msg: "A lista do sorteio contém times inválidos ou repetidos." };
+      }
+
       rankingInicial = idsOrdenados;
       const faltantes = timesNoBanco.filter(t => !idsOrdenados.includes(t.time_id)).map(t => t.time_id);
       rankingInicial = [...rankingInicial, ...faltantes];
@@ -918,7 +974,7 @@ export async function avancarFaseMataMata(campeonatoId: number, faseAtual: numbe
 // 6. MÓDULO: COPA
 // ==============================================================================
 
-export async function sortearGrupos(campeonatoId: number, numGrupos: number, potes: number[][]) {
+export async function sortearGrupos(campeonatoId: number, numGrupos: number, potes: number[][], manterOrdemPotes: boolean = false) {
   try {
     await verificarAdmin();
     const db = getDb();
@@ -931,7 +987,7 @@ export async function sortearGrupos(campeonatoId: number, numGrupos: number, pot
     const letras = ['A','B','C','D','E','F','G','H'];
     
     for (let i = 0; i < potes.length; i++) {
-      const pote = potes[i].sort(() => Math.random() - 0.5);
+      const pote = manterOrdemPotes ? [...potes[i]] : [...potes[i]].sort(() => Math.random() - 0.5);
       for (let g = 0; g < numGrupos; g++) {
         if (pote[g]) {
             await db.from('classificacao').update({ grupo: letras[g] }).eq('campeonato_id', campeonatoId).eq('time_id', pote[g]);

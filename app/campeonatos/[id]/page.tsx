@@ -84,13 +84,12 @@ export default function PaginaPublicaCampeonato() {
   const getEscudo = (time: any) => time?.escudo || time?.url_escudo_png || '';
 
   return (
-    <div className="min-h-screen bg-[#121212] text-gray-100 animate-fadeIn pb-20 font-sans">
+    <div className="min-h-screen text-gray-100 animate-fadeIn pb-16 font-sans">
       
       {/* === HERO HEADER === */}
-      <div className="relative bg-[#0a0a0a] border-b border-gray-800 pt-8 pb-12 px-6 overflow-hidden">
-        <div className="absolute inset-0 bg-[url('/bg-grid.svg')] opacity-10"></div>
+      <div className="relative bg-[#0a0a0a] border-b border-white/[0.07] pt-7 pb-10 md:pt-10 md:pb-14 px-4 md:px-6 overflow-hidden">
         {/* COR DO BRILHO (Dourado se pago/grid) */}
-        <div className={`absolute top-0 right-0 w-[500px] h-[500px] rounded-full blur-[120px] -translate-y-1/2 translate-x-1/3 pointer-events-none transition-colors duration-700 ${isPaga ? 'bg-yellow-600/10' : 'bg-blue-600/10'}`}></div>
+        <div className="absolute top-0 right-0 w-[500px] h-[500px] rounded-full blur-[120px] -translate-y-1/2 translate-x-1/3 pointer-events-none bg-yellow-600/[0.08]"></div>
 
         <div className="max-w-7xl mx-auto relative z-10">
             <Link href="/campeonatos" className="inline-flex items-center gap-2 text-xs font-bold text-gray-500 hover:text-white mb-6 uppercase tracking-widest transition-colors">
@@ -105,7 +104,7 @@ export default function PaginaPublicaCampeonato() {
                             {campeonato.ano}
                         </span>
                         
-                        <span className={`text-[10px] font-black uppercase tracking-widest border px-2 py-1 rounded ${isPaga ? 'text-yellow-400 border-yellow-500/20 bg-yellow-500/10' : 'text-blue-400 border-blue-500/20 bg-blue-500/10'}`}>
+                        <span className="text-[10px] font-black uppercase tracking-widest border px-2 py-1 rounded text-yellow-400 border-yellow-500/20 bg-yellow-500/10">
                             {campeonato.tipo.replace('_', ' ')}
                         </span>
 
@@ -122,7 +121,7 @@ export default function PaginaPublicaCampeonato() {
                         )}
                     </div>
                     
-                    <h1 className="text-3xl md:text-5xl lg:text-6xl font-black text-white uppercase tracking-tighter leading-none">
+                    <h1 className="text-3xl md:text-5xl lg:text-6xl font-black text-white uppercase tracking-[-0.045em] leading-[0.94]">
                         {campeonato.nome}
                     </h1>
                 </div>
@@ -187,13 +186,13 @@ export default function PaginaPublicaCampeonato() {
       </div>
 
       {/* === NAVEGAÇÃO (TABS) === */}
-      <div className="border-b border-gray-800 bg-[#0f0f0f] sticky top-0 z-40 shadow-xl">
-        <div className="max-w-7xl mx-auto px-6 flex gap-8 overflow-x-auto no-scrollbar">
+      <div className="border-b border-white/[0.07] bg-[#0f0f0f]/95 sticky top-[6.2rem] md:top-[4.75rem] z-40 backdrop-blur-xl">
+        <div className="max-w-7xl mx-auto px-4 md:px-6 flex gap-7 overflow-x-auto no-scrollbar">
             
             {campeonato.tipo === 'pontos_corridos' && (
                 <button 
                     onClick={() => setActiveTab('classificacao')}
-                    className={`py-4 text-xs font-bold uppercase tracking-widest border-b-2 transition-colors whitespace-nowrap ${activeTab === 'classificacao' ? 'border-blue-500 text-blue-500' : 'border-transparent text-gray-500 hover:text-white'}`}
+                    className={`py-4 text-xs font-bold uppercase tracking-widest border-b-2 transition-colors whitespace-nowrap ${activeTab === 'classificacao' ? 'border-yellow-500 text-yellow-500' : 'border-transparent text-gray-500 hover:text-white'}`}
                 >
                     Tabela
                 </button>
@@ -211,7 +210,7 @@ export default function PaginaPublicaCampeonato() {
             {campeonato.tipo === 'copa' && (
                 <button 
                     onClick={() => setActiveTab('grupos')}
-                    className={`py-4 text-xs font-bold uppercase tracking-widest border-b-2 transition-colors whitespace-nowrap ${activeTab === 'grupos' ? 'border-orange-500 text-orange-500' : 'border-transparent text-gray-500 hover:text-white'}`}
+                    className={`py-4 text-xs font-bold uppercase tracking-widest border-b-2 transition-colors whitespace-nowrap ${activeTab === 'grupos' ? 'border-yellow-500 text-yellow-500' : 'border-transparent text-gray-500 hover:text-white'}`}
                 >
                     Fase de Grupos
                 </button>
@@ -220,7 +219,7 @@ export default function PaginaPublicaCampeonato() {
             {(campeonato.tipo === 'mata_mata' || campeonato.tipo === 'mata-mata' || campeonato.tipo === 'copa') && (
                 <button 
                     onClick={() => setActiveTab('fase_final')}
-                    className={`py-4 text-xs font-bold uppercase tracking-widest border-b-2 transition-colors whitespace-nowrap ${activeTab === 'fase_final' ? 'border-purple-500 text-purple-500' : 'border-transparent text-gray-500 hover:text-white'}`}
+                    className={`py-4 text-xs font-bold uppercase tracking-widest border-b-2 transition-colors whitespace-nowrap ${activeTab === 'fase_final' ? 'border-yellow-500 text-yellow-500' : 'border-transparent text-gray-500 hover:text-white'}`}
                 >
                     {campeonato.tipo === 'copa' ? 'Fase Final' : 'Chaveamento'}
                 </button>
@@ -236,7 +235,7 @@ export default function PaginaPublicaCampeonato() {
           usarDecimais={campeonato.usar_decimais === true}
         />
       ) : (
-      <div className="max-w-7xl mx-auto p-6 md:p-10 min-h-[400px]">
+      <div className="max-w-7xl mx-auto px-4 py-6 md:p-10 min-h-[400px]">
           
           {activeTab === 'classificacao' && (
               <div className="animate-fadeIn">

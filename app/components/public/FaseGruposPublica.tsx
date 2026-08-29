@@ -211,54 +211,122 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start animate-fadeIn max-w-[100vw] overflow-hidden">
-      <div className="lg:col-span-8 flex flex-col gap-6">
-        <div className="flex items-center justify-between mb-4 px-2">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-8 items-start animate-fadeIn max-w-[100vw] overflow-hidden">
+      <div className="lg:col-span-8 flex flex-col gap-5">
+        <div className="flex items-center justify-between px-1">
           <div className="flex items-center gap-3">
-            <h2 className="text-lg font-black text-white uppercase tracking-widest flex items-center gap-2">
-              <span className="text-xl">🌎</span> Fase de Grupos
-            </h2>
+            <div>
+              <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-yellow-500">Classificação por chave</span>
+              <h2 className="mt-0.5 text-xl md:text-2xl font-black text-white tracking-[-0.03em]">Fase de grupos</h2>
+            </div>
             {modoAoVivo && (
-              <span className="text-[9px] bg-green-900/30 text-green-500 border border-green-500/30 px-2 py-0.5 rounded animate-pulse font-bold uppercase">
+              <span className="text-[9px] bg-green-500/10 text-green-400 border border-green-500/20 px-2 py-1 rounded-md animate-pulse font-bold uppercase">
                 Ao Vivo (R{rodadaView})
               </span>
             )}
           </div>
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 gap-4 md:gap-5">
           {Object.keys(gruposExibidos)
             .sort()
             .map((letra) => (
               <div
                 key={letra}
-                className={`bg-[#121212] border rounded-2xl overflow-hidden shadow-lg flex flex-col h-fit transition-colors ${
-                  modoAoVivo ? "border-green-900/30" : "border-gray-800"
+                className={`bg-[#121212] border rounded-2xl overflow-hidden flex flex-col h-fit transition-colors shadow-[0_18px_45px_rgba(0,0,0,.2)] ${
+                  modoAoVivo ? "border-green-500/25" : "border-white/[0.07]"
                 }`}
               >
-                <div className="bg-[#151515] px-4 py-3 border-b border-gray-800 flex justify-between items-center">
-                  <span className="text-white font-black tracking-widest text-xs uppercase text-blue-400">
+                <div className="bg-[#151515] px-4 py-3.5 border-b border-white/[0.07] flex justify-between items-center">
+                  <span className="text-white font-black tracking-[-0.01em] text-sm">
                     Grupo {letra}
                   </span>
+                  <span className="text-[9px] font-bold uppercase tracking-widest text-gray-600">{gruposExibidos[letra].length} clubes</span>
                 </div>
 
-                <div className="w-full overflow-x-auto">
-                  <table className="w-full text-left text-[10px]">
-                    <thead className="bg-black text-gray-500 uppercase font-bold tracking-widest border-b border-gray-800">
+                <div className="md:hidden w-full overflow-x-auto custom-scrollbar">
+                  <table className="w-full table-fixed border-collapse text-left">
+                    <colgroup>
+                      <col className="w-[7%]" />
+                      <col className="w-[38%]" />
+                      <col className="w-[7%]" />
+                      <col className="w-[12%]" />
+                      <col className="w-[9%]" />
+                      <col className="w-[9%]" />
+                      <col className="w-[6%]" />
+                      <col className="w-[6%]" />
+                      <col className="w-[6%]" />
+                    </colgroup>
+                    <thead className="border-b border-white/[0.07] bg-[#0b0c0b] text-[7px] font-bold uppercase tracking-[0.08em] text-[#667077]">
                       <tr>
-                        <th className="py-2 pl-3 w-[6%]">#</th>
-                        <th className="py-2 px-1 w-[26%]">Clube</th>
-                        <th className="py-2 text-center text-white w-[8%]">PTS</th>
-                        <th className="py-2 text-center w-[6%]">J</th>
-                        <th className="py-2 text-center w-[6%]">V</th>
-                        <th className="py-2 text-center w-[6%]">E</th>
-                        <th className="py-2 text-center w-[6%]">D</th>
-                        <th className="py-2 text-center w-[8%]" title="Pontos Pró">PP</th>
-                        <th className="py-2 text-center w-[8%]" title="Pontos Contra">PC</th>
-                        <th className="py-2 text-center w-[8%]" title="Saldo">SP</th>
+                        <th className="py-2 pl-2 text-center" aria-label="Posição">#</th>
+                        <th className="py-2 pr-1">Clube</th>
+                        <th className="py-2 text-center" title="Jogos">J</th>
+                        <th className="py-2 text-center" title="Pontos pró e pontos contra">Gol</th>
+                        <th className="py-2 text-center" title="Saldo de pontos">+/-</th>
+                        <th className="py-2 text-center text-gray-300" title="Pontos">P</th>
+                        <th className="py-2 text-center" title="Vitórias">V</th>
+                        <th className="py-2 text-center" title="Empates">E</th>
+                        <th className="py-2 text-center" title="Derrotas">D</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-800/40">
+                    <tbody className="divide-y divide-white/[0.055] bg-[#101210]">
+                  {gruposExibidos[letra].map((t: any, idx: number) => {
+                    const time = Array.isArray(t.times) ? t.times[0] : t.times;
+                    const zonaAtiva = zonasClassificacao.find((z) => (idx + 1) <= z.posicao);
+                    const corZona = zonaAtiva ? zonaAtiva.cor : "#707770";
+
+                    return (
+                      <tr key={t.id} className="relative transition-colors hover:bg-white/[0.025]">
+                        <td className="relative py-2.5 pl-2 text-center font-mono text-[9px] font-bold" style={{ color: corZona }}>
+                          <span className="absolute inset-y-1.5 left-0 w-0.5 rounded-r" style={{ backgroundColor: corZona }} />
+                          {idx + 1}
+                        </td>
+                        <td className="py-2.5 pr-1">
+                          <div className="flex min-w-0 items-center gap-1.5">
+                            <img
+                              src={time?.escudo || "/shield-placeholder.png"}
+                              className="h-5 w-5 shrink-0 object-contain"
+                              alt={`Escudo do ${time?.nome || "clube"}`}
+                            />
+                            <span className="min-w-0 whitespace-normal break-words text-[9px] font-semibold leading-[1.15] text-gray-100">
+                              {time?.nome}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="py-2.5 text-center font-mono text-[8px] text-gray-400">{t.pj}</td>
+                        <td className="py-2.5 text-center font-mono text-[8px] text-gray-300">{formatDecimal(t.pp)}:{formatDecimal(t.pc)}</td>
+                        <td className={`py-2.5 text-center font-mono text-[8px] font-bold ${t.sp > 0 ? "text-emerald-400" : t.sp < 0 ? "text-red-400" : "text-gray-500"}`}>
+                          {t.sp > 0 ? "+" : ""}{formatDecimal(t.sp)}
+                        </td>
+                        <td className="py-2.5 text-center font-mono text-[10px] font-black text-[#f4bd14]">{t.pts}</td>
+                        <td className="py-2.5 text-center font-mono text-[8px] text-gray-300">{t.v}</td>
+                        <td className="py-2.5 text-center font-mono text-[8px] text-gray-300">{t.e}</td>
+                        <td className="py-2.5 text-center font-mono text-[8px] text-gray-300">{t.d}</td>
+                      </tr>
+                    );
+                  })}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="hidden md:block w-full">
+                  <table className="w-full table-fixed text-left text-[10px]">
+                    <thead className="bg-[#0a0a0a] text-gray-500 uppercase font-bold tracking-widest border-b border-white/[0.06]">
+                      <tr>
+                        <th className="py-2.5 pl-3 w-[10%] md:w-[7%]">#</th>
+                        <th className="py-2.5 px-1 w-[48%] md:w-[31%]">Clube</th>
+                        <th className="py-2.5 text-center text-white w-[14%] md:w-[8%]">PTS</th>
+                        <th className="py-2.5 text-center w-[12%] md:w-[6%]">J</th>
+                        <th className="hidden md:table-cell py-2.5 text-center w-[6%]">V</th>
+                        <th className="hidden md:table-cell py-2.5 text-center w-[6%]">E</th>
+                        <th className="hidden md:table-cell py-2.5 text-center w-[6%]">D</th>
+                        <th className="hidden md:table-cell py-2.5 text-center w-[9%]" title="Pontos Pró">PP</th>
+                        <th className="hidden md:table-cell py-2.5 text-center w-[9%]" title="Pontos Contra">PC</th>
+                        <th className="py-2.5 text-center w-[16%] md:w-[9%]" title="Saldo">SP</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/[0.045]">
                       {gruposExibidos[letra].map((t: any, idx: number) => {
                         const time = Array.isArray(t.times) ? t.times[0] : t.times;
                         
@@ -268,11 +336,11 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
                         const isClassificado = zonaAtiva !== undefined; // Tem cor, tem destaque
 
                         return (
-                          <tr key={t.id} className="hover:bg-white/[0.02]">
-                            <td className="py-2 pl-3 font-bold text-gray-500 relative">
+                          <tr key={t.id} className="min-h-16 hover:bg-white/[0.025] transition-colors group">
+                            <td className="py-3 pl-3 font-bold text-gray-500 relative">
                               {isClassificado && (
                                 <div 
-                                  className="absolute left-0 top-1 bottom-1 w-1" 
+                                  className="absolute left-0 top-2 bottom-2 w-0.5 rounded-r"
                                   style={{ backgroundColor: corZona }}
                                 ></div>
                               )}
@@ -280,32 +348,40 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
                                   {idx + 1}
                               </span>
                             </td>
-                            <td className="py-2 px-1">
-                              <div className="flex items-center gap-2 overflow-hidden">
+                            <td className="py-3 px-1">
+                              <div className="flex items-center gap-2 min-w-0">
                                 <img
-                                  src={time?.escudo}
-                                  className="w-5 h-5 object-contain shrink-0"
+                                  src={time?.escudo || "/shield-placeholder.png"}
+                                  className="w-7 h-7 object-contain shrink-0"
+                                  alt={`Escudo do ${time?.nome || 'clube'}`}
                                 />
-                                <span
-                                  className={`font-bold whitespace-nowrap leading-tight ${
-                                    isClassificado ? "text-white" : "text-gray-500"
-                                  }`}
-                                >
-                                  {time?.nome}
-                                </span>
+                                <div className="min-w-0">
+                                  <span className={`font-semibold whitespace-normal break-words block leading-[1.15] text-[11px] ${isClassificado ? "text-white" : "text-gray-500"}`}>
+                                    {time?.nome}
+                                  </span>
+                                  <span
+                                    className="mt-1 block md:hidden text-[9px] font-mono text-gray-500 leading-relaxed whitespace-normal"
+                                    title={`Jogos: ${t.pj} · Vitórias: ${t.v} · Empates: ${t.e} · Derrotas: ${t.d} · Pontos pró: ${formatDecimal(t.pp)} · Pontos contra: ${formatDecimal(t.pc)} · Saldo: ${formatDecimal(t.sp)}`}
+                                  >
+                                    J {t.pj} · V {t.v} · E {t.e} · D {t.d}
+                                    <span className="block text-gray-600">
+                                      PP {formatDecimal(t.pp)} · PC {formatDecimal(t.pc)} · SP {formatDecimal(t.sp)}
+                                    </span>
+                                  </span>
+                                </div>
                               </div>
                             </td>
-                            <td className="py-2 text-center font-black text-white bg-white/5">
+                            <td className="py-2 text-center font-mono font-bold text-sm text-white bg-white/[0.018]">
                               {t.pts}
                             </td>
                             <td className="py-2 text-center text-gray-600">{t.pj}</td>
-                            <td className="py-2 text-center text-gray-600">{t.v}</td>
-                            <td className="py-2 text-center text-gray-600">{t.e}</td>
-                            <td className="py-2 text-center text-gray-600">{t.d}</td>
-                            <td className="py-2 text-center text-gray-500 font-mono">
+                            <td className="hidden md:table-cell py-2 text-center text-gray-600 font-mono">{t.v}</td>
+                            <td className="hidden md:table-cell py-2 text-center text-gray-600 font-mono">{t.e}</td>
+                            <td className="hidden md:table-cell py-2 text-center text-gray-600 font-mono">{t.d}</td>
+                            <td className="hidden md:table-cell py-2 text-center text-gray-500 font-mono">
                               {formatDecimal(t.pp)}
                             </td>
-                            <td className="py-2 text-center text-gray-500 font-mono">
+                            <td className="hidden md:table-cell py-2 text-center text-gray-500 font-mono">
                               {formatDecimal(t.pc)}
                             </td>
                             <td
@@ -331,29 +407,29 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
 
         {/* LEGENDA DE CLASSIFICAÇÃO AUTOMÁTICA */}
         {zonasClassificacao.length > 0 && (
-          <div className="bg-[#121212] border border-gray-800 rounded-xl p-4 flex flex-wrap gap-6 items-center shadow-lg mt-4">
-              <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Legenda:</span>
+          <div className="px-1 flex flex-wrap gap-x-5 gap-y-2 items-center mt-1">
+              <span className="text-[10px] font-bold text-gray-600 uppercase tracking-widest">Legenda</span>
               
               {zonasClassificacao.map((zona, i) => (
                   <div key={i} className="flex items-center gap-2">
                       <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: zona.cor }}></div>
-                      <span className="text-[10px] text-gray-300 font-bold uppercase tracking-wider">{zona.texto || `Posição ${zona.posicao}`}</span>
+                      <span className="text-[10px] text-gray-500 font-semibold tracking-wide">{zona.texto || `Posição ${zona.posicao}`}</span>
                   </div>
               ))}
               
               <div className="flex items-center gap-2">
                   <div className="w-3 h-3 bg-transparent border border-gray-600 rounded-sm"></div>
-                  <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">Eliminados</span>
+                  <span className="text-[10px] text-gray-600 font-semibold tracking-wide">Eliminados</span>
               </div>
           </div>
         )}
       </div>
 
-      <div className="lg:col-span-4 space-y-4 sticky top-6">
-        <div className="bg-[#121212] border border-gray-800 rounded-3xl p-5 shadow-xl">
+      <div className="lg:col-span-4 space-y-4 lg:sticky lg:top-24">
+        <div className="bg-[#121212] border border-white/[0.07] rounded-2xl md:rounded-3xl p-4 md:p-5 shadow-xl">
           <div className="flex justify-between items-center mb-4">
             <span className="text-xs font-black text-white uppercase tracking-widest flex items-center gap-2">
-              <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>{" "}
+              <span className="w-1.5 h-1.5 bg-yellow-500 rounded-sm"></span>{" "}
               Jogos
             </span>
             <div className="flex items-center gap-1 bg-black p-1 rounded-lg border border-gray-800">
@@ -363,7 +439,7 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
               >
                 ‹
               </button>
-              <span className="text-[10px] font-black px-2 text-blue-500 uppercase">
+              <span className="text-[10px] font-black px-2 text-yellow-500 uppercase">
                 R{rodadaView}
               </span>
               <button
@@ -381,7 +457,7 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
             onClick={toggleAoVivo}
             disabled={loadingLive}
             className={`w-full py-3 mb-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg flex items-center justify-center gap-2
-              ${modoAoVivo ? "bg-red-500/10 text-red-500 border border-red-500/50 hover:bg-red-500/20" : "bg-blue-600 text-white hover:bg-blue-500 shadow-blue-900/20"}
+              ${modoAoVivo ? "bg-red-500/10 text-red-500 border border-red-500/50 hover:bg-red-500/20" : "bg-yellow-500 text-black border border-yellow-400 hover:bg-yellow-400"}
             `}
           >
             {loadingLive ? "Carregando..." : modoAoVivo ? "Parar Simulação" : "Ver Parciais Ao Vivo"}
@@ -414,7 +490,7 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
                   key={j.id}
                   onClick={() => setJogoSelecionado(j)}
                   className={`
-                    cursor-pointer bg-gradient-to-br from-[#121212] to-[#0a0a0a] border rounded-2xl p-4 transition-all relative overflow-hidden shadow-lg hover:border-blue-500/50 hover:bg-[#1a1a1a]
+                    cursor-pointer bg-[#151515] border rounded-xl p-4 transition-all relative overflow-hidden hover:border-yellow-500/35 hover:bg-[#1a1a1a]
                     ${parcial ? "border-green-500/40 shadow-[0_0_10px_rgba(34,197,94,0.1)]" : "border-gray-800/60"}
                   `}
                 >
@@ -432,6 +508,7 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
                       <img
                         src={casa?.escudo || "/shield-placeholder.png"}
                         className={`w-8 h-8 object-contain drop-shadow-md ${!vCasa && temResultado && !empate ? "opacity-60 grayscale" : ""}`}
+                        alt={`Escudo do ${casa?.nome || 'mandante'}`}
                       />
                       <span className={`text-[10px] font-bold text-right leading-tight w-full truncate ${vCasa ? "text-green-400" : "text-gray-400"}`}>
                         {casa?.nome || "Mandante"}
@@ -453,6 +530,7 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
                       <img
                         src={visitante?.escudo || "/shield-placeholder.png"}
                         className={`w-8 h-8 object-contain drop-shadow-md ${!vVis && temResultado && !empate ? "opacity-60 grayscale" : ""}`}
+                        alt={`Escudo do ${visitante?.nome || 'visitante'}`}
                       />
                       <span className={`text-[10px] font-bold text-left leading-tight w-full truncate ${vVis ? "text-green-400" : "text-gray-400"}`}>
                         {visitante?.nome || "Visitante"}

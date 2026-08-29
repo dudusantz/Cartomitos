@@ -129,18 +129,19 @@ export default function MataMataPublico({
   }
 
   return (
-    <div className="animate-fadeIn w-full flex flex-col h-[calc(100dvh-8.5rem)] md:h-[calc(100dvh-7.5rem)]">
-      <div className="shrink-0 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 px-4 md:px-6 py-3 border-b border-gray-800 bg-[#0a0a0a]">
+    <div className="animate-fadeIn w-full flex flex-col h-[calc(100dvh-8.5rem)] md:h-[calc(100dvh-7.5rem)] bg-[#0a0a0a]">
+      <div className="shrink-0 flex flex-row justify-between items-center gap-3 px-4 md:px-6 py-3.5 border-b border-white/[0.07] bg-[#10120f]">
         <div className="flex flex-wrap items-center gap-3">
-          <h2 className="text-sm md:text-base font-black text-white uppercase tracking-widest flex items-center gap-2">
-            <span className="text-yellow-500">⚡</span> Fase Eliminatória
-          </h2>
+          <div>
+            <span className="text-[8px] md:text-[9px] font-bold uppercase tracking-[0.2em] text-yellow-500">Chaveamento</span>
+            <h2 className="text-sm md:text-lg font-black text-white tracking-[-0.02em]">Fase eliminatória</h2>
+          </div>
           {modoAoVivo && (
             <span className="text-[9px] bg-green-900/30 text-green-500 border border-green-500/30 px-2 py-0.5 rounded animate-pulse font-bold uppercase">
               Ao vivo
             </span>
           )}
-          <span className="hidden md:inline-flex items-center gap-1.5 text-[10px] text-gray-500 uppercase tracking-widest">
+          <span className="hidden lg:inline-flex items-center gap-1.5 text-[10px] text-gray-500 tracking-wide">
             <Move size={12} /> Arraste para navegar
           </span>
         </div>
@@ -152,7 +153,7 @@ export default function MataMataPublico({
             ${
               modoAoVivo
                 ? "bg-red-500/10 text-red-500 border border-red-500/50 hover:bg-red-500/20"
-                : "bg-blue-600 text-white hover:bg-blue-500 shadow-blue-900/20"
+                : "bg-yellow-500 text-black hover:bg-yellow-400 border border-yellow-400"
             }
           `}
         >
@@ -170,7 +171,7 @@ export default function MataMataPublico({
         modoAoVivo={modoAoVivo}
         usarDecimais={usarDecimais}
         onSelectJogo={(jogo) => setJogoSelecionado(jogo)}
-        className="flex-1 min-h-0 rounded-none border-0 border-t border-gray-800"
+        className="flex-1 min-h-0 rounded-none border-0"
       />
 
       {jogoSelecionado && (

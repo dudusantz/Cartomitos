@@ -1,33 +1,53 @@
 'use client'
 
 import Link from 'next/link'
-import { useState, useEffect } from 'react'
-import { criarCampeonato, atualizarCampeonato, listarCampeonatos, excluirCampeonato, finalizarCampeonato, reabrirCampeonato } from '@/app/actions'
+import { useEffect, useState } from 'react'
+import {
+  ArrowLeft,
+  ArrowRight,
+  CalendarDays,
+  ChartNoAxesColumnIncreasing,
+  Check,
+  CircleCheckBig,
+  Flag,
+  GitBranch,
+  Layers3,
+  Pencil,
+  Plus,
+  RotateCcw,
+  Search,
+  Trash2,
+  Trophy,
+  X,
+} from 'lucide-react'
+import {
+  atualizarCampeonato,
+  criarCampeonato,
+  excluirCampeonato,
+  finalizarCampeonato,
+  listarCampeonatos,
+  reabrirCampeonato,
+} from '@/app/actions'
 import toast from 'react-hot-toast'
 
-// === ADICIONEI O TIPO 'GRID' AQUI COM A COR DOURADA ===
 const TIPOS_TORNEIO = {
-    pontos_corridos: { icon: '🏆', label: 'Pontos Corridos', style: 'text-blue-400 bg-blue-500/10 border-blue-500/20' },
-    mata_mata: { icon: '🥊', label: 'Mata-Mata', style: 'text-purple-400 bg-purple-500/10 border-purple-500/20' },
-    copa: { icon: '🌍', label: 'Copa Mista', style: 'text-orange-400 bg-orange-500/10 border-orange-500/20' },
-    grid: { icon: '📊', label: 'Grid / Ranking Geral', style: 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20' }
-};
+  pontos_corridos: { icon: Trophy, label: 'Pontos corridos' },
+  mata_mata: { icon: GitBranch, label: 'Mata-mata' },
+  copa: { icon: Layers3, label: 'Copa mista' },
+  grid: { icon: ChartNoAxesColumnIncreasing, label: 'Grid / Ranking geral' },
+}
 
 export default function AdminLigas() {
   const [ligas, setLigas] = useState<any[]>([])
-  const [filtro, setFiltro] = useState('ativas') // 'ativas' | 'finalizadas'
+  const [filtro, setFiltro] = useState('ativas')
+  const [filtroAno, setFiltroAno] = useState('todos')
   const [busca, setBusca] = useState('')
-  
-  // Form States
   const [editandoId, setEditandoId] = useState<number | null>(null)
   const [nome, setNome] = useState('')
   const [ano, setAno] = useState(String(new Date().getFullYear()))
   const [tipo, setTipo] = useState('pontos_corridos')
-  
-  // NOVOS ESTADOS
   const [isPaga, setIsPaga] = useState(false)
   const [usarDecimais, setUsarDecimais] = useState(false)
-  
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
@@ -40,319 +60,253 @@ export default function AdminLigas() {
   }
 
   function preencherEdicao(liga: any) {
-      setEditandoId(liga.id)
-      setNome(liga.nome)
-      setAno(liga.ano)
-      setTipo(liga.tipo)
-      // Carrega as configurações extras
-      setIsPaga(liga.is_paga === true)
-      setUsarDecimais(liga.usar_decimais === true)
-      
-      window.scrollTo({ top: 0, behavior: 'smooth' })
+    setEditandoId(liga.id)
+    setNome(liga.nome)
+    setAno(liga.ano)
+    setTipo(liga.tipo)
+    setIsPaga(liga.is_paga === true)
+    setUsarDecimais(liga.usar_decimais === true)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   function cancelarEdicao() {
-      setEditandoId(null)
-      setNome('')
-      setAno(String(new Date().getFullYear()))
-      setTipo('pontos_corridos')
-      // Reseta os checkboxes
-      setIsPaga(false)
-      setUsarDecimais(false)
+    setEditandoId(null)
+    setNome('')
+    setAno(String(new Date().getFullYear()))
+    setTipo('pontos_corridos')
+    setIsPaga(false)
+    setUsarDecimais(false)
   }
 
   async function handleSalvar() {
-    if (!nome) return toast.error("Digite um nome para a liga!")
+    if (!nome) return toast.error('Digite um nome para o campeonato.')
     setLoading(true)
-    
-    let res;
-    if (editandoId) {
-        res = await atualizarCampeonato(editandoId, nome, Number(ano), tipo, isPaga, usarDecimais)
-    } else {
-        res = await criarCampeonato(nome, Number(ano), tipo, isPaga, usarDecimais)
-    }
+
+    const res = editandoId
+      ? await atualizarCampeonato(editandoId, nome, Number(ano), tipo, isPaga, usarDecimais)
+      : await criarCampeonato(nome, Number(ano), tipo, isPaga, usarDecimais)
 
     if (res.success) {
-      toast.success(editandoId ? 'Liga atualizada!' : 'Liga criada!');
+      toast.success(editandoId ? 'Campeonato atualizado.' : 'Campeonato criado.')
       cancelarEdicao()
       carregarLigas()
     } else {
-      toast.error('Erro: ' + res.msg);
+      toast.error(`Erro: ${res.msg}`)
     }
     setLoading(false)
   }
 
   async function handleExcluir(id: number) {
-      if(!confirm("Tem certeza absoluta? Isso apagará TODOS os jogos e a tabela dessa liga.")) return;
-      const res = await excluirCampeonato(id);
-      if(res.success) {
-          toast.success("Liga excluída.");
-          carregarLigas();
-      } else {
-          toast.error("Erro ao excluir.");
-      }
+    if (!confirm('Tem certeza? Todos os jogos e a tabela deste campeonato serão apagados.')) return
+    const res = await excluirCampeonato(id)
+    if (res.success) {
+      toast.success('Campeonato excluído.')
+      carregarLigas()
+    } else {
+      toast.error('Não foi possível excluir o campeonato.')
+    }
   }
 
   async function handleFinalizar(id: number, statusAtual: boolean) {
-      if (statusAtual) {
-          if(!confirm("Finalizar campeonato? O campeão será enviado para a Sala de Troféus.")) return;
-          await finalizarCampeonato(id);
-          toast.success("Finalizado!");
-      } else {
-          if(!confirm("Reabrir campeonato?")) return;
-          await reabrirCampeonato(id);
-          toast.success("Reaberto!");
-      }
-      carregarLigas();
+    if (statusAtual) {
+      if (!confirm('Finalizar campeonato? O campeão será enviado para a Galeria de Troféus.')) return
+      await finalizarCampeonato(id)
+      toast.success('Campeonato finalizado.')
+    } else {
+      if (!confirm('Reabrir campeonato?')) return
+      await reabrirCampeonato(id)
+      toast.success('Campeonato reaberto.')
+    }
+    carregarLigas()
   }
 
-  // Filtragem
-  const ligasFiltradas = ligas.filter(l => {
-      const matchStatus = filtro === 'ativas' ? l.ativo !== false : l.ativo === false;
-      const matchBusca = l.nome.toLowerCase().includes(busca.toLowerCase());
-      return matchStatus && matchBusca;
-  });
+  const ligasFiltradas = ligas.filter((liga) => {
+    const matchStatus = filtro === 'ativas' ? liga.ativo !== false : liga.ativo === false
+    const matchBusca = liga.nome.toLowerCase().includes(busca.toLowerCase())
+    const matchAno = filtroAno === 'todos' || String(liga.ano) === filtroAno
+    return matchStatus && matchBusca && matchAno
+  })
 
-  const getLigaInfo = (t: string) => TIPOS_TORNEIO[t as keyof typeof TIPOS_TORNEIO] || TIPOS_TORNEIO.pontos_corridos;
+  const anosDisponiveis = Array.from(
+    new Set(ligas.map((liga) => String(liga.ano)).filter(Boolean))
+  ).sort((a, b) => Number(b) - Number(a))
+
+  const getLigaInfo = (tipoLiga: string) =>
+    TIPOS_TORNEIO[tipoLiga as keyof typeof TIPOS_TORNEIO] || TIPOS_TORNEIO.pontos_corridos
 
   return (
-    <div className="min-h-screen bg-[#121212] text-gray-200 p-6 md:p-10 animate-fadeIn">
-      <div className="max-w-6xl mx-auto">
-        
-        {/* === HEADER === */}
-        <div className="flex flex-col md:flex-row justify-between mb-8 pb-6 border-b border-white/10 gap-4">
-            <div>
-                <Link href="/admin" className="text-xs font-bold text-gray-500 hover:text-white uppercase tracking-wider mb-2 flex items-center gap-2">
-                    ← Voltar ao Painel
-                </Link>
-                <h1 className="text-3xl md:text-4xl font-black text-white uppercase tracking-tighter">
-                    Gerenciar <span className="text-transparent bg-clip-text bg-gradient-to-r from-green-500 to-emerald-700">Ligas</span>
-                </h1>
+    <main className="min-h-screen px-4 py-8 text-gray-200 animate-fadeIn md:px-10 md:py-10">
+      <div className="mx-auto max-w-6xl">
+        <header className="mb-7 flex flex-col gap-5 border-b border-white/[0.07] pb-6 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <Link href="/admin" className="mb-3 inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.12em] text-gray-500 transition-colors hover:text-white">
+              <ArrowLeft size={14} strokeWidth={1.8} aria-hidden="true" /> Voltar ao painel
+            </Link>
+            <h1 className="text-3xl font-black tracking-[-0.04em] text-white md:text-4xl">Gerenciar campeonatos</h1>
+            <p className="mt-2 text-sm text-gray-500">Crie, edite e acompanhe todas as competições.</p>
+          </div>
+
+          <div className="flex items-center gap-5 text-sm">
+            <span className="text-gray-500"><strong className="mr-1.5 font-mono text-xl text-white">{ligas.filter(liga => liga.ativo !== false).length}</strong> em andamento</span>
+            <span className="h-7 w-px bg-white/[0.08]" aria-hidden="true" />
+            <span className="text-gray-600"><strong className="mr-1.5 font-mono text-xl text-gray-400">{ligas.filter(liga => liga.ativo === false).length}</strong> encerrados</span>
+          </div>
+        </header>
+
+        <section className={`mb-6 overflow-hidden rounded-2xl border bg-[#141614] transition-colors ${editandoId ? 'border-yellow-500/30' : 'border-white/[0.07]'}`}>
+          <div className="flex items-center justify-between border-b border-white/[0.07] bg-[#171917] px-5 py-4 md:px-6">
+            <div className="flex items-center gap-3">
+              <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-yellow-500/20 bg-yellow-500/[0.07] text-yellow-500">
+                {editandoId ? <Pencil size={17} strokeWidth={1.8} aria-hidden="true" /> : <Plus size={18} strokeWidth={1.8} aria-hidden="true" />}
+              </span>
+              <div>
+                <h2 className="text-sm font-bold text-white">{editandoId ? 'Editar campeonato' : 'Novo campeonato'}</h2>
+                <p className="mt-0.5 text-[11px] text-gray-600">{editandoId ? 'Altere as informações e salve.' : 'Preencha as informações para começar.'}</p>
+              </div>
             </div>
-            
-            {/* Stats Rápidos */}
-            <div className="flex gap-4">
-                <div className="bg-[#1a1a1a] border border-white/5 px-4 py-2 rounded-xl text-center">
-                    <span className="block text-2xl font-black text-white">{ligas.filter(l => l.ativo !== false).length}</span>
-                    <span className="text-[10px] text-gray-500 uppercase font-bold">Ativas</span>
-                </div>
-                <div className="bg-[#1a1a1a] border border-white/5 px-4 py-2 rounded-xl text-center">
-                    <span className="block text-2xl font-black text-gray-400">{ligas.filter(l => l.ativo === false).length}</span>
-                    <span className="text-[10px] text-gray-600 uppercase font-bold">Histórico</span>
-                </div>
-            </div>
-        </div>
+            {editandoId && (
+              <button onClick={cancelarEdicao} className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-gray-500 transition-colors hover:text-white">
+                <X size={14} strokeWidth={1.8} aria-hidden="true" /> Cancelar edição
+              </button>
+            )}
+          </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-            
-            {/* === ESQUERDA: FORMULÁRIO (COLUNA MENOR) === */}
-            <div className="lg:col-span-4 xl:col-span-3">
-                <div className={`bg-[#1a1a1a] border ${editandoId ? 'border-yellow-500/30' : 'border-white/5'} rounded-3xl p-6 sticky top-8 shadow-2xl transition-colors`}>
-                    <div className="flex items-center gap-3 mb-6">
-                        <div className={`p-2 rounded-lg ${editandoId ? 'bg-yellow-500/10 text-yellow-500' : 'bg-green-500/10 text-green-500'}`}>
-                            {editandoId ? (
-                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                            ) : (
-                                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                            )}
-                        </div>
-                        <h2 className="font-bold text-sm uppercase tracking-widest text-white">
-                            {editandoId ? 'Editar Liga' : 'Nova Liga'}
-                        </h2>
-                    </div>
-
-                    <div className="space-y-4">
-                        <div>
-                            <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Nome</label>
-                            <input type="text" value={nome} onChange={e => setNome(e.target.value)} placeholder="Ex: Brasileirão" className="w-full bg-[#121212] border border-white/10 rounded-xl p-3 text-sm text-white focus:border-green-500 outline-none transition-all" />
-                        </div>
-                        <div>
-                            <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Ano</label>
-                            <input type="number" value={ano} onChange={e => setAno(e.target.value)} className="w-full bg-[#121212] border border-white/10 rounded-xl p-3 text-sm text-white focus:border-green-500 outline-none transition-all" />
-                        </div>
-                        <div>
-                            <label className="block text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-1">Tipo</label>
-                            <select value={tipo} onChange={e => setTipo(e.target.value)} className="w-full bg-[#121212] border border-white/10 rounded-xl p-3 text-sm text-white focus:border-green-500 outline-none">
-                                {Object.entries(TIPOS_TORNEIO).map(([key, value]) => (
-                                    <option key={key} value={key}>{value.icon} {value.label}</option>
-                                ))}
-                            </select>
-                        </div>
-
-                        {/* CONFIGURAÇÕES AVANÇADAS */}
-                        <div className="mt-4 pt-4 border-t border-white/5 space-y-2">
-                            {/* Checkbox: Liga Paga - COR AMARELA */}
-                            <label className="bg-[#121212] p-3 rounded-xl border border-white/5 flex items-start gap-3 cursor-pointer hover:border-white/20 transition-colors group select-none">
-                                <input 
-                                    type="checkbox" 
-                                    className="hidden" 
-                                    checked={isPaga} 
-                                    onChange={e => setIsPaga(e.target.checked)} 
-                                />
-                                <div className={`w-5 h-5 rounded border flex items-center justify-center shrink-0 mt-0.5 transition-colors ${isPaga ? 'bg-yellow-600 border-yellow-600 text-black' : 'border-gray-600 group-hover:border-gray-500'}`}>
-                                    {isPaga && <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
-                                </div>
-                                <div>
-                                    <span className={`block text-xs font-bold uppercase tracking-wide ${isPaga ? 'text-yellow-500' : 'text-gray-400'}`}>Liga Paga / Tiro Curto</span>
-                                    <span className="block text-[10px] text-gray-600 mt-0.5 leading-tight">Não conta para o Ranking Geral e nem Recordes.</span>
-                                </div>
-                            </label>
-
-                            {/* Checkbox: Pontuação Decimal */}
-                            <label className="bg-[#121212] p-3 rounded-xl border border-white/5 flex items-start gap-3 cursor-pointer hover:border-white/20 transition-colors group select-none">
-                                <input 
-                                    type="checkbox" 
-                                    className="hidden" 
-                                    checked={usarDecimais} 
-                                    onChange={e => setUsarDecimais(e.target.checked)} 
-                                />
-                                <div className={`w-5 h-5 rounded border flex items-center justify-center shrink-0 mt-0.5 transition-colors ${usarDecimais ? 'bg-blue-500 border-blue-500 text-white' : 'border-gray-600 group-hover:border-gray-500'}`}>
-                                    {usarDecimais && <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
-                                </div>
-                                <div>
-                                    <span className={`block text-xs font-bold uppercase tracking-wide ${usarDecimais ? 'text-blue-500' : 'text-gray-400'}`}>Pontuação Decimal</span>
-                                    <span className="block text-[10px] text-gray-600 mt-0.5 leading-tight">
-                                        {usarDecimais ? 'Usa placar exato (Ex: 55.4)' : 'Arredonda p/ baixo (Ex: 55)'}
-                                    </span>
-                                </div>
-                            </label>
-                        </div>
-                        
-                        <div className="flex gap-2 mt-4">
-                            {editandoId && (
-                                <button onClick={cancelarEdicao} className="flex-1 bg-gray-800 hover:bg-gray-700 text-white font-bold py-3 rounded-xl transition text-xs uppercase">
-                                    Cancelar
-                                </button>
-                            )}
-                            <button onClick={handleSalvar} disabled={loading || !nome} className={`flex-1 ${editandoId ? 'bg-yellow-600 hover:bg-yellow-500' : 'bg-green-600 hover:bg-green-500'} text-white font-bold py-3 rounded-xl transition shadow-lg disabled:opacity-50 text-xs uppercase tracking-wider`}>
-                                {loading ? 'Salvando...' : (editandoId ? 'Atualizar' : 'Criar')}
-                            </button>
-                        </div>
-                    </div>
-                </div>
+          <div className="p-5 md:p-6">
+            <div className="grid gap-4 md:grid-cols-[1.7fr_0.65fr_1.2fr]">
+              <div>
+                <label htmlFor="liga-nome" className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.12em] text-gray-500">Nome</label>
+                <input id="liga-nome" type="text" value={nome} onChange={event => setNome(event.target.value)} placeholder="Ex: Brasileirão" className="h-11 w-full rounded-lg border border-white/[0.09] bg-[#0e100e] px-3.5 text-sm text-white outline-none transition-colors placeholder:text-gray-700 focus:border-yellow-500/50 focus:ring-2 focus:ring-yellow-500/10" />
+              </div>
+              <div>
+                <label htmlFor="liga-ano" className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.12em] text-gray-500">Ano</label>
+                <input id="liga-ano" type="number" value={ano} onChange={event => setAno(event.target.value)} className="h-11 w-full rounded-lg border border-white/[0.09] bg-[#0e100e] px-3.5 font-mono text-sm text-white outline-none transition-colors focus:border-yellow-500/50 focus:ring-2 focus:ring-yellow-500/10" />
+              </div>
+              <div>
+                <label htmlFor="liga-tipo" className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.12em] text-gray-500">Formato</label>
+                <select id="liga-tipo" value={tipo} onChange={event => setTipo(event.target.value)} className="h-11 w-full rounded-lg border border-white/[0.09] bg-[#0e100e] px-3.5 text-sm text-white outline-none transition-colors focus:border-yellow-500/50 focus:ring-2 focus:ring-yellow-500/10">
+                  {Object.entries(TIPOS_TORNEIO).map(([key, value]) => (
+                    <option key={key} value={key}>{value.label}</option>
+                  ))}
+                </select>
+              </div>
             </div>
 
-            {/* === DIREITA: LISTA (COLUNA MAIOR) === */}
-            <div className="lg:col-span-8 xl:col-span-9 space-y-6">
-                
-                {/* Controles de Filtro */}
-                <div className="flex flex-col sm:flex-row gap-4 justify-between items-center bg-[#1a1a1a] p-2 rounded-2xl border border-white/5">
-                    <div className="flex bg-[#121212] rounded-xl p-1 border border-white/5 w-full sm:w-auto">
-                        <button 
-                            onClick={() => setFiltro('ativas')}
-                            className={`flex-1 sm:flex-none px-6 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${filtro === 'ativas' ? 'bg-white/10 text-white shadow-sm' : 'text-gray-600 hover:text-gray-400'}`}
-                        >
-                            Em Andamento
-                        </button>
-                        <button 
-                            onClick={() => setFiltro('finalizadas')}
-                            className={`flex-1 sm:flex-none px-6 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${filtro === 'finalizadas' ? 'bg-white/10 text-white shadow-sm' : 'text-gray-600 hover:text-gray-400'}`}
-                        >
-                            Histórico
-                        </button>
-                    </div>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <label className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3.5 transition-colors ${isPaga ? 'border-yellow-500/25 bg-yellow-500/[0.045]' : 'border-white/[0.07] bg-[#101210] hover:border-white/15'}`}>
+                <input type="checkbox" className="sr-only" checked={isPaga} onChange={event => setIsPaga(event.target.checked)} />
+                <span className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border ${isPaga ? 'border-yellow-500 bg-yellow-500 text-black' : 'border-gray-700'}`}>
+                  {isPaga && <Check size={13} strokeWidth={3} aria-hidden="true" />}
+                </span>
+                <span>
+                  <span className={`block text-xs font-bold ${isPaga ? 'text-yellow-500' : 'text-gray-300'}`}>Liga paga ou tiro curto</span>
+                  <span className="mt-0.5 block text-[10px] leading-relaxed text-gray-600">Não participa do ranking geral nem dos recordes.</span>
+                </span>
+              </label>
 
-                    <div className="relative w-full sm:w-64">
-                        <input 
-                            type="text" 
-                            placeholder="Buscar liga..." 
-                            value={busca}
-                            onChange={(e) => setBusca(e.target.value)}
-                            className="w-full bg-[#121212] border border-white/10 rounded-xl py-2.5 pl-10 pr-4 text-sm text-white focus:border-green-500 outline-none transition-all"
-                        />
-                        <svg className="w-4 h-4 text-gray-600 absolute left-3.5 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-                    </div>
-                </div>
-
-                {/* Lista de Cards */}
-                <div className="space-y-3">
-                    {ligasFiltradas.length === 0 ? (
-                        <div className="text-center py-20 bg-[#1a1a1a] rounded-3xl border border-dashed border-white/10">
-                            <p className="text-gray-500 font-medium text-sm">Nenhuma liga encontrada.</p>
-                        </div>
-                    ) : (
-                        ligasFiltradas.map((liga) => {
-                            const info = getLigaInfo(liga.tipo)
-                            const isAtivo = liga.ativo !== false;
-                            
-                            // Variáveis de visualização
-                            const isPagaLocal = liga.is_paga === true;
-                            const isDecimal = liga.usar_decimais === true;
-
-                            return (
-                                <div key={liga.id} className={`p-5 rounded-2xl border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4 group ${isAtivo ? 'bg-[#1a1a1a] border-white/5 hover:border-white/20' : 'bg-[#121212] border-white/5 opacity-60 hover:opacity-100'}`}>
-                                    
-                                    <div className="flex items-center gap-5">
-                                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shadow-inner border border-white/5 ${isAtivo ? 'bg-[#121212]' : 'bg-black/40 grayscale'}`}>
-                                            {isAtivo ? info.icon : '🏁'}
-                                        </div>
-                                        <div>
-                                            <div className="flex items-center gap-3">
-                                                <h3 className={`text-lg font-bold ${isAtivo ? 'text-white' : 'text-gray-400'}`}>{liga.nome}</h3>
-                                                <button onClick={() => preencherEdicao(liga)} className="text-gray-600 hover:text-yellow-500 transition-colors" title="Editar Nome/Ano">
-                                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                                                </button>
-                                            </div>
-                                            <div className="flex items-center gap-2 mt-1">
-                                                <span className="bg-black/20 text-gray-500 text-[10px] font-bold px-2 py-0.5 rounded border border-white/5">{liga.ano}</span>
-                                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase tracking-wide ${info.style}`}>{info.label}</span>
-                                                
-                                                {/* BADGES NOVOS */}
-                                                {isPagaLocal && (
-                                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded border uppercase tracking-wide text-yellow-400 bg-yellow-500/10 border-yellow-500/20 flex items-center gap-1">
-                                                        <span>💰</span> Paga
-                                                    </span>
-                                                )}
-                                                {isDecimal && (
-                                                    <span className="text-[10px] font-bold px-2 py-0.5 rounded border uppercase tracking-wide text-blue-400 bg-blue-500/10 border-blue-500/20 flex items-center gap-1">
-                                                        <span>.5</span> Decimal
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex items-center gap-2 self-end sm:self-auto border-t sm:border-t-0 border-white/5 pt-3 sm:pt-0 w-full sm:w-auto justify-end">
-                                            <button 
-                                                onClick={() => handleFinalizar(liga.id, isAtivo)}
-                                                title={isAtivo ? "Finalizar Campeonato" : "Reabrir Campeonato"}
-                                                className={`p-2 rounded-lg border transition-all ${isAtivo 
-                                                    ? 'text-yellow-500/50 hover:text-yellow-500 border-yellow-500/10 hover:bg-yellow-500/10' 
-                                                    : 'text-green-500 border-green-500/20 hover:bg-green-500/10'}`}
-                                            >
-                                                {isAtivo 
-                                                    ? <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                                    : <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
-                                                }
-                                            </button>
-
-                                            <button 
-                                                onClick={() => handleExcluir(liga.id)}
-                                                title="Excluir Liga"
-                                                className="p-2 rounded-lg text-red-500/50 hover:text-red-500 border border-red-500/10 hover:bg-red-500/10 transition-all"
-                                            >
-                                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                            </button>
-                                            
-                                            <div className="w-px h-6 bg-white/10 mx-1"></div>
-
-                                            <Link 
-                                                href={`/admin/ligas/${liga.id}`}
-                                                className="bg-white/5 hover:bg-white/10 text-white text-xs font-bold py-2.5 px-5 rounded-lg border border-white/10 transition-all hover:border-green-500/30 flex items-center gap-2"
-                                            >
-                                                Gerenciar
-                                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-                                            </Link>
-                                    </div>
-                                </div>
-                            )
-                        })
-                    )}
-                </div>
+              <label className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3.5 transition-colors ${usarDecimais ? 'border-yellow-500/25 bg-yellow-500/[0.045]' : 'border-white/[0.07] bg-[#101210] hover:border-white/15'}`}>
+                <input type="checkbox" className="sr-only" checked={usarDecimais} onChange={event => setUsarDecimais(event.target.checked)} />
+                <span className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded border ${usarDecimais ? 'border-yellow-500 bg-yellow-500 text-black' : 'border-gray-700'}`}>
+                  {usarDecimais && <Check size={13} strokeWidth={3} aria-hidden="true" />}
+                </span>
+                <span>
+                  <span className={`block text-xs font-bold ${usarDecimais ? 'text-yellow-500' : 'text-gray-300'}`}>Usar pontuação decimal</span>
+                  <span className="mt-0.5 block text-[10px] leading-relaxed text-gray-600">{usarDecimais ? 'Mantém o placar exato, como 55,4.' : 'Arredonda a pontuação para baixo.'}</span>
+                </span>
+              </label>
             </div>
 
-        </div>
+            <div className="mt-5 flex justify-end gap-2">
+              {editandoId && (
+                <button onClick={cancelarEdicao} className="h-10 rounded-lg border border-white/[0.09] px-4 text-[10px] font-bold uppercase tracking-[0.1em] text-gray-400 transition-colors hover:bg-white/[0.04] hover:text-white active:translate-y-px">Cancelar</button>
+              )}
+              <button onClick={handleSalvar} disabled={loading || !nome} className="inline-flex h-10 min-w-36 items-center justify-center rounded-lg bg-yellow-500 px-5 text-[10px] font-black uppercase tracking-[0.1em] text-black transition-colors hover:bg-yellow-400 disabled:cursor-not-allowed disabled:opacity-35 active:translate-y-px">
+                {loading ? 'Salvando...' : editandoId ? 'Salvar alterações' : 'Criar campeonato'}
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <section className="overflow-hidden rounded-2xl border border-white/[0.07] bg-[#121412]">
+          <div className="flex flex-col gap-4 border-b border-white/[0.07] bg-[#161816] p-4 sm:flex-row sm:items-center sm:justify-between md:px-5">
+            <div className="flex w-full rounded-lg border border-white/[0.07] bg-[#0e100e] p-1 sm:w-auto">
+              <button onClick={() => setFiltro('ativas')} className={`flex-1 rounded-md px-4 py-2 text-[10px] font-bold uppercase tracking-[0.1em] transition-colors sm:flex-none ${filtro === 'ativas' ? 'bg-yellow-500 text-black' : 'text-gray-500 hover:text-white'}`}>Em andamento</button>
+              <button onClick={() => setFiltro('finalizadas')} className={`flex-1 rounded-md px-4 py-2 text-[10px] font-bold uppercase tracking-[0.1em] transition-colors sm:flex-none ${filtro === 'finalizadas' ? 'bg-yellow-500 text-black' : 'text-gray-500 hover:text-white'}`}>Encerrados</button>
+            </div>
+
+            <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
+              <div className="relative w-full sm:w-44">
+                <label htmlFor="filtro-ano" className="sr-only">Filtrar por ano</label>
+                <CalendarDays size={15} strokeWidth={1.8} className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-600" aria-hidden="true" />
+                <select id="filtro-ano" value={filtroAno} onChange={event => setFiltroAno(event.target.value)} className="h-10 w-full appearance-none rounded-lg border border-white/[0.09] bg-[#0e100e] pl-10 pr-8 text-xs font-semibold text-gray-300 outline-none transition-colors focus:border-yellow-500/50 focus:ring-2 focus:ring-yellow-500/10">
+                  <option value="todos">Todos os anos</option>
+                  {anosDisponiveis.map(anoDisponivel => (
+                    <option key={anoDisponivel} value={anoDisponivel}>{anoDisponivel}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="relative w-full sm:w-64">
+                <Search size={15} strokeWidth={1.8} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-600" aria-hidden="true" />
+                <input type="search" placeholder="Buscar campeonato" value={busca} onChange={event => setBusca(event.target.value)} className="h-10 w-full rounded-lg border border-white/[0.09] bg-[#0e100e] pl-10 pr-3 text-sm text-white outline-none transition-colors placeholder:text-gray-700 focus:border-yellow-500/50 focus:ring-2 focus:ring-yellow-500/10" />
+              </div>
+            </div>
+          </div>
+
+          <div className="divide-y divide-white/[0.06]">
+            {ligasFiltradas.length === 0 ? (
+              <div className="px-5 py-16 text-center">
+                <Trophy size={28} strokeWidth={1.5} className="mx-auto text-gray-700" aria-hidden="true" />
+                <p className="mt-3 text-sm font-medium text-gray-500">Nenhum campeonato encontrado.</p>
+                <p className="mt-1 text-xs text-gray-700">Altere o filtro ou crie uma nova competição.</p>
+              </div>
+            ) : (
+              ligasFiltradas.map((liga) => {
+                const info = getLigaInfo(liga.tipo)
+                const TypeIcon = info.icon
+                const isAtivo = liga.ativo !== false
+                const isPagaLocal = liga.is_paga === true
+                const isDecimal = liga.usar_decimais === true
+
+                return (
+                  <article key={liga.id} className={`group flex flex-col gap-4 px-5 py-5 transition-colors hover:bg-white/[0.018] sm:flex-row sm:items-center sm:justify-between md:px-6 ${isAtivo ? '' : 'opacity-65 hover:opacity-100'}`}>
+                    <div className="flex min-w-0 items-center gap-4">
+                      <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/[0.07] bg-[#0d0f0d] text-yellow-500">
+                        {isAtivo ? <TypeIcon size={21} strokeWidth={1.7} aria-hidden="true" /> : <Flag size={20} strokeWidth={1.7} aria-hidden="true" />}
+                      </span>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h3 className={`truncate text-base font-bold ${isAtivo ? 'text-white' : 'text-gray-400'}`}>{liga.nome}</h3>
+                          <button onClick={() => preencherEdicao(liga)} className="shrink-0 rounded p-1 text-gray-600 transition-colors hover:bg-yellow-500/[0.08] hover:text-yellow-500" title="Editar campeonato" aria-label={`Editar ${liga.nome}`}>
+                            <Pencil size={14} strokeWidth={1.8} aria-hidden="true" />
+                          </button>
+                        </div>
+                        <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] font-medium text-gray-600">
+                          <span className="font-mono">{liga.ano}</span>
+                          <span className="inline-flex items-center gap-1.5 text-gray-500"><TypeIcon size={11} strokeWidth={1.8} aria-hidden="true" /> {info.label}</span>
+                          {isPagaLocal && <span className="text-yellow-500/75">Liga paga</span>}
+                          {isDecimal && <span className="text-yellow-500/75">Pontuação decimal</span>}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex w-full items-center justify-end gap-2 border-t border-white/[0.06] pt-3 sm:w-auto sm:border-0 sm:pt-0">
+                      <button onClick={() => handleFinalizar(liga.id, isAtivo)} title={isAtivo ? 'Finalizar campeonato' : 'Reabrir campeonato'} aria-label={isAtivo ? `Finalizar ${liga.nome}` : `Reabrir ${liga.nome}`} className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/[0.07] text-gray-500 transition-colors hover:border-yellow-500/25 hover:bg-yellow-500/[0.07] hover:text-yellow-500">
+                        {isAtivo ? <CircleCheckBig size={16} strokeWidth={1.8} aria-hidden="true" /> : <RotateCcw size={16} strokeWidth={1.8} aria-hidden="true" />}
+                      </button>
+                      <button onClick={() => handleExcluir(liga.id)} title="Excluir campeonato" aria-label={`Excluir ${liga.nome}`} className="flex h-9 w-9 items-center justify-center rounded-lg border border-red-500/15 text-red-500/55 transition-colors hover:border-red-500/35 hover:bg-red-500/[0.06] hover:text-red-400">
+                        <Trash2 size={16} strokeWidth={1.8} aria-hidden="true" />
+                      </button>
+                      <Link href={`/admin/ligas/${liga.id}`} className="ml-1 inline-flex h-9 items-center gap-2 rounded-lg border border-white/[0.09] bg-white/[0.045] px-4 text-[10px] font-bold uppercase tracking-[0.08em] text-white transition-colors hover:border-yellow-500/25 hover:bg-yellow-500/[0.07] active:translate-y-px">
+                        Gerenciar <ArrowRight size={14} strokeWidth={1.8} aria-hidden="true" />
+                      </Link>
+                    </div>
+                  </article>
+                )
+              })
+            )}
+          </div>
+        </section>
       </div>
-    </div>
+    </main>
   )
 }

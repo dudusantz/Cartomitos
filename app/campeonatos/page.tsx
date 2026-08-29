@@ -41,10 +41,10 @@ export default function CampeonatosPage() {
   });
 
   return (
-    <div className="max-w-7xl mx-auto p-6 md:p-10 animate-fadeIn min-h-screen">
+    <div className="max-w-7xl mx-auto px-4 py-7 md:p-10 animate-fadeIn min-h-screen">
       
       {/* === CABEÇALHO === */}
-      <div className="flex flex-col md:flex-row items-center justify-between gap-6 mb-12 pb-6 border-b border-white/5">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-9 md:mb-12 pb-6 border-b border-white/5">
         <div className="flex items-center gap-6">
             {/* === MUDANÇA AQUI: Ícone e fundo agora são AMBER/DOURADO === */}
             <div className="hidden md:flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-500/20 to-amber-900/20 border border-amber-500/20 shadow-[0_0_30px_rgba(245,158,11,0.1)]">
@@ -52,7 +52,8 @@ export default function CampeonatosPage() {
             </div>
             
             <div>
-                <h1 className="text-3xl md:text-5xl font-black text-white uppercase tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-500">
+                <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-yellow-500">Competições</span>
+                <h1 className="mt-1 text-3xl md:text-5xl font-black text-white tracking-[-0.045em] leading-none">
                     Ligas e Copas
                 </h1>
                 <p className="text-sm text-gray-400 font-medium mt-2 max-w-lg leading-relaxed">
@@ -62,16 +63,16 @@ export default function CampeonatosPage() {
         </div>
 
         {/* === MENU DE ABAS === */}
-        <div className="flex bg-[#121212] p-1.5 rounded-xl border border-white/10">
+        <div className="grid grid-cols-2 w-full md:w-auto bg-[#121212] p-1.5 rounded-xl border border-white/10">
              <button 
                 onClick={() => setVisualizacao('oficiais')}
-                className={`flex items-center gap-2 px-6 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${visualizacao === 'oficiais' ? 'bg-white text-black shadow-lg shadow-white/10' : 'text-gray-500 hover:text-white'}`}
+                className={`flex items-center justify-center gap-2 px-4 md:px-6 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${visualizacao === 'oficiais' ? 'bg-yellow-500 text-black' : 'text-gray-500 hover:text-white'}`}
              >
                 <Trophy size={14} /> Oficiais
              </button>
              <button 
                 onClick={() => setVisualizacao('pagas')}
-                className={`flex items-center gap-2 px-6 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${visualizacao === 'pagas' ? 'bg-yellow-500 text-black shadow-lg shadow-yellow-500/20' : 'text-gray-500 hover:text-white'}`}
+                className={`flex items-center justify-center gap-2 px-4 md:px-6 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${visualizacao === 'pagas' ? 'bg-yellow-500 text-black' : 'text-gray-500 hover:text-white'}`}
              >
                 <DollarSign size={14} /> Ligas Pagas
              </button>
@@ -117,9 +118,9 @@ export default function CampeonatosPage() {
                              borderColor = 'hover:border-yellow-500/50';
                         } else {
                              // ESTILOS NORMAIS PARA LIGAS OFICIAIS
-                             themeColor = isPontos ? 'text-blue-400 border-blue-500/20 bg-blue-500/10' : isMata ? 'text-purple-400 border-purple-500/20 bg-purple-500/10' : 'text-orange-400 border-orange-500/20 bg-orange-500/10';
-                             gradientBg = isPontos ? 'from-blue-900/10 to-transparent' : isMata ? 'from-purple-900/10 to-transparent' : 'from-orange-900/10 to-transparent';
-                             borderColor = isPontos ? 'hover:border-blue-500/50' : isMata ? 'hover:border-purple-500/50' : 'hover:border-orange-500/50';
+                             themeColor = 'text-yellow-400 border-yellow-500/20 bg-yellow-500/10';
+                             gradientBg = 'from-yellow-900/10 to-transparent';
+                             borderColor = 'hover:border-yellow-500/40';
                         }
                         hoverEffect = 'hover:-translate-y-1 hover:shadow-2xl';
                     } else {
@@ -133,7 +134,7 @@ export default function CampeonatosPage() {
                         key={camp.id}
                         className="group relative block h-full"
                         >
-                        <div className={`relative h-full bg-[#121212] border border-white/5 rounded-3xl p-8 overflow-hidden transition-all duration-300 ${borderColor} ${hoverEffect}`}>
+                        <div className={`relative h-full bg-[#121212] border border-white/5 rounded-2xl md:rounded-3xl p-5 md:p-8 overflow-hidden transition-all duration-300 ${borderColor} ${hoverEffect}`}>
                             
                             {/* Background Gradiente */}
                             <div className={`absolute inset-0 bg-gradient-to-br ${gradientBg} opacity-50 group-hover:opacity-100 transition-opacity duration-500`} />
@@ -143,7 +144,7 @@ export default function CampeonatosPage() {
                                     <div className="flex flex-col gap-2">
                                         {/* Badge de Tipo */}
                                         <div className="flex gap-2">
-                                            <span className={`text-[10px] w-fit font-black uppercase tracking-widest border px-3 py-1 rounded-full ${themeColor}`}>
+                                            <span className={`text-[10px] w-fit font-black uppercase tracking-widest border px-3 py-1 rounded-md ${themeColor}`}>
                                                 {isPontos ? 'Pontos Corridos' : isMata ? 'Mata-Mata' : isGrid ? 'Grid / Ranking' : 'Copa & Grupos'}
                                             </span>
                                             {isPaga && (

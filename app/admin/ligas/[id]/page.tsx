@@ -245,7 +245,7 @@ export default function GerenciarLiga() {
   const qtdClassificadosCopa = configZonas.length > 0 ? configZonas[0].posicao : 2;
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white font-sans selection:bg-yellow-500/30">
+    <main className="min-h-screen text-white selection:bg-yellow-500/30">
       <ModalConfirmacao
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
@@ -256,39 +256,38 @@ export default function GerenciarLiga() {
         textoBotao={modalConfig.textoBotao || "Confirmar"}
       />
 
-      {/* HEADER */}
-      <div className="p-8 border-b border-gray-800 bg-[#080808]">
-        <div className="max-w-[1600px] mx-auto flex flex-col md:flex-row justify-between items-end gap-6">
+      <header className="border-b border-white/[0.07] px-4 py-7 md:px-10 md:py-8">
+        <div className="mx-auto max-w-[1540px]">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div className="flex-1">
-            <Link href="/admin/ligas" className="text-gray-500 text-xs font-bold hover:text-white uppercase mb-2 block transition">
-              ← Voltar
+            <Link href="/admin/ligas" className="mb-3 inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.12em] text-gray-500 transition-colors hover:text-white">
+              ← Voltar aos campeonatos
             </Link>
-            <div className="flex items-center gap-4">
-              <h1 className="text-4xl font-black tracking-tighter text-white">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+              <h1 className="text-3xl font-black tracking-[-0.04em] text-white md:text-4xl">
                 {liga?.nome}
               </h1>
-              <div className="ml-4">
+              <div>
                 <BotaoFinalizarCampeonato campeonatoId={campeonatoId} />
               </div>
             </div>
-            <div className="mt-2 flex items-center gap-2">
-              <span className="text-[10px] bg-gray-800 border border-gray-700 px-3 py-1 rounded-full uppercase font-bold text-gray-300 tracking-widest">
-                {tipoLiga.replace("_", " ")}
+            <div className="mt-3 flex items-center gap-3 text-[10px] font-bold uppercase tracking-[0.1em]">
+              <span className="text-gray-500">
+                {tipoLiga.replaceAll("_", " ")}
               </span>
               {!liga?.ativo && (
-                <span className="text-[10px] bg-red-900/30 border border-red-500/30 text-red-400 px-3 py-1 rounded-full uppercase font-bold tracking-widest">
-                  Finalizado
+                <span className="text-red-400">
+                  Campeonato encerrado
                 </span>
               )}
             </div>
           </div>
 
-          {/* Abas de Navegação */}
-          <div className="flex gap-2 bg-[#121212] p-1.5 rounded-xl border border-gray-800 shadow-xl overflow-x-auto max-w-full">
+          <nav aria-label="Seções do campeonato" className="flex max-w-full gap-1 overflow-x-auto rounded-xl border border-white/[0.08] bg-[#121412] p-1.5 custom-scrollbar">
             {tipoLiga === "pontos_corridos" && (
               <button
                 onClick={() => setTabAtiva("classificacao")}
-                className={`px-5 py-2.5 rounded-lg font-bold text-xs uppercase transition tracking-wider whitespace-nowrap ${tabAtiva === "classificacao" ? "bg-blue-600 text-white shadow-lg" : "text-gray-500 hover:text-white hover:bg-white/5"}`}
+                className={`whitespace-nowrap rounded-lg px-5 py-2.5 text-[10px] font-bold uppercase tracking-[0.1em] transition-colors ${tabAtiva === "classificacao" ? "bg-yellow-500 text-black" : "text-gray-500 hover:bg-white/[0.04] hover:text-white"}`}
               >
                 Tabela
               </button>
@@ -297,7 +296,7 @@ export default function GerenciarLiga() {
             {tipoLiga === "grid" && (
               <button
                 onClick={() => setTabAtiva("grid")}
-                className={`px-5 py-2.5 rounded-lg font-bold text-xs uppercase transition tracking-wider whitespace-nowrap ${tabAtiva === "grid" ? "bg-yellow-600 text-black shadow-lg" : "text-gray-500 hover:text-white hover:bg-white/5"}`}
+                className={`whitespace-nowrap rounded-lg px-5 py-2.5 text-[10px] font-bold uppercase tracking-[0.1em] transition-colors ${tabAtiva === "grid" ? "bg-yellow-500 text-black" : "text-gray-500 hover:bg-white/[0.04] hover:text-white"}`}
               >
                 Ranking Geral
               </button>
@@ -306,7 +305,7 @@ export default function GerenciarLiga() {
             {tipoLiga === "copa" && (
               <button
                 onClick={() => setTabAtiva("grupos")}
-                className={`px-5 py-2.5 rounded-lg font-bold text-xs uppercase transition tracking-wider whitespace-nowrap ${tabAtiva === "grupos" ? "bg-yellow-600 text-black shadow-lg" : "text-gray-500 hover:text-white hover:bg-white/5"}`}
+                className={`whitespace-nowrap rounded-lg px-5 py-2.5 text-[10px] font-bold uppercase tracking-[0.1em] transition-colors ${tabAtiva === "grupos" ? "bg-yellow-500 text-black" : "text-gray-500 hover:bg-white/[0.04] hover:text-white"}`}
               >
                 Grupos
               </button>
@@ -315,7 +314,7 @@ export default function GerenciarLiga() {
             {(tipoLiga === "mata_mata" || tipoLiga === "copa") && (
               <button
                 onClick={() => setTabAtiva("jogos")}
-                className={`px-5 py-2.5 rounded-lg font-bold text-xs uppercase transition tracking-wider whitespace-nowrap ${tabAtiva === "jogos" ? "bg-blue-600 text-white shadow-lg" : "text-gray-500 hover:text-white hover:bg-white/5"}`}
+                className={`whitespace-nowrap rounded-lg px-5 py-2.5 text-[10px] font-bold uppercase tracking-[0.1em] transition-colors ${tabAtiva === "jogos" ? "bg-yellow-500 text-black" : "text-gray-500 hover:bg-white/[0.04] hover:text-white"}`}
               >
                 {tipoLiga === "mata_mata" ? "Chaveamento" : "Mata-Mata"}
               </button>
@@ -323,25 +322,26 @@ export default function GerenciarLiga() {
 
             <button
               onClick={() => setTabAtiva("times")}
-              className={`px-5 py-2.5 rounded-lg font-bold text-xs uppercase transition tracking-wider whitespace-nowrap ${tabAtiva === "times" ? "bg-gray-700 text-white shadow-lg" : "text-gray-500 hover:text-white hover:bg-white/5"}`}
+              className={`whitespace-nowrap rounded-lg px-5 py-2.5 text-[10px] font-bold uppercase tracking-[0.1em] transition-colors ${tabAtiva === "times" ? "bg-yellow-500 text-black" : "text-gray-500 hover:bg-white/[0.04] hover:text-white"}`}
             >
               Times
             </button>
 
             <button
               onClick={() => setTabAtiva("config")}
-              className={`px-5 py-2.5 rounded-lg font-bold text-xs uppercase transition tracking-wider whitespace-nowrap flex items-center gap-1.5 ${tabAtiva === "config" ? "bg-gray-700 text-white shadow-lg" : "text-gray-500 hover:text-white hover:bg-white/5"}`}
+              className={`flex items-center gap-1.5 whitespace-nowrap rounded-lg px-5 py-2.5 text-[10px] font-bold uppercase tracking-[0.1em] transition-colors ${tabAtiva === "config" ? "bg-yellow-500 text-black" : "text-gray-500 hover:bg-white/[0.04] hover:text-white"}`}
             >
-              Config
+              Configurações
               {temAlteracoes && (
                 <span className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse" />
               )}
             </button>
+          </nav>
           </div>
         </div>
-      </div>
+      </header>
 
-      <div className="p-8 max-w-[1600px] mx-auto">
+      <div className="mx-auto max-w-[1540px] px-4 py-6 md:px-10 md:py-8">
         {["mata_mata", "copa", "pontos_corridos", "grid"].indexOf(tipoLiga) === -1 && (
           <div className="mb-6 bg-red-500/10 border border-red-500/50 p-4 rounded-xl flex items-center gap-3 text-red-200">
             <AlertCircle />
@@ -671,7 +671,7 @@ export default function GerenciarLiga() {
           </div>
         )}
       </div>
-    </div>
+    </main>
   );
 }
 

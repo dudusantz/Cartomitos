@@ -33,9 +33,9 @@ type Confronto = {
   tipo?: 'padrao' | 'final' | 'terceiro';
 };
 
-const CARD_WIDTH = 260;
-const CARD_HEIGHT = 88;
-const GAP_HORIZ = 80;
+const CARD_WIDTH = 248;
+const CARD_HEIGHT = 92;
+const GAP_HORIZ = 64;
 const GAP_VERT_BASE = 20;
 const DRAG_THRESHOLD = 6;
 
@@ -341,7 +341,7 @@ export default function MataMataBracket({
   return (
     <div
       ref={containerRef}
-      className={`w-full h-full overflow-auto bg-[#0a0a0a] relative select-none custom-scrollbar cursor-grab ${
+      className={`w-full h-full overflow-auto bg-[#0a0a0a] relative select-none custom-scrollbar cursor-grab overscroll-contain touch-pan-x touch-pan-y ${
         modoAoVivo ? 'border-green-500/20' : ''
       } ${className}`}
       onMouseDown={(e) => {
@@ -356,17 +356,17 @@ export default function MataMataBracket({
       onMouseLeave={encerrarPan}
     >
       <div
-        className="absolute inset-0 opacity-[0.03] pointer-events-none"
+        className="absolute inset-0 opacity-[0.035] pointer-events-none"
         style={{
           backgroundImage:
-            'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)',
-          backgroundSize: '20px 20px',
+            'linear-gradient(rgba(216,170,50,.4) 1px, transparent 1px), linear-gradient(90deg, rgba(216,170,50,.4) 1px, transparent 1px)',
+          backgroundSize: '28px 28px',
           width: '200%',
           height: '200%',
         }}
       />
 
-      <div className="flex min-h-full min-w-max items-center p-12 md:p-20">
+      <div className="flex min-h-full min-w-max items-center px-7 py-16 md:p-20 snap-x snap-mandatory">
         {bracketColumns.map((confrontos, colIndex) => {
           const phasesLeft = totalFases - colIndex;
           let titulo = `${colIndex + 1}ª Fase`;
@@ -381,11 +381,11 @@ export default function MataMataBracket({
           return (
             <div
               key={colIndex}
-              className="flex flex-col justify-center relative"
+              className="flex flex-col justify-center relative snap-center"
               style={{ marginRight: GAP_HORIZ }}
             >
-              <div className="absolute -top-10 w-full text-center pointer-events-none">
-                <span className="text-[10px] font-black uppercase tracking-[0.2em] text-gray-500 bg-[#0a0a0a]/90 px-3 py-1 rounded border border-gray-800 whitespace-nowrap">
+              <div className="absolute -top-11 w-full text-center pointer-events-none">
+                <span className={`inline-flex text-[10px] font-black uppercase tracking-[0.18em] px-3 py-1.5 rounded-md border whitespace-nowrap backdrop-blur-md ${phasesLeft === 1 ? 'text-yellow-400 bg-yellow-500/10 border-yellow-500/30' : 'text-gray-400 bg-[#111310]/95 border-white/10'}`}>
                   {titulo}
                 </span>
               </div>
@@ -407,21 +407,21 @@ export default function MataMataBracket({
                     />
                     {colIndex < totalFases - 1 && (
                       <>
-                        <div className="absolute -right-[40px] top-1/2 w-[40px] h-[2px] bg-[#333]" />
+                        <div className="absolute -right-[32px] top-1/2 w-[32px] h-px bg-yellow-500/25" />
                         {idx % 2 === 0 && (
                           <div
-                            className="absolute -right-[40px] border-r-2 border-[#333]"
+                            className="absolute -right-[32px] border-r border-yellow-500/25"
                             style={{
                               top: '50%',
                               height: `${gap + CARD_HEIGHT}px`,
-                              width: '2px',
+                              width: '1px',
                             }}
                           />
                         )}
                       </>
                     )}
                     {colIndex > 0 && (
-                      <div className="absolute -left-[40px] top-1/2 w-[40px] h-[2px] bg-[#333]" />
+                      <div className="absolute -left-[32px] top-1/2 w-[32px] h-px bg-yellow-500/25" />
                     )}
                   </div>
                 ))}
@@ -431,8 +431,8 @@ export default function MataMataBracket({
         })}
 
         {confrontoTerceiro && (
-          <div className="flex flex-col gap-4 relative justify-center border-l-2 border-gray-800 border-dashed pl-12 ml-4 opacity-90 h-[200px] mt-20">
-            <h3 className="text-center text-orange-500 font-bold uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 bg-[#0a0a0a] border border-orange-500/30 px-3 py-1 rounded-full shadow-lg mb-2">
+          <div className="flex flex-col gap-4 relative justify-center border-l border-white/10 border-dashed pl-10 ml-2 opacity-90 h-[200px] mt-20 snap-center">
+            <h3 className="text-center text-yellow-500/80 font-bold uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 bg-[#111310] border border-yellow-500/20 px-3 py-1.5 rounded-md mb-2">
               <Medal size={12} /> 3º Lugar
             </h3>
             <div className="flex flex-col justify-center">
@@ -476,7 +476,7 @@ function BracketCard({
   if (status === 'bye' && ida) {
     return (
       <div
-        className="bg-[#0f0f0f] border-l-4 border-l-green-600 border-y border-r border-gray-800 rounded-lg shadow-lg flex flex-col justify-center px-4 relative"
+        className="bg-[#111310] border-l-2 border-l-yellow-500 border-y border-r border-white/10 rounded-xl flex flex-col justify-center px-4 relative shadow-[0_18px_40px_rgba(0,0,0,.22)]"
         style={{ width: CARD_WIDTH, height: CARD_HEIGHT }}
       >
         <div className="flex items-center gap-3">
@@ -495,7 +495,7 @@ function BracketCard({
           )}
           <div>
             <p className="text-white font-bold text-xs truncate w-40">{ida.casa.nome}</p>
-            <span className="text-[9px] text-green-500 font-bold uppercase">Avança Direto</span>
+            <span className="text-[9px] text-yellow-500 font-bold uppercase tracking-wide">Avança direto</span>
           </div>
         </div>
       </div>
@@ -586,11 +586,11 @@ function BracketCard({
           : undefined
       }
       className={`
-        border rounded-lg shadow-lg overflow-hidden flex flex-col justify-center relative z-10 transition-all
-        ${isPlaceholder ? 'bg-[#0a0a0a] border-gray-800 border-dashed opacity-80' : 'bg-[#121212] border-gray-800'}
-        ${clicavel ? 'cursor-pointer hover:border-blue-500/50 hover:bg-[#151515]' : ''}
-        ${isFinal ? 'border-yellow-500/50 shadow-yellow-500/10 scale-105 ring-1 ring-yellow-500/20' : ''}
-        ${isTerceiro ? 'border-orange-500/50 shadow-orange-500/10' : ''}
+        border rounded-xl overflow-hidden flex flex-col justify-center relative z-10 transition-all duration-200 shadow-[0_18px_40px_rgba(0,0,0,.22)]
+        ${isPlaceholder ? 'bg-[#0a0a0a] border-white/10 border-dashed opacity-70' : 'bg-[#131511] border-white/10'}
+        ${clicavel ? 'cursor-pointer hover:border-yellow-500/40 hover:bg-[#181b16] hover:-translate-y-0.5' : ''}
+        ${isFinal ? 'border-yellow-500/55 shadow-[0_22px_55px_rgba(155,111,8,.14)] scale-105 ring-1 ring-yellow-500/15' : ''}
+        ${isTerceiro ? 'border-yellow-500/25' : ''}
         ${emAndamento ? 'border-green-500/40 shadow-green-900/20' : ''}
       `}
       style={{ width: CARD_WIDTH, height: CARD_HEIGHT }}
@@ -620,7 +620,7 @@ function BracketCard({
           )}
           <span
             className={`text-[11px] font-bold truncate ${
-              w1 ? 'text-green-400' : isPlaceholder ? 'text-gray-600' : 'text-gray-300'
+              w1 ? 'text-yellow-400' : isPlaceholder ? 'text-gray-600' : 'text-gray-300'
             }`}
           >
             {casa.nome}
@@ -634,7 +634,7 @@ function BracketCard({
               {volta && <span className="min-w-4 text-center">{formatPlacar(p1_volta, usarDecimais)}</span>}
               <div
                 className={`ml-2 min-w-6 h-5 px-0.5 flex items-center justify-center text-[11px] font-bold text-white rounded ${
-                  w1 ? 'bg-green-700' : 'bg-[#222]'
+                  w1 ? 'bg-yellow-500 text-black' : 'bg-[#242720]'
                 }`}
               >
                 {formatPlacar(total1, usarDecimais)}
@@ -665,7 +665,7 @@ function BracketCard({
           )}
           <span
             className={`text-[11px] font-bold truncate ${
-              w2 ? 'text-green-400' : isPlaceholder ? 'text-gray-600' : 'text-gray-300'
+              w2 ? 'text-yellow-400' : isPlaceholder ? 'text-gray-600' : 'text-gray-300'
             }`}
           >
             {visitante?.nome || 'A definir'}
@@ -679,7 +679,7 @@ function BracketCard({
               {volta && <span className="min-w-4 text-center">{formatPlacar(p2_volta, usarDecimais)}</span>}
               <div
                 className={`ml-2 min-w-6 h-5 px-0.5 flex items-center justify-center text-[11px] font-bold text-white rounded ${
-                  w2 ? 'bg-green-700' : 'bg-[#222]'
+                  w2 ? 'bg-yellow-500 text-black' : 'bg-[#242720]'
                 }`}
               >
                 {formatPlacar(total2, usarDecimais)}
@@ -696,7 +696,7 @@ function BracketCard({
       )}
 
       {temDesempate && (
-        <div className="absolute right-1 top-1/2 -translate-y-1/2 bg-blue-600 text-white text-[8px] font-bold px-1.5 py-0.5 rounded z-20 shadow-sm flex flex-col items-center leading-tight">
+        <div className="absolute right-1 top-1/2 -translate-y-1/2 bg-yellow-500 text-black text-[8px] font-bold px-1.5 py-0.5 rounded z-20 shadow-sm flex flex-col items-center leading-tight">
           <span>EXTRA</span>
           <span>
             {desempateC} x {desempateV}

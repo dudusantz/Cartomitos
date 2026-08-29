@@ -185,39 +185,43 @@ export default function TabelaPublica({ campeonatoId }: Props) {
       : 1;
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start animate-fadeIn max-w-[100vw] overflow-hidden">
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-8 items-start animate-fadeIn max-w-[100vw] overflow-hidden">
       
       {/* ESQUERDA: CLASSIFICAÇÃO */}
       <div className="lg:col-span-7 min-w-0">
-        <div className="bg-[#121212] border border-gray-800 rounded-3xl overflow-hidden shadow-2xl flex flex-col">
-          <div className="p-5 border-b border-gray-800 bg-[#0a0a0a] flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-            <h2 className="text-lg font-black text-white uppercase tracking-widest flex items-center gap-2">
-              <span className="text-xl">🏆</span> Classificação
-            </h2>
+        <div className="bg-[#121212] border border-white/[0.07] rounded-2xl md:rounded-3xl overflow-hidden shadow-2xl flex flex-col">
+          <div className="px-4 py-4 md:p-5 border-b border-white/[0.07] bg-[#0a0a0a] flex flex-row justify-between items-center gap-3">
+            <div>
+              <span className="text-[9px] font-bold uppercase tracking-[0.2em] text-yellow-500">Tabela geral</span>
+              <h2 className="mt-0.5 text-lg md:text-xl font-black text-white tracking-[-0.025em]">
+                Classificação
+              </h2>
+            </div>
+            <span className="hidden sm:block text-[10px] text-gray-600 font-medium">{tabelaExibida.length} clubes</span>
             {modoAoVivo && (
-              <span className="text-[10px] font-bold text-green-500 uppercase tracking-widest animate-pulse border border-green-900/50 px-3 py-1 rounded-full bg-green-900/20">
+              <span className="text-[9px] font-bold text-green-400 uppercase tracking-widest animate-pulse border border-green-500/20 px-2.5 py-1 rounded-md bg-green-500/10">
                 Ao Vivo (R{rodadaView})
               </span>
             )}
           </div>
 
-          <div className="w-full overflow-x-auto">
-            <table className="w-full text-left text-[10px] min-w-[600px]">
-              <thead className="bg-[#151515] text-gray-500 uppercase font-bold tracking-widest border-b border-gray-800 h-10">
+          <div className="w-full">
+            <table className="w-full table-fixed text-left text-[10px]">
+              <thead className="bg-[#151515] text-gray-500 uppercase font-bold tracking-widest border-b border-white/[0.06] h-10">
                 <tr>
-                  <th className="pl-4 w-[8%] text-center">#</th>
-                  <th className="px-2 w-[32%]">Clube</th>
-                  <th className="text-center text-white w-[8%]">PTS</th>
-                  <th className="text-center w-[6%]">J</th>
-                  <th className="text-center w-[6%]">V</th>
-                  <th className="text-center w-[6%]">E</th>
-                  <th className="text-center w-[6%]">D</th>
-                  <th className="text-center w-[8%] text-gray-400" title="Pontos Pró">PP</th>
-                  <th className="text-center w-[8%] text-gray-400" title="Pontos Contra">PC</th>
-                  <th className="text-center w-[8%] text-white" title="Saldo">SP</th>
+                  <th className="pl-3 md:pl-4 w-[13%] md:w-[8%] text-center">#</th>
+                  <th className="px-2 w-[43%] md:w-[32%]">Clube</th>
+                  <th className="text-center text-white w-[15%] md:w-[8%]">PTS</th>
+                  <th className="text-center w-[13%] md:w-[6%]">J</th>
+                  <th className="hidden sm:table-cell text-center w-[6%]">V</th>
+                  <th className="hidden sm:table-cell text-center w-[6%]">E</th>
+                  <th className="hidden sm:table-cell text-center w-[6%]">D</th>
+                  <th className="hidden md:table-cell text-center w-[8%] text-gray-400" title="Pontos Pró">PP</th>
+                  <th className="hidden md:table-cell text-center w-[8%] text-gray-400" title="Pontos Contra">PC</th>
+                  <th className="text-center w-[16%] md:w-[8%] text-white" title="Saldo">SP</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-800/40">
+              <tbody className="divide-y divide-white/[0.045]">
                 {tabelaExibida.map((t, i) => {
                   const time = Array.isArray(t.times) ? t.times[0] : t.times;
                   const diff = t.posOriginal - (i + 1);
@@ -230,12 +234,12 @@ export default function TabelaPublica({ campeonatoId }: Props) {
                   return (
                     <tr
                       key={t.id}
-                      className="group hover:bg-white/[0.02] transition-colors h-11 relative"
+                      className="group hover:bg-white/[0.025] transition-colors min-h-14 md:min-h-12 relative"
                     >
-                      <td className="pl-4 text-center relative">
+                      <td className="pl-3 md:pl-4 text-center relative">
                         {isClassificado && (
                           <div 
-                            className="absolute left-0 top-1 bottom-1 w-1 rounded-r" 
+                            className="absolute left-0 top-2 bottom-2 w-0.5 rounded-r"
                             style={{ backgroundColor: corZona }}
                           ></div>
                         )}
@@ -251,14 +255,15 @@ export default function TabelaPublica({ campeonatoId }: Props) {
                           )}
                         </div>
                       </td>
-                      <td className="px-2 overflow-hidden">
-                        <div className="flex items-center gap-3">
+                      <td className="px-2 py-2.5">
+                        <div className="flex items-center gap-3 min-w-0">
                           <img
                             src={time?.escudo || "/shield-placeholder.png"}
-                            className="w-7 h-7 object-contain shrink-0 drop-shadow-md"
+                            className="w-8 h-8 object-contain shrink-0 drop-shadow-md"
+                            alt={`Escudo do ${time?.nome || 'clube'}`}
                           />
                           <div className="flex flex-col min-w-0 justify-center">
-                            <span className={`font-bold text-[11px] leading-tight group-hover:text-white transition whitespace-nowrap ${isClassificado ? "text-gray-200" : "text-gray-400"}`}>
+                            <span className={`font-semibold text-[11px] md:text-xs leading-[1.15] group-hover:text-white transition whitespace-normal break-words block ${isClassificado ? "text-gray-200" : "text-gray-400"}`}>
                               {time?.nome}
                             </span>
                             {modoAoVivo && t.ptsExtra > 0 && (
@@ -269,17 +274,17 @@ export default function TabelaPublica({ campeonatoId }: Props) {
                           </div>
                         </div>
                       </td>
-                      <td className="text-center font-black text-sm text-white bg-white/[0.02]">
+                      <td className="text-center font-mono font-bold text-sm text-white bg-white/[0.018]">
                         {t.pts}
                       </td>
                       <td className="text-center text-gray-500 font-mono">{t.pj}</td>
-                      <td className="text-center text-gray-500 font-mono">{t.v}</td>
-                      <td className="text-center text-gray-500 font-mono">{t.e}</td>
-                      <td className="text-center text-gray-500 font-mono">{t.d}</td>
-                      <td className="text-center text-gray-400 font-mono">
+                      <td className="hidden sm:table-cell text-center text-gray-500 font-mono">{t.v}</td>
+                      <td className="hidden sm:table-cell text-center text-gray-500 font-mono">{t.e}</td>
+                      <td className="hidden sm:table-cell text-center text-gray-500 font-mono">{t.d}</td>
+                      <td className="hidden md:table-cell text-center text-gray-400 font-mono">
                         {Math.trunc(t.gp)}
                       </td>
-                      <td className="text-center text-gray-400 font-mono">
+                      <td className="hidden md:table-cell text-center text-gray-400 font-mono">
                         {Math.trunc(t.gc)}
                       </td>
                       <td className={`text-center font-mono font-bold ${t.sg > 0 ? "text-green-500" : t.sg < 0 ? "text-red-500" : "text-gray-500"}`}>
@@ -295,10 +300,10 @@ export default function TabelaPublica({ campeonatoId }: Props) {
 
         {/* Legenda Dinâmica */}
         {zonasClassificacao.length > 0 && (
-          <div className="flex flex-wrap gap-4 mt-4 px-2">
+          <div className="flex flex-wrap gap-x-4 gap-y-2 mt-4 px-1">
             {zonasClassificacao.map((zona, i) => (
-               <div key={i} className="flex items-center gap-2 text-[10px] text-gray-400 font-bold uppercase tracking-wider">
-                 <span className="w-2 h-2 rounded-full" style={{ backgroundColor: zona.cor }}></span> {zona.texto}
+               <div key={i} className="flex items-center gap-2 text-[10px] text-gray-500 font-semibold tracking-wide">
+                 <span className="w-2 h-2 rounded-sm" style={{ backgroundColor: zona.cor }}></span> {zona.texto}
                </div>
             ))}
           </div>
@@ -306,11 +311,11 @@ export default function TabelaPublica({ campeonatoId }: Props) {
       </div>
 
       {/* DIREITA: LISTA DE JOGOS */}
-      <div className="lg:col-span-5 space-y-6 sticky top-6 min-w-0">
-        <div className="bg-[#121212] border border-gray-800 rounded-3xl p-5 shadow-xl">
+      <div className="lg:col-span-5 space-y-6 lg:sticky lg:top-24 min-w-0">
+        <div className="bg-[#121212] border border-white/[0.07] rounded-2xl md:rounded-3xl p-4 md:p-5 shadow-xl">
           <div className="flex justify-between items-center mb-6">
             <span className="text-xs font-black text-white uppercase tracking-widest flex items-center gap-2">
-              <span className="w-1.5 h-1.5 bg-blue-500 rounded-full"></span>{" "}
+              <span className="w-1.5 h-1.5 bg-yellow-500 rounded-sm"></span>{" "}
               Jogos
             </span>
             <div className="flex items-center gap-1 bg-black p-1 rounded-lg border border-gray-800">
@@ -320,7 +325,7 @@ export default function TabelaPublica({ campeonatoId }: Props) {
               >
                 ‹
               </button>
-              <span className="text-[10px] font-black px-3 text-blue-500 uppercase tracking-widest">
+              <span className="text-[10px] font-black px-3 text-yellow-500 uppercase tracking-widest">
                 R{rodadaView}
               </span>
               <button
@@ -338,7 +343,7 @@ export default function TabelaPublica({ campeonatoId }: Props) {
             className={`w-full py-3.5 mb-6 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg flex items-center justify-center gap-2 border ${
               modoAoVivo
                 ? "bg-red-500/10 text-red-500 border-red-500/50 hover:bg-red-500/20"
-                : "bg-blue-600 text-white border-transparent hover:bg-blue-500 shadow-blue-900/20"
+                : "bg-yellow-500 text-black border-yellow-400 hover:bg-yellow-400"
             }`}
           >
             {loading ? "..." : modoAoVivo ? "Encerrar Transmissão" : "Acompanhar em Tempo Real"}
@@ -367,7 +372,7 @@ export default function TabelaPublica({ campeonatoId }: Props) {
                 <div
                   key={j.id}
                   onClick={() => setJogoSelecionado(j)}
-                  className={`cursor-pointer relative bg-gradient-to-br from-[#151515] to-[#0a0a0a] border p-4 rounded-2xl transition-all shadow-lg overflow-hidden group hover:border-blue-500/50 hover:bg-[#1a1a1a] ${
+                  className={`cursor-pointer relative bg-[#151515] border p-4 rounded-xl transition-all overflow-hidden group hover:border-yellow-500/35 hover:bg-[#1a1a1a] ${
                     isLive ? "border-green-500/40 shadow-[0_0_15px_rgba(34,197,94,0.1)]" : "border-gray-800/60"
                   }`}
                 >
@@ -383,6 +388,7 @@ export default function TabelaPublica({ campeonatoId }: Props) {
                       <img
                         src={casa?.escudo || "/shield-placeholder.png"}
                         className={`w-8 h-8 object-contain drop-shadow-md transition-transform group-hover:scale-110 ${!cWin && temPlacar && c !== v ? "grayscale opacity-60" : ""}`}
+                        alt={`Escudo do ${casa?.nome || 'mandante'}`}
                       />
                       <span className={`text-[10px] font-bold uppercase leading-tight text-right truncate w-full ${cWin ? "text-green-400" : "text-gray-400 group-hover:text-gray-200"}`}>
                         {casa?.nome}
@@ -401,6 +407,7 @@ export default function TabelaPublica({ campeonatoId }: Props) {
                       <img
                         src={visitante?.escudo || "/shield-placeholder.png"}
                         className={`w-8 h-8 object-contain drop-shadow-md transition-transform group-hover:scale-110 ${!vWin && temPlacar && c !== v ? "grayscale opacity-60" : ""}`}
+                        alt={`Escudo do ${visitante?.nome || 'visitante'}`}
                       />
                       <span className={`text-[10px] font-bold uppercase leading-tight text-left truncate w-full ${vWin ? "text-green-400" : "text-gray-400 group-hover:text-gray-200"}`}>
                         {visitante?.nome}

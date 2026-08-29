@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { X, RefreshCw, ChevronDown, ChevronUp, LayoutGrid, List } from "lucide-react";
 import { buscarDetalhesConfrontoAoVivo } from "@/app/actions";
+import toast from "react-hot-toast";
 
 interface Props {
   jogo: any;
@@ -26,6 +27,10 @@ export default function ModalConfrontoAoVivo({ jogo, onClose }: Props) {
     if (idCasa && idVis) {
       const res = await buscarDetalhesConfrontoAoVivo(idCasa, idVis, jogo.rodada);
       if (res.success) setDados(res);
+      else {
+        setDados(null);
+        toast.error(res.msg || "Não foi possível carregar os dados deste confronto.");
+      }
     }
     setLoading(false);
   }

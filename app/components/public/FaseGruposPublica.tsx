@@ -8,6 +8,7 @@ import {
   buscarParciaisAoVivo,
 } from "../../actions";
 import ModalConfrontoAoVivo from "./ModalConfrontoAoVivo";
+import toast from "react-hot-toast";
 
 interface Props {
   campeonatoId: number;
@@ -89,7 +90,12 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
         const jogosAbertos = dadosOriginais.jogos.filter(
           (j: any) => j.status !== "finalizado" && j.rodada === rodadaView
         );
-        const { jogos: parciais } = await buscarParciaisAoVivo(jogosAbertos);
+        const resposta = await buscarParciaisAoVivo(jogosAbertos);
+        if (!resposta.success) {
+          toast.error(resposta.msg || "Não foi possível carregar as parciais.");
+          return;
+        }
+        const parciais = resposta.jogos;
 
         const novosJogos = dadosOriginais.jogos.map((jogo) => {
           if (jogo.rodada === rodadaView) {

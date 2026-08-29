@@ -113,12 +113,8 @@ export default function MataMataBracket({
     const jogoAtivo =
       confronto.volta && ida.status === 'finalizado' ? confronto.volta : ida;
 
-    const rodadaCartola =
-      jogoAtivo.rodada_cartola ??
-      jogoAtivo.rodada_real ??
-      jogoAtivo.rodada;
-
-    onSelectJogo({ ...jogoAtivo, rodada: rodadaCartola });
+    if (!jogoAtivo.rodada_cartola) return;
+    onSelectJogo({ ...jogoAtivo, rodada: jogoAtivo.rodada_cartola });
   }
 
   const rodadasNums = [...new Set(partidas.map((p) => p.rodada))].sort((a, b) => a - b);

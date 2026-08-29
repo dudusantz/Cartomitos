@@ -83,6 +83,14 @@ export default function PainelMataMata({ campeonatoId, rodadasCorte, bloquearGer
     }).length
   })()
 
+  useEffect(() => {
+    const fase = Number(faseAtual)
+    const ida = partidas.find(p => p.rodada_bracket === fase && p.rodada_cartola)
+    const volta = partidas.find(p => p.rodada_bracket === fase + 1 && p.rodada_cartola)
+    setRodadaIda(ida?.rodada_cartola ? String(ida.rodada_cartola) : '')
+    setRodadaVolta(volta?.rodada_cartola ? String(volta.rodada_cartola) : '')
+  }, [faseAtual, partidas])
+
   // --- AÇÕES ---
 
   async function handleAtualizarAPI() {

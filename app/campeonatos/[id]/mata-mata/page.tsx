@@ -52,7 +52,8 @@ export default function PaginaMataMataPublica() {
         .map((j: any) => ({
             ...j,
             rodada: j.rodada - rodadasCorte, // Normalização Essencial
-            rodada_real: j.rodada // Mantém a original para referência
+            rodada_real: j.rodada, // Mantém a original para referência
+            rodada_cartola: j.rodada_cartola
         }))
 
     setPartidasOriginais(jogosProcessados)

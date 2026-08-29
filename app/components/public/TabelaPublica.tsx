@@ -8,6 +8,7 @@ import {
   listarPartidas,
 } from "../../actions";
 import ModalConfrontoAoVivo from "./ModalConfrontoAoVivo";
+import toast from "react-hot-toast";
 
 interface Props {
   campeonatoId: number;
@@ -88,9 +89,12 @@ export default function TabelaPublica({ campeonatoId }: Props) {
         (j: any) => j.status !== "finalizado" && j.rodada === rodadaView
       );
 
-      const { jogos: parciais } = await buscarParciaisAoVivo(
-        jogosParaAtualizar
-      );
+      const resposta = await buscarParciaisAoVivo(jogosParaAtualizar);
+      if (!resposta.success) {
+        toast.error(resposta.msg || "Não foi possível carregar as parciais.");
+        return;
+      }
+      const parciais = resposta.jogos;
 
       const novosJogos = dadosOriginais.jogos.map((jogo) => {
         if (jogo.rodada === rodadaView) {
@@ -438,7 +442,7 @@ export default function TabelaPublica({ campeonatoId }: Props) {
 
       {jogoSelecionado && (
         <ModalConfrontoAoVivo 
-          jogo={jogoSelecionado} 
+          jogo={{ ...jogoSelecionado, rodada: jogoSelecionado.rodada_cartola }}
           onClose={() => setJogoSelecionado(null)} 
         />
       )}

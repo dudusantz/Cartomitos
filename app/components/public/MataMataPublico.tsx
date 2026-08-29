@@ -42,7 +42,7 @@ export default function MataMataPublico({
           .filter((p: any) => p.rodada > rodadasCorte)
           .map((p: any) => ({
             ...p,
-            rodada_cartola: p.rodada,
+            rodada_cartola: p.rodada_cartola,
             rodada_real: p.rodada,
             rodada: p.rodada - rodadasCorte,
           }));
@@ -67,8 +67,7 @@ export default function MataMataPublico({
           .filter((j) => j.status !== "finalizado" && j.status !== "bye")
           .map((j) => ({
             ...j,
-            // API do Cartola precisa da rodada real, não a do bracket
-            rodada: j.rodada_cartola ?? j.rodada_real ?? j.rodada,
+            rodada: j.rodada_cartola,
           }));
 
         if (pendentes.length === 0) {
@@ -77,7 +76,12 @@ export default function MataMataPublico({
           return;
         }
 
-        const { jogos: parciais } = await buscarParciaisAoVivo(pendentes);
+        const resposta = await buscarParciaisAoVivo(pendentes);
+        if (!resposta.success) {
+          toast.error(resposta.msg || "Não foi possível carregar as parciais.");
+          return;
+        }
+        const parciais = resposta.jogos;
 
         const atualizados = partidasRaw.map((jogo) => {
           const p = parciais?.find((x: any) => x.id === jogo.id);

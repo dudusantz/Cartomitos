@@ -55,6 +55,11 @@ export default function PainelFaseGrupos({ campeonatoId, times = [] }: Props) {
   }, [campeonatoId])
 
   useEffect(() => {
+      const rodadaVinculada = jogos.find(j => j.rodada === rodadaView && j.rodada_cartola)?.rodada_cartola
+      setRodadaCartola(rodadaVinculada ? String(rodadaVinculada) : '')
+  }, [jogos, rodadaView])
+
+  useEffect(() => {
       if (times && times.length > 0) {
           setTimesOrdenados(prev => prev.length === times.length ? prev : [...times])
       }

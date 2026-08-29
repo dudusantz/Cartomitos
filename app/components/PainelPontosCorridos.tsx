@@ -76,6 +76,11 @@ export default function PainelPontosCorridos({ campeonatoId, times = [] }: Props
   const jogosDaRodada = jogos.filter(j => j.rodada === rodadaView)
   const totalRodadas = jogos.length > 0 ? Math.max(...jogos.map(j => j.rodada)) : 1
 
+  useEffect(() => {
+    const rodadaVinculada = jogos.find(j => j.rodada === rodadaView && j.rodada_cartola)?.rodada_cartola
+    setRodadaCartola(rodadaVinculada ? String(rodadaVinculada) : '')
+  }, [jogos, rodadaView])
+
   function confirm(titulo: string, msg: string, action: () => void) {
     setModalConfig({ 
       titulo, 
@@ -120,7 +125,8 @@ export default function PainelPontosCorridos({ campeonatoId, times = [] }: Props
   // LÓGICA CORRIGIDA: Usa a pontuação oficial do Cartola para a prévia
   // ====================================================================
   async function handleAtualizarRodada() {
-    const rodadaBusca = rodadaCartola ? Number(rodadaCartola) : rodadaView;
+    if (!rodadaCartola) return toast.error("Informe a rodada do Cartola.")
+    const rodadaBusca = Number(rodadaCartola);
     setLoading(true)
     
     // Chama a função que pega a pontuação oficial e exata
@@ -168,7 +174,14 @@ export default function PainelPontosCorridos({ campeonatoId, times = [] }: Props
     let erros = 0
     await Promise.all(
       Object.entries(pendentes).map(async ([idStr, vals]) => {
-        const res = await atualizarPlacarManual(Number(idStr), Number(vals.casa), Number(vals.visitante))
+        const res = await atualizarPlacarManual(
+          Number(idStr),
+          Number(vals.casa),
+          Number(vals.visitante),
+          undefined,
+          undefined,
+          Number(rodadaCartola)
+        )
         if (!res.success) erros++
       })
     )

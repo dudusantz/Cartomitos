@@ -432,15 +432,19 @@ async function atualizarJogoIndividual(jogo: any, rodadaCartola: number, usarDec
         const placarC = usarDecimais ? ptsCasa : Math.floor(ptsCasa);
         const placarV = usarDecimais ? ptsVis : Math.floor(ptsVis);
 
-        await db.from('partidas').update({
+        const { error: updateError } = await db.from('partidas').update({
+            rodada_cartola: rodadaCartola,
             pontos_reais_casa: ptsCasa, 
             placar_casa: placarC,
             pontos_reais_visitante: ptsVis, 
             placar_visitante: placarV,
             status: 'finalizado'
         }).eq('id', jogo.id);
+
+        if (updateError) throw updateError;
     } catch (e) { 
         console.error("Erro ao atualizar jogo individual", e); 
+        throw e;
     }
 }
 
@@ -449,7 +453,8 @@ export async function atualizarPlacarManual(
   casa: number, 
   visitante: number,
   desempateCasa?: number,
-  desempateVisitante?: number
+  desempateVisitante?: number,
+  rodadaCartola?: number
 ) {
   try {
     await verificarAdmin();
@@ -463,6 +468,7 @@ export async function atualizarPlacarManual(
 
     if (desempateCasa !== undefined) updates.desempate_casa = desempateCasa;
     if (desempateVisitante !== undefined) updates.desempate_visitante = desempateVisitante;
+    if (rodadaCartola !== undefined) updates.rodada_cartola = rodadaCartola;
 
     const { error } = await db.from('partidas').update(updates).eq('id', partidaId);
     if (error) return { success: false, msg: error.message };
@@ -1507,6 +1513,22 @@ export async function buscarMaioresPontuadores() {
 
 // OTIMIZADO - SEM MEMORY LEAK E SEM RATE LIMIT
 export async function buscarParciaisAoVivo(jogos: any[]) {
+  if (!jogos || jogos.length === 0) {
+    return { success: true, jogos: [] };
+  }
+
+  const jogosSemRodadaCartola = jogos.filter((jogo) =>
+    !Number.isInteger(Number(jogo.rodada_cartola)) || Number(jogo.rodada_cartola) <= 0
+  );
+
+  if (jogosSemRodadaCartola.length > 0) {
+    return {
+      success: false,
+      jogos: [],
+      msg: 'A rodada do Cartola ainda não foi vinculada a todos os jogos. Configure-a no painel administrativo.'
+    };
+  }
+
   const ts = Date.now();
   
   // 1. Busca pontuações parciais e status dos jogos (Uma única chamada)
@@ -1514,6 +1536,15 @@ export async function buscarParciaisAoVivo(jogos: any[]) {
       fetchCartola(`https://api.cartola.globo.com/atletas/pontuados?_=${ts}`),
       fetchCartola(`https://api.cartola.globo.com/partidas?_=${ts}`)
   ]);
+
+  if (!parciaisGerais?.atletas || typeof parciaisGerais.atletas !== 'object') {
+    console.error('Parciais ao vivo indisponíveis: a API do Cartola não retornou os atletas pontuados.');
+    return {
+      success: false,
+      jogos: [],
+      msg: 'As parciais do Cartola estão indisponíveis no momento. Os placares anteriores foram mantidos.'
+    };
+  }
   
   const atletasPontuados: Record<string, any> = {};
   if (parciaisGerais?.atletas) {
@@ -1660,8 +1691,8 @@ export async function buscarParciaisAoVivo(jogos: any[]) {
   // 3. OTIMIZAÇÃO DE PERFORMANCE
   const mapTimes = new Map<number, number>(); 
   jogos.forEach(jogo => {
-    if (jogo.casa?.time_id_cartola) mapTimes.set(jogo.casa.time_id_cartola, jogo.rodada);
-    if (jogo.visitante?.time_id_cartola) mapTimes.set(jogo.visitante.time_id_cartola, jogo.rodada);
+    if (jogo.casa?.time_id_cartola) mapTimes.set(jogo.casa.time_id_cartola, Number(jogo.rodada_cartola));
+    if (jogo.visitante?.time_id_cartola) mapTimes.set(jogo.visitante.time_id_cartola, Number(jogo.rodada_cartola));
   });
 
   // 4. Buscar as escalações
@@ -1674,6 +1705,20 @@ export async function buscarParciaisAoVivo(jogos: any[]) {
       }
       escalacoesCache[timeId] = dataTime;
   }));
+
+  const timesSemEscalacao = Array.from(mapTimes.keys()).filter((timeId) => {
+    const escalacao = escalacoesCache[timeId];
+    return !escalacao || !Array.isArray(escalacao.atletas) || escalacao.atletas.length === 0;
+  });
+
+  if (timesSemEscalacao.length > 0) {
+    console.error('Parciais ao vivo indisponíveis: escalações ausentes para os times', timesSemEscalacao);
+    return {
+      success: false,
+      jogos: [],
+      msg: `Não foi possível carregar ${timesSemEscalacao.length === 1 ? 'uma escalação' : `${timesSemEscalacao.length} escalações`}. Nenhum placar foi alterado.`
+    };
+  }
 
   // 5. Mapear os jogos finais
   const jogosComParcial = jogos.map((jogo) => {
@@ -2488,19 +2533,27 @@ export async function buscarPreviaRodadaPontosCorridos(campeonatoId: number, rod
 
 export async function buscarDetalhesConfrontoAoVivo(timeCasaIdCartola: number, timeVisIdCartola: number, rodada?: number) {
   try {
+      if (!Number.isInteger(Number(rodada)) || Number(rodada) <= 0) {
+          return {
+              success: false,
+              msg: 'A rodada do Cartola não foi configurada para este confronto.'
+          };
+      }
+
+      const rodadaCartola = Number(rodada);
       const tsNow = Date.now();
       
       // 1. Identificar Rodada Atual
       const statusMercadoRes = await fetchCartola(`https://api.cartola.globo.com/mercado/status?_=${tsNow}`);
       const rodadaAtualMercado = statusMercadoRes?.rodada_atual || 1;
       
-      const isRodadaPassada = rodada !== undefined && rodada < rodadaAtualMercado;
+      const isRodadaPassada = rodadaCartola < rodadaAtualMercado;
 
-      const urlCasa = rodada ? `https://api.cartola.globo.com/time/id/${timeCasaIdCartola}/${rodada}` : `https://api.cartola.globo.com/time/id/${timeCasaIdCartola}`;
-      const urlVis = rodada ? `https://api.cartola.globo.com/time/id/${timeVisIdCartola}/${rodada}` : `https://api.cartola.globo.com/time/id/${timeVisIdCartola}`;
+      const urlCasa = `https://api.cartola.globo.com/time/id/${timeCasaIdCartola}/${rodadaCartola}`;
+      const urlVis = `https://api.cartola.globo.com/time/id/${timeVisIdCartola}/${rodadaCartola}`;
 
-      const urlSubCasa = isRodadaPassada ? `https://api.cartola.globo.com/time/substituicoes/${timeCasaIdCartola}/${rodada}` : null;
-      const urlSubVis = isRodadaPassada ? `https://api.cartola.globo.com/time/substituicoes/${timeVisIdCartola}/${rodada}` : null;
+      const urlSubCasa = isRodadaPassada ? `https://api.cartola.globo.com/time/substituicoes/${timeCasaIdCartola}/${rodadaCartola}` : null;
+      const urlSubVis = isRodadaPassada ? `https://api.cartola.globo.com/time/substituicoes/${timeVisIdCartola}/${rodadaCartola}` : null;
 
       // 2. Busca paralela inteligente
       const [parciais, timeCasa, timeVis, partidasCartola, subsCasa, subsVis] = await Promise.all([

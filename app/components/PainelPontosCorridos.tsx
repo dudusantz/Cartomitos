@@ -190,7 +190,7 @@ export default function PainelPontosCorridos({ campeonatoId, times = [] }: Props
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-fadeIn items-start pb-20">
+    <div className="grid grid-cols-1 gap-5 animate-fadeIn items-start pb-16 xl:grid-cols-[minmax(0,1fr)_390px]">
       <ModalConfirmacao 
         isOpen={modalOpen} 
         onClose={() => setModalOpen(false)}
@@ -250,37 +250,37 @@ export default function PainelPontosCorridos({ campeonatoId, times = [] }: Props
         </div>
       )}
 
-      <div className="lg:col-span-2 space-y-6">
-        <div className="flex flex-col md:flex-row justify-between items-center bg-[#121212] p-5 rounded-2xl border border-gray-800 shadow-lg gap-4">
+      <section className="min-w-0 overflow-hidden rounded-2xl border border-white/[0.08] bg-[#101210] shadow-[0_24px_80px_rgba(0,0,0,0.24)]">
+        <div className="flex flex-col justify-between gap-4 border-b border-white/[0.07] bg-[#141714] p-4 sm:flex-row sm:items-center sm:p-5">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-yellow-500/10 rounded-lg"><Trophy className="text-yellow-500 w-6 h-6" /></div>
+            <div className="grid h-10 w-10 place-items-center rounded-xl border border-yellow-500/20 bg-yellow-500/[0.08]"><Trophy className="text-yellow-500 w-5 h-5" /></div>
             <div>
-              <h3 className="text-lg font-black text-white uppercase tracking-widest leading-none">Classificação</h3>
-              <p className="text-xs text-gray-500 font-medium mt-1">Pontos Corridos</p>
+              <h2 className="text-base font-black tracking-[-0.02em] text-white sm:text-lg">Classificação</h2>
+              <p className="mt-0.5 text-[11px] text-gray-500">{tabela.length} clubes · classificação geral</p>
             </div>
           </div>
           <div className="flex gap-2 items-center w-full md:w-auto">
-            <button onClick={handleRecalcular} disabled={loading} className="flex-1 md:flex-none items-center gap-2 bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition flex justify-center disabled:opacity-50">
+            <button onClick={handleRecalcular} disabled={loading} className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.04] px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.08em] text-gray-300 transition hover:bg-white/[0.08] hover:text-white active:scale-[0.98] disabled:opacity-50 md:flex-none">
               <RefreshCw size={12} className={loading ? "animate-spin" : ""} /> {loading ? '...' : 'Recalcular'}
             </button>
             {jogos.length === 0 ? (
-              <button onClick={handleGerar} className="flex-1 md:flex-none bg-green-600 hover:bg-green-500 text-white px-5 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition shadow-lg shadow-green-900/20">Gerar Tabela</button>
+              <button onClick={handleGerar} className="flex-1 rounded-lg bg-yellow-500 px-5 py-2.5 text-[10px] font-black uppercase tracking-[0.08em] text-black transition hover:bg-yellow-400 active:scale-[0.98] md:flex-none">Gerar tabela</button>
             ) : (
-              <button onClick={handleReset} className="flex-1 md:flex-none flex items-center justify-center gap-2 text-red-500 hover:bg-red-900/10 border border-red-900/30 px-5 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition">
+              <button onClick={handleReset} className="flex flex-1 items-center justify-center gap-2 rounded-lg border border-red-500/20 px-4 py-2.5 text-[10px] font-bold uppercase tracking-[0.08em] text-red-400 transition hover:bg-red-500/10 active:scale-[0.98] md:flex-none">
                 <Trash2 size={12} /> Resetar
               </button>
             )}
           </div>
         </div>
 
-        <div className="bg-[#0f0f0f] border border-gray-800 rounded-2xl overflow-hidden shadow-2xl relative">
+        <div className="relative">
           <div className="overflow-x-auto custom-scrollbar">
             <table className="w-full text-left text-xs min-w-[750px]">
-              <thead className="bg-black text-gray-500 uppercase font-bold text-[10px] tracking-widest border-b border-gray-800">
+              <thead className="border-b border-white/[0.07] bg-[#0a0b0a] text-[9px] font-bold uppercase tracking-[0.12em] text-gray-500">
                 <tr>
                   <th className="py-4 pl-6 text-center w-[5%]">Pos</th>
                   <th className="py-4 px-4 w-[35%]">Clube</th>
-                  <th className="py-4 text-center text-white font-black w-[8%] bg-white/[0.05]">PTS</th>
+                  <th className="py-4 text-center text-yellow-500 font-black w-[8%] bg-yellow-500/[0.035]">PTS</th>
                   <th className="py-4 text-center w-[6%]">J</th>
                   <th className="py-4 text-center w-[6%]">V</th>
                   <th className="py-4 text-center w-[6%]">E</th>
@@ -290,7 +290,7 @@ export default function PainelPontosCorridos({ campeonatoId, times = [] }: Props
                   <th className="py-4 text-center w-[8%] font-bold text-gray-300" title="Saldo">SP</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-800/50">
+              <tbody className="divide-y divide-white/[0.055]">
                 {tabela.map((t, i) => {
                   const timeInfo = Array.isArray(t.times) ? t.times[0] : t.times
                   const escudo = timeInfo?.escudo || '/shield-placeholder.png'
@@ -298,19 +298,19 @@ export default function PainelPontosCorridos({ campeonatoId, times = [] }: Props
                   const isG4 = i < 4
                   const isZ4 = i >= tabela.length - 4 && tabela.length > 4
                   return (
-                    <tr key={t.id} className="hover:bg-white/[0.02] transition duration-200 group relative">
+                    <tr key={t.id} className="group relative transition-colors hover:bg-white/[0.025]">
                       <td className="py-3 pl-6 text-center relative">
-                        {isG4 && <div className="absolute left-0 top-1 bottom-1 w-1 bg-blue-500 rounded-r-full shadow-[0_0_10px_rgba(59,130,246,0.4)]"></div>}
-                        {isZ4 && <div className="absolute left-0 top-1 bottom-1 w-1 bg-red-600 rounded-r-full shadow-[0_0_10px_rgba(220,38,38,0.4)]"></div>}
-                        <span className={`font-black text-sm ${isG4 ? 'text-blue-400' : isZ4 ? 'text-red-500' : 'text-gray-600'}`}>{i + 1}º</span>
+                        {isG4 && <div className="absolute bottom-2 left-0 top-2 w-0.5 bg-yellow-500"></div>}
+                        {isZ4 && <div className="absolute bottom-2 left-0 top-2 w-0.5 bg-red-500"></div>}
+                        <span className={`font-mono text-xs font-bold ${isG4 ? 'text-yellow-500' : isZ4 ? 'text-red-400' : 'text-gray-600'}`}>{i + 1}</span>
                       </td>
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-3">
-                          <img src={escudo} className="w-8 h-8 object-contain drop-shadow-md group-hover:scale-110 transition-transform" alt={nome} />
-                          <span className={`font-bold text-sm transition ${isZ4 ? 'text-gray-400 group-hover:text-red-400' : 'text-gray-300 group-hover:text-white'} whitespace-nowrap`}>{nome}</span>
+                          <img src={escudo} className="h-8 w-8 shrink-0 object-contain transition-transform group-hover:scale-105" alt={nome} />
+                          <span className={`font-bold text-sm transition-colors ${isZ4 ? 'text-gray-400 group-hover:text-red-300' : 'text-gray-200 group-hover:text-white'} whitespace-nowrap`}>{nome}</span>
                         </div>
                       </td>
-                      <td className="py-3 text-center font-black text-white bg-white/[0.03] text-sm shadow-inner">{formatDecimal(t.pts)}</td>
+                      <td className="bg-yellow-500/[0.025] py-3 text-center font-mono text-sm font-black text-white">{formatDecimal(t.pts)}</td>
                       <td className="py-3 text-center text-gray-500 font-mono">{t.pj}</td>
                       <td className="py-3 text-center text-gray-500 font-mono">{t.v}</td>
                       <td className="py-3 text-center text-gray-500 font-mono">{t.e}</td>
@@ -325,26 +325,26 @@ export default function PainelPontosCorridos({ campeonatoId, times = [] }: Props
             </table>
           </div>
         </div>
-      </div>
+      </section>
 
-      <div className="lg:col-span-1 space-y-6">
-        <div className="bg-[#121212] border border-gray-800 rounded-2xl p-6 sticky top-6 shadow-xl h-fit">
+      <aside className="min-w-0">
+        <div className="h-fit overflow-hidden rounded-2xl border border-white/[0.08] bg-[#101210] shadow-[0_24px_80px_rgba(0,0,0,0.24)] xl:sticky xl:top-6">
 
-          <div className="flex justify-between items-center mb-4 shrink-0">
-            <h3 className="text-sm font-black text-white uppercase tracking-widest flex items-center gap-2">
-              <Calendar className="text-yellow-500 w-4 h-4" /> Jogos
+          <div className="flex items-center justify-between border-b border-white/[0.07] bg-[#141714] p-4 sm:p-5">
+            <h3 className="flex items-center gap-2 text-sm font-black text-white">
+              <Calendar className="text-yellow-500 w-4 h-4" /> Jogos da rodada
             </h3>
-            <div className="flex items-center gap-1 bg-black p-1 rounded-lg border border-gray-800">
+            <div className="flex items-center gap-1 rounded-lg border border-white/[0.08] bg-[#090a09] p-1">
               <button onClick={() => setRodadaView(r => Math.max(1, r - 1))} className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800 rounded transition">‹</button>
               <span className="text-[10px] font-black px-3 text-yellow-500 uppercase tracking-widest">R{rodadaView}</span>
               <button onClick={() => setRodadaView(r => Math.min(totalRodadas, r + 1))} className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800 rounded transition">›</button>
             </div>
           </div>
 
-          <button
+          <div className="p-4 sm:p-5"><button
             onClick={salvarTudo}
             disabled={salvandoTudo || !temPendentes}
-            className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-black text-xs uppercase tracking-wider transition mb-4 border ${
+            className={`mb-4 flex w-full items-center justify-center gap-2 rounded-lg border py-2.5 text-[10px] font-black uppercase tracking-[0.08em] transition ${
               temPendentes && !salvandoTudo
                 ? 'bg-yellow-500 hover:bg-yellow-400 text-black border-transparent shadow-lg shadow-yellow-900/20 active:scale-[0.98]'
                 : 'bg-transparent border-gray-800 text-gray-600 cursor-not-allowed'
@@ -358,15 +358,14 @@ export default function PainelPontosCorridos({ campeonatoId, times = [] }: Props
             }
           </button>
 
-          <div className="border-t border-gray-800 mb-5" />
-          <div className="flex gap-2 mb-6 shrink-0">
-            <input type="number" placeholder="Rodada Cartola" className="flex-1 bg-black border border-gray-800 text-white text-[11px] font-bold p-3 rounded-lg focus:border-yellow-500 outline-none transition" value={rodadaCartola} onChange={e => setRodadaCartola(e.target.value)} />
-            <button onClick={handleAtualizarRodada} disabled={loading} className="bg-blue-600 hover:bg-blue-500 text-white px-4 rounded-lg text-[10px] font-bold uppercase transition disabled:opacity-50">
+          <div className="mb-5 flex gap-2 border-b border-white/[0.07] pb-5">
+            <input type="number" aria-label="Rodada do Cartola" placeholder="Rodada do Cartola" className="min-w-0 flex-1 rounded-lg border border-white/[0.08] bg-[#080908] p-3 text-[11px] font-bold text-white outline-none transition placeholder:text-gray-600 focus:border-yellow-500/60" value={rodadaCartola} onChange={e => setRodadaCartola(e.target.value)} />
+            <button onClick={handleAtualizarRodada} disabled={loading} className="rounded-lg bg-yellow-500 px-4 text-[10px] font-black uppercase text-black transition hover:bg-yellow-400 active:scale-[0.98] disabled:opacity-50">
               {loading ? <RefreshCw className="animate-spin w-4 h-4" /> : 'Carregar'}
             </button>
           </div>
           
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             {jogosDaRodada.length === 0 && (
               <div className="text-center text-gray-600 text-xs py-10 border border-dashed border-gray-800 rounded-xl">Sem jogos.</div>
             )}
@@ -386,40 +385,36 @@ export default function PainelPontosCorridos({ campeonatoId, times = [] }: Props
                 <div
                   key={j.id}
                   onClick={() => abrirModalEdicao(j)}
-                  className={`bg-black/40 border p-4 rounded-xl cursor-pointer hover:border-yellow-500/50 hover:bg-white/[0.02] transition group relative overflow-hidden ${
+                  className={`group relative cursor-pointer overflow-hidden rounded-xl border bg-[#090a09] transition hover:border-yellow-500/35 hover:bg-[#0c0e0c] active:scale-[0.995] ${
                     editado ? 'border-yellow-500/40' : 'border-gray-800/50'
                   }`}
                 >
-                  {editado
-                    ? <div className="absolute top-0 right-0 w-2 h-2 bg-yellow-500 rounded-bl-lg" />
-                    : finalizado && <div className="absolute top-0 right-0 w-2 h-2 bg-green-500 rounded-bl-lg" />
-                  }
-
-                  <div className="flex justify-between items-center text-xs mt-1">
-                    <div className="flex items-center justify-end gap-3 w-[40%]">
-                      <span className={`text-[10px] font-bold text-right leading-tight ${cVenceu ? 'text-green-400' : 'text-gray-400'}`}>{casa?.nome || 'Time'}</span>
-                      <img src={casa?.escudo || '/shield-placeholder.png'} className="w-8 h-8 object-contain drop-shadow-md" />
+                  <div className="px-3.5 py-3">
+                    <div className={`grid grid-cols-[3px_28px_minmax(0,1fr)_auto] items-center gap-2.5 rounded-lg px-1 py-1.5 ${cVenceu ? 'bg-white/[0.025]' : ''}`}>
+                      <span className={`h-5 w-[3px] rounded-full ${cVenceu ? 'bg-yellow-500' : 'bg-transparent'}`} />
+                      <img src={casa?.escudo || '/shield-placeholder.png'} className="h-7 w-7 shrink-0 object-contain" alt={`Escudo ${casa?.nome || 'time da casa'}`} />
+                      <span className={`min-w-0 truncate text-[11px] font-bold ${cVenceu ? 'text-white' : 'text-gray-400'}`}>{casa?.nome || 'Time'}</span>
+                      <span className={`min-w-10 rounded-md px-2 py-1 text-center font-mono text-base font-black tabular-nums ${editado ? 'bg-yellow-500/10 text-yellow-400' : cVenceu ? 'text-white' : 'text-gray-300'}`}>{placarCasa}</span>
                     </div>
-                    <div className={`border px-2 py-1.5 rounded-lg text-sm font-black font-mono flex items-center justify-center min-w-[50px] ${
-                      editado
-                        ? 'bg-yellow-500/10 border-yellow-500/30'
-                        : finalizado ? 'bg-[#151515] border-gray-800' : 'bg-[#0a0a0a] border-gray-800 text-gray-600'
-                    }`}>
-                      <span className={cVenceu ? 'text-green-400' : editado ? 'text-yellow-400' : 'text-white'}>{placarCasa}</span>
-                      <span className="text-gray-700 mx-1">:</span>
-                      <span className={vVenceu ? 'text-green-400' : editado ? 'text-yellow-400' : 'text-white'}>{placarVisitante}</span>
+                    <div className={`grid grid-cols-[3px_28px_minmax(0,1fr)_auto] items-center gap-2.5 rounded-lg px-1 py-1.5 ${vVenceu ? 'bg-white/[0.025]' : ''}`}>
+                      <span className={`h-5 w-[3px] rounded-full ${vVenceu ? 'bg-yellow-500' : 'bg-transparent'}`} />
+                      <img src={visitante?.escudo || '/shield-placeholder.png'} className="h-7 w-7 shrink-0 object-contain" alt={`Escudo ${visitante?.nome || 'time visitante'}`} />
+                      <span className={`min-w-0 truncate text-[11px] font-bold ${vVenceu ? 'text-white' : 'text-gray-400'}`}>{visitante?.nome || 'Time'}</span>
+                      <span className={`min-w-10 rounded-md px-2 py-1 text-center font-mono text-base font-black tabular-nums ${editado ? 'bg-yellow-500/10 text-yellow-400' : vVenceu ? 'text-white' : 'text-gray-300'}`}>{placarVisitante}</span>
                     </div>
-                    <div className="flex items-center justify-start gap-3 w-[40%]">
-                      <img src={visitante?.escudo || '/shield-placeholder.png'} className="w-8 h-8 object-contain drop-shadow-md" />
-                      <span className={`text-[10px] font-bold text-left leading-tight ${vVenceu ? 'text-green-400' : 'text-gray-400'}`}>{visitante?.nome || 'Time'}</span>
-                    </div>
+                  </div>
+                  <div className="flex items-center justify-between border-t border-white/[0.055] px-4 py-2 text-[8px] font-bold uppercase tracking-[0.1em]">
+                    <span className={editado ? 'text-yellow-500' : finalizado ? 'text-gray-600' : 'text-gray-600'}>
+                      {editado ? 'Alteração pendente' : finalizado ? 'Resultado final' : 'Partida agendada'}
+                    </span>
+                    <span className="text-gray-700 transition-colors group-hover:text-yellow-500">Editar placar →</span>
                   </div>
                 </div>
               )
             })}
-          </div>
+          </div></div>
         </div>
-      </div>
+      </aside>
     </div>
   )
 }

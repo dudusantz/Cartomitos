@@ -205,20 +205,25 @@ export default function TabelaPublica({ campeonatoId }: Props) {
             )}
           </div>
 
-          <div className="w-full">
-            <table className="w-full table-fixed text-left text-[10px]">
+          <div className="flex items-center justify-between border-b border-white/[0.06] bg-yellow-500/[0.035] px-4 py-2 sm:hidden">
+            <span className="text-[8px] font-bold uppercase tracking-[0.1em] text-yellow-500">Tabela completa</span>
+            <span className="flex items-center gap-1 text-[8px] font-medium text-gray-500">Arraste para o lado <span className="text-yellow-500">↔</span></span>
+          </div>
+
+          <div className="custom-scrollbar w-full overflow-x-auto overscroll-x-contain">
+            <table className="min-w-[780px] w-full table-fixed text-left text-[10px]">
               <thead className="bg-[#151515] text-gray-500 uppercase font-bold tracking-widest border-b border-white/[0.06] h-10">
                 <tr>
-                  <th className="pl-3 md:pl-4 w-[13%] md:w-[8%] text-center">#</th>
-                  <th className="px-2 w-[43%] md:w-[32%]">Clube</th>
-                  <th className="text-center text-white w-[15%] md:w-[8%]">PTS</th>
-                  <th className="text-center w-[13%] md:w-[6%]">J</th>
-                  <th className="hidden sm:table-cell text-center w-[6%]">V</th>
-                  <th className="hidden sm:table-cell text-center w-[6%]">E</th>
-                  <th className="hidden sm:table-cell text-center w-[6%]">D</th>
-                  <th className="hidden md:table-cell text-center w-[8%] text-gray-400" title="Pontos Pró">PP</th>
-                  <th className="hidden md:table-cell text-center w-[8%] text-gray-400" title="Pontos Contra">PC</th>
-                  <th className="text-center w-[16%] md:w-[8%] text-white" title="Saldo">SP</th>
+                  <th className="sticky left-0 z-20 w-[52px] bg-[#151515] pl-3 text-center md:pl-4">#</th>
+                  <th className="sticky left-[52px] z-20 w-[230px] bg-[#151515] px-3 shadow-[8px_0_18px_rgba(0,0,0,0.18)]">Clube</th>
+                  <th className="w-[64px] text-center text-white">PTS</th>
+                  <th className="w-[52px] text-center">J</th>
+                  <th className="w-[52px] text-center">V</th>
+                  <th className="w-[52px] text-center">E</th>
+                  <th className="w-[52px] text-center">D</th>
+                  <th className="w-[72px] text-center text-gray-400" title="Pontos Pró">PP</th>
+                  <th className="w-[72px] text-center text-gray-400" title="Pontos Contra">PC</th>
+                  <th className="w-[72px] text-center text-white" title="Saldo">SP</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/[0.045]">
@@ -236,7 +241,7 @@ export default function TabelaPublica({ campeonatoId }: Props) {
                       key={t.id}
                       className="group hover:bg-white/[0.025] transition-colors min-h-14 md:min-h-12 relative"
                     >
-                      <td className="pl-3 md:pl-4 text-center relative">
+                      <td className="sticky left-0 z-10 bg-[#121212] pl-3 text-center relative transition-colors group-hover:bg-[#171917] md:pl-4">
                         {isClassificado && (
                           <div 
                             className="absolute left-0 top-2 bottom-2 w-0.5 rounded-r"
@@ -255,7 +260,7 @@ export default function TabelaPublica({ campeonatoId }: Props) {
                           )}
                         </div>
                       </td>
-                      <td className="px-2 py-2.5">
+                      <td className="sticky left-[52px] z-10 bg-[#121212] px-3 py-2.5 shadow-[8px_0_18px_rgba(0,0,0,0.18)] transition-colors group-hover:bg-[#171917]">
                         <div className="flex items-center gap-3 min-w-0">
                           <img
                             src={time?.escudo || "/shield-placeholder.png"}
@@ -263,7 +268,7 @@ export default function TabelaPublica({ campeonatoId }: Props) {
                             alt={`Escudo do ${time?.nome || 'clube'}`}
                           />
                           <div className="flex flex-col min-w-0 justify-center">
-                            <span className={`font-semibold text-[11px] md:text-xs leading-[1.15] group-hover:text-white transition whitespace-normal break-words block ${isClassificado ? "text-gray-200" : "text-gray-400"}`}>
+                            <span className={`block whitespace-nowrap text-[11px] font-semibold leading-[1.15] transition group-hover:text-white md:text-xs ${isClassificado ? "text-gray-200" : "text-gray-400"}`}>
                               {time?.nome}
                             </span>
                             {modoAoVivo && t.ptsExtra > 0 && (
@@ -278,13 +283,13 @@ export default function TabelaPublica({ campeonatoId }: Props) {
                         {t.pts}
                       </td>
                       <td className="text-center text-gray-500 font-mono">{t.pj}</td>
-                      <td className="hidden sm:table-cell text-center text-gray-500 font-mono">{t.v}</td>
-                      <td className="hidden sm:table-cell text-center text-gray-500 font-mono">{t.e}</td>
-                      <td className="hidden sm:table-cell text-center text-gray-500 font-mono">{t.d}</td>
-                      <td className="hidden md:table-cell text-center text-gray-400 font-mono">
+                      <td className="text-center text-gray-500 font-mono">{t.v}</td>
+                      <td className="text-center text-gray-500 font-mono">{t.e}</td>
+                      <td className="text-center text-gray-500 font-mono">{t.d}</td>
+                      <td className="text-center text-gray-400 font-mono">
                         {Math.trunc(t.gp)}
                       </td>
-                      <td className="hidden md:table-cell text-center text-gray-400 font-mono">
+                      <td className="text-center text-gray-400 font-mono">
                         {Math.trunc(t.gc)}
                       </td>
                       <td className={`text-center font-mono font-bold ${t.sg > 0 ? "text-green-500" : t.sg < 0 ? "text-red-500" : "text-gray-500"}`}>
@@ -311,13 +316,13 @@ export default function TabelaPublica({ campeonatoId }: Props) {
       </div>
 
       {/* DIREITA: LISTA DE JOGOS */}
-      <div className="lg:col-span-5 space-y-6 lg:sticky lg:top-24 min-w-0">
-        <div className="bg-[#121212] border border-white/[0.07] rounded-2xl md:rounded-3xl p-4 md:p-5 shadow-xl">
-          <div className="flex justify-between items-center mb-6">
-            <span className="text-xs font-black text-white uppercase tracking-widest flex items-center gap-2">
-              <span className="w-1.5 h-1.5 bg-yellow-500 rounded-sm"></span>{" "}
-              Jogos
-            </span>
+      <aside className="min-w-0 space-y-6 lg:col-span-5 lg:sticky lg:top-24">
+        <section className="overflow-hidden rounded-2xl border border-white/[0.07] bg-[#101210] shadow-[0_24px_70px_rgba(0,0,0,0.25)] md:rounded-3xl">
+          <div className="flex items-center justify-between border-b border-white/[0.07] bg-[#141714] px-4 py-4 md:px-5">
+            <div>
+              <span className="text-[9px] font-bold uppercase tracking-[0.16em] text-yellow-500">Rodada {rodadaView}</span>
+              <h2 className="mt-0.5 text-sm font-black tracking-[-0.015em] text-white">Jogos e resultados</h2>
+            </div>
             <div className="flex items-center gap-1 bg-black p-1 rounded-lg border border-gray-800">
               <button
                 onClick={() => setRodadaView((r) => Math.max(1, r - 1))}
@@ -337,19 +342,32 @@ export default function TabelaPublica({ campeonatoId }: Props) {
             </div>
           </div>
 
-          <button
+          <div className="p-4 md:p-5"><button
             onClick={() => setModoAoVivo(!modoAoVivo)}
             disabled={loading}
-            className={`w-full py-3.5 mb-6 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg flex items-center justify-center gap-2 border ${
+            className={`mb-4 flex w-full items-center justify-center gap-2 rounded-lg border py-3 text-[9px] font-black uppercase tracking-[0.12em] transition-all active:scale-[0.99] ${
               modoAoVivo
-                ? "bg-red-500/10 text-red-500 border-red-500/50 hover:bg-red-500/20"
-                : "bg-yellow-500 text-black border-yellow-400 hover:bg-yellow-400"
+                ? "border-white/[0.08] bg-white/[0.035] text-gray-300 hover:bg-white/[0.07] hover:text-white"
+                : "bg-yellow-500 text-black border-yellow-500 hover:bg-yellow-400"
             }`}
           >
-            {loading ? "..." : modoAoVivo ? "Encerrar Transmissão" : "Acompanhar em Tempo Real"}
+            {loading ? "Atualizando parciais..." : modoAoVivo ? "Encerrar acompanhamento" : "Acompanhar em tempo real"}
           </button>
 
-          <div className="space-y-3">
+          {modoAoVivo && (
+            <div className="mb-4 flex items-center justify-between rounded-lg border border-green-500/15 bg-green-500/[0.045] px-3 py-2.5">
+              <div className="flex items-center gap-2">
+                <span className="relative flex h-2 w-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-40" />
+                  <span className="relative inline-flex h-2 w-2 rounded-full bg-green-400" />
+                </span>
+                <span className="text-[9px] font-bold uppercase tracking-[0.1em] text-green-400">Parciais ativadas</span>
+              </div>
+              <span className="text-[8px] font-medium text-gray-600">Rodada {rodadaView}</span>
+            </div>
+          )}
+
+          <div className="space-y-2.5">
             {jogosDaRodada.length === 0 && (
               <div className="text-center py-12 text-gray-600 text-xs border border-dashed border-gray-800 rounded-2xl">
                 Nenhum jogo agendado.
@@ -372,54 +390,51 @@ export default function TabelaPublica({ campeonatoId }: Props) {
                 <div
                   key={j.id}
                   onClick={() => setJogoSelecionado(j)}
-                  className={`cursor-pointer relative bg-[#151515] border p-4 rounded-xl transition-all overflow-hidden group hover:border-yellow-500/35 hover:bg-[#1a1a1a] ${
-                    isLive ? "border-green-500/40 shadow-[0_0_15px_rgba(34,197,94,0.1)]" : "border-gray-800/60"
-                  }`}
+                  className="group relative cursor-pointer overflow-hidden rounded-xl border border-white/[0.07] bg-[#090a09] transition-all hover:border-yellow-500/35 hover:bg-[#0d0f0d] active:scale-[0.995]"
                 >
-                  {isLive && (
-                    <div className="absolute top-2 right-2 flex items-center gap-1.5 bg-black/40 px-2 py-0.5 rounded-full border border-green-900/30 backdrop-blur-sm z-10">
-                      <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse shadow-[0_0_5px_rgba(34,197,94,0.8)]"></div>
-                      <span className="text-[8px] font-bold text-green-500 uppercase tracking-wider">Live</span>
-                    </div>
-                  )}
-
-                  <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 mt-1">
-                    <div className="flex flex-col items-end gap-1 overflow-hidden">
+                  <div className="px-3.5 py-3">
+                    <div className={`grid grid-cols-[3px_30px_minmax(0,1fr)_auto] items-center gap-2.5 rounded-lg px-1 py-1.5 ${cWin ? "bg-white/[0.025]" : ""}`}>
+                      <span className={`h-5 w-[3px] rounded-full ${cWin ? "bg-yellow-500" : "bg-transparent"}`} />
                       <img
                         src={casa?.escudo || "/shield-placeholder.png"}
-                        className={`w-8 h-8 object-contain drop-shadow-md transition-transform group-hover:scale-110 ${!cWin && temPlacar && c !== v ? "grayscale opacity-60" : ""}`}
+                        className="h-8 w-8 shrink-0 object-contain transition-transform group-hover:scale-105"
                         alt={`Escudo do ${casa?.nome || 'mandante'}`}
                       />
-                      <span className={`text-[10px] font-bold uppercase leading-tight text-right truncate w-full ${cWin ? "text-green-400" : "text-gray-400 group-hover:text-gray-200"}`}>
+                      <span className={`min-w-0 truncate text-[11px] font-bold ${cWin ? "text-white" : "text-gray-400"}`}>
                         {casa?.nome}
                       </span>
-                    </div>
-
-                    <div className={`flex flex-col items-center justify-center w-auto min-w-[70px] px-1 h-[36px] rounded-lg border font-mono text-sm font-black shadow-inner ${isLive ? "bg-green-900/10 border-green-500/30 text-green-400" : temPlacar ? "bg-black/40 border-gray-700 text-white" : "bg-black/20 border-gray-800 text-gray-600"}`}>
-                      <div className="flex items-center gap-1">
-                        <span className={cWin ? "text-green-400" : ""}>{j.placar_casa !== undefined ? Math.trunc(j.placar_casa) : "-"}</span>
-                        <span className="text-[10px] opacity-50 mx-0.5">:</span>
-                        <span className={vWin ? "text-green-400" : ""}>{j.placar_visitante !== undefined ? Math.trunc(j.placar_visitante) : "-"}</span>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col items-start gap-1 overflow-hidden">
-                      <img
-                        src={visitante?.escudo || "/shield-placeholder.png"}
-                        className={`w-8 h-8 object-contain drop-shadow-md transition-transform group-hover:scale-110 ${!vWin && temPlacar && c !== v ? "grayscale opacity-60" : ""}`}
-                        alt={`Escudo do ${visitante?.nome || 'visitante'}`}
-                      />
-                      <span className={`text-[10px] font-bold uppercase leading-tight text-left truncate w-full ${vWin ? "text-green-400" : "text-gray-400 group-hover:text-gray-200"}`}>
-                        {visitante?.nome}
+                      <span className={`min-w-11 rounded-md bg-white/[0.035] px-2 py-1 text-center font-mono text-base font-black tabular-nums ${cWin ? "text-white" : "text-gray-300"}`}>
+                        {j.placar_casa !== undefined ? Math.trunc(j.placar_casa) : "–"}
                       </span>
                     </div>
+                    <div className={`grid grid-cols-[3px_30px_minmax(0,1fr)_auto] items-center gap-2.5 rounded-lg px-1 py-1.5 ${vWin ? "bg-white/[0.025]" : ""}`}>
+                      <span className={`h-5 w-[3px] rounded-full ${vWin ? "bg-yellow-500" : "bg-transparent"}`} />
+                      <img
+                        src={visitante?.escudo || "/shield-placeholder.png"}
+                        className="h-8 w-8 shrink-0 object-contain transition-transform group-hover:scale-105"
+                        alt={`Escudo do ${visitante?.nome || 'visitante'}`}
+                      />
+                      <span className={`min-w-0 truncate text-[11px] font-bold ${vWin ? "text-white" : "text-gray-400"}`}>
+                        {visitante?.nome}
+                      </span>
+                      <span className={`min-w-11 rounded-md bg-white/[0.035] px-2 py-1 text-center font-mono text-base font-black tabular-nums ${vWin ? "text-white" : "text-gray-300"}`}>
+                        {j.placar_visitante !== undefined ? Math.trunc(j.placar_visitante) : "–"}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between border-t border-white/[0.055] px-4 py-2 text-[8px] font-bold uppercase tracking-[0.1em]">
+                    <span className={isLive ? "flex items-center gap-1.5 text-green-400" : "text-gray-600"}>
+                      {isLive && <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-green-400" />}
+                      {isLive ? "Parcial em andamento" : finalizado ? "Resultado final" : "Partida agendada"}
+                    </span>
+                    <span className="text-gray-700 transition-colors group-hover:text-yellow-500">Ver confronto →</span>
                   </div>
                 </div>
               );
             })}
-          </div>
-        </div>
-      </div>
+          </div></div>
+        </section>
+      </aside>
 
       {jogoSelecionado && (
         <ModalConfrontoAoVivo 

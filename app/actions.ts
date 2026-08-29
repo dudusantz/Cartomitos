@@ -788,7 +788,13 @@ export async function gerarMataMataInteligente(campeonatoId: number, idsOrdenado
   }
 }
 
-export async function atualizarRodadaMataMata(campeonatoId: number, fase: number, rodadaIda: number, rodadaVolta: number) {
+export async function atualizarRodadaMataMata(
+  campeonatoId: number,
+  fase: number,
+  rodadaIda: number,
+  rodadaVolta: number,
+  rodadaDesempate?: number
+) {
   try {
     await verificarAdmin();
     const db = getDb();
@@ -814,10 +820,68 @@ export async function atualizarRodadaMataMata(campeonatoId: number, fase: number
         if (r > 0) await atualizarJogoIndividual(jogo, r, usarDecimais); 
     }
 
+    // Se o agregado terminar empatado, usa uma rodada adicional do Cartola
+    // como jogo decisivo. O placar é salvo no confronto de volta (ou no jogo
+    // único), que já é a fonte usada pelo avanço automático do chaveamento.
+    if (rodadaDesempate && rodadaDesempate > 0) {
+      const { data: jogosAtualizados, error: erroAtualizados } = await db.from('partidas')
+        .select('*, casa:times!partidas_time_casa_fkey(*), visitante:times!partidas_time_visitante_fkey(*)')
+        .eq('campeonato_id', campeonatoId)
+        .in('rodada', [fase, fase + 1])
+        .neq('status', 'bye')
+        .order('id', { ascending: true });
+
+      if (erroAtualizados) throw erroAtualizados;
+
+      const jogos = (jogosAtualizados || []) as any[];
+      const jogosIda = jogos.filter(j => j.rodada === fase);
+
+      for (const ida of jogosIda) {
+        const volta = jogos.find(j =>
+          j.rodada === fase + 1 &&
+          ((j.time_casa === ida.time_visitante && j.time_visitante === ida.time_casa) ||
+           (j.time_casa === ida.time_casa && j.time_visitante === ida.time_visitante))
+        );
+        const decisivo = volta || ida;
+
+        if (ida.status !== 'finalizado' || (volta && volta.status !== 'finalizado')) continue;
+
+        let totalCasa = Number(ida.placar_casa || 0);
+        let totalVisitante = Number(ida.placar_visitante || 0);
+
+        if (volta) {
+          if (volta.time_casa === ida.time_visitante) {
+            totalCasa += Number(volta.placar_visitante || 0);
+            totalVisitante += Number(volta.placar_casa || 0);
+          } else {
+            totalCasa += Number(volta.placar_casa || 0);
+            totalVisitante += Number(volta.placar_visitante || 0);
+          }
+        }
+
+        if (Number(totalCasa.toFixed(2)) !== Number(totalVisitante.toFixed(2))) continue;
+
+        const [resCasa, resVisitante] = await Promise.all([
+          fetchCartola(`https://api.cartola.globo.com/time/id/${decisivo.casa.time_id_cartola}/${rodadaDesempate}`),
+          fetchCartola(`https://api.cartola.globo.com/time/id/${decisivo.visitante.time_id_cartola}/${rodadaDesempate}`)
+        ]);
+        const pontosCasa = Number(resCasa?.pontos || 0);
+        const pontosVisitante = Number(resVisitante?.pontos || 0);
+
+        await db.from('partidas').update({
+          desempate_casa: usarDecimais ? pontosCasa : Math.floor(pontosCasa),
+          desempate_visitante: usarDecimais ? pontosVisitante : Math.floor(pontosVisitante)
+        }).eq('id', decisivo.id);
+      }
+    }
+
     await verificarEAvancarFase(campeonatoId, fase);
     
     revalidatePath(`/campeonatos/${campeonatoId}`)
-    return { success: true, msg: `Pontos atualizados!` };
+    return {
+      success: true,
+      msg: rodadaDesempate ? 'Resultados e jogos decisivos atualizados!' : 'Resultados atualizados!'
+    };
   } catch (error: any) {
     console.error("Erro em atualizarRodadaMataMata:", error);
     return { success: false, msg: error.message || "Erro interno." };

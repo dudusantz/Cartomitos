@@ -11,7 +11,7 @@ import {
 import MataMataBracket from './MataMataBracket'
 import { ModalConfirmacao } from './ModalConfirmacao' 
 import SorteioMataMata from './admin/SorteioMataMata'
-import { RefreshCw, Trash2, Trophy, Save, Edit3, Eye, Shield, Wand2 } from 'lucide-react'
+import { RefreshCw, Trash2, Trophy, Save, Edit3, Eye, Wand2, CalendarDays, Sparkles, AlertTriangle } from 'lucide-react'
 
 interface Props {
   campeonatoId: number
@@ -27,6 +27,7 @@ export default function PainelMataMata({ campeonatoId, rodadasCorte, bloquearGer
   const [faseAtual, setFaseAtual] = useState('1')
   const [rodadaIda, setRodadaIda] = useState('')
   const [rodadaVolta, setRodadaVolta] = useState('')
+  const [rodadaDesempate, setRodadaDesempate] = useState('')
   
   // Estados de Interface
   const [loading, setLoading] = useState(false)
@@ -53,6 +54,35 @@ export default function PainelMataMata({ campeonatoId, rodadasCorte, bloquearGer
   const fasesIda = fasesDisponiveis.filter(r => r % 2 !== 0) 
   const isJogoUnico = (fase: number) => !fasesDisponiveis.includes(fase + 1)
 
+  const empatesPendentes = (() => {
+    const fase = Number(faseAtual)
+    const jogosIda = partidas.filter(p => p.rodada_bracket === fase && p.status !== 'bye')
+
+    return jogosIda.filter(ida => {
+      const volta = partidas.find(p =>
+        p.rodada_bracket === fase + 1 &&
+        ((p.time_casa === ida.time_visitante && p.time_visitante === ida.time_casa) ||
+         (p.time_casa === ida.time_casa && p.time_visitante === ida.time_visitante))
+      )
+      if (ida.status !== 'finalizado' || (volta && volta.status !== 'finalizado')) return false
+
+      let casa = Number(ida.placar_casa || 0)
+      let visitante = Number(ida.placar_visitante || 0)
+      if (volta) {
+        if (volta.time_casa === ida.time_visitante) {
+          casa += Number(volta.placar_visitante || 0)
+          visitante += Number(volta.placar_casa || 0)
+        } else {
+          casa += Number(volta.placar_casa || 0)
+          visitante += Number(volta.placar_visitante || 0)
+        }
+      }
+      const decisivo = volta || ida
+      return Number(casa.toFixed(2)) === Number(visitante.toFixed(2)) &&
+        (decisivo.desempate_casa == null || decisivo.desempate_visitante == null)
+    }).length
+  })()
+
   // --- AÇÕES ---
 
   async function handleAtualizarAPI() {
@@ -64,7 +94,13 @@ export default function PainelMataMata({ campeonatoId, rodadasCorte, bloquearGer
     const rodadaReal = f + rodadasCorte
     const volta = unico ? 0 : Number(rodadaVolta)
     
-    const res = await atualizarRodadaMataMata(campeonatoId, rodadaReal, Number(rodadaIda), volta)
+    const res = await atualizarRodadaMataMata(
+      campeonatoId,
+      rodadaReal,
+      Number(rodadaIda),
+      volta,
+      rodadaDesempate ? Number(rodadaDesempate) : undefined
+    )
     
     if(res.success) { 
         toast.success(res.msg); 
@@ -187,54 +223,75 @@ export default function PainelMataMata({ campeonatoId, rodadasCorte, bloquearGer
         ) : (
             <>
                 {/* === BARRA DE CONTROLE === */}
-                <div className="bg-[#121212] p-5 rounded-xl border border-gray-800 flex flex-wrap gap-4 items-end shadow-lg relative overflow-hidden">
-                    <div className="absolute top-0 right-0 p-2 opacity-5"><Shield size={100} /></div>
-                    
-                    <div className="flex-1 min-w-[180px] z-10">
-                        <label className="text-gray-500 text-[10px] font-bold uppercase block mb-1">Fase Atual (Controle)</label>
-                        <select className="w-full bg-black border border-gray-700 text-white p-2.5 rounded-lg outline-none focus:border-blue-600 transition text-sm" value={faseAtual} onChange={e => setFaseAtual(e.target.value)}>
+                <section className="rounded-[24px] border border-white/10 bg-[#111310] shadow-[0_20px_60px_rgba(0,0,0,.28)] overflow-hidden">
+                  <div className="flex flex-col gap-3 border-b border-white/8 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <div className="flex items-center gap-2 text-white">
+                        <CalendarDays size={17} className="text-[#f4b900]" />
+                        <h3 className="text-sm font-black">Controle da fase</h3>
+                      </div>
+                      <p className="mt-1 text-xs text-slate-500">Sincronize ida, volta e o jogo decisivo usando as rodadas do Cartola.</p>
+                    </div>
+                    <div className={`inline-flex w-fit items-center gap-2 rounded-full border px-3 py-1.5 text-[10px] font-black uppercase tracking-[.12em] ${empatesPendentes > 0 ? 'border-amber-400/30 bg-amber-400/10 text-amber-300' : 'border-emerald-400/20 bg-emerald-400/8 text-emerald-400'}`}>
+                      {empatesPendentes > 0 ? <AlertTriangle size={12} /> : <Sparkles size={12} />}
+                      {empatesPendentes > 0 ? `${empatesPendentes} desempate${empatesPendentes > 1 ? 's' : ''} pendente${empatesPendentes > 1 ? 's' : ''}` : 'Fase sem pendências'}
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 p-5 lg:grid-cols-[minmax(230px,1fr)_auto_auto] lg:items-end">
+                    <div>
+                        <label className="mb-2 block text-[10px] font-black uppercase tracking-[.14em] text-slate-500">Fase selecionada</label>
+                        <select className="h-12 w-full rounded-xl border border-white/10 bg-[#080908] px-4 text-sm font-bold text-white outline-none transition focus:border-[#f4b900]/60" value={faseAtual} onChange={e => setFaseAtual(e.target.value)}>
                             {fasesIda.length > 0 ? fasesIda.map(f => (
                                 <option key={f} value={f}>{isJogoUnico(f) ? `Fase ${Math.ceil(f/2)} (Jogo Único)` : `Fase ${Math.ceil(f/2)} (Ida & Volta)`}</option>
                             )) : <option value="1">Fase 1</option>}
                         </select>
                     </div>
-                    
-                    <div className="flex gap-2 z-10">
-                        <div className="flex flex-col">
-                            <label className="text-[9px] text-gray-500 font-bold uppercase mb-1 ml-1">Ida (Cartola)</label>
-                            <input type="number" placeholder="#" className="w-14 bg-black border border-gray-700 text-white p-2.5 rounded-lg text-center outline-none focus:border-blue-600 transition text-sm" value={rodadaIda} onChange={e => setRodadaIda(e.target.value)} />
+
+                    <div className="grid grid-cols-3 gap-2">
+                        <div>
+                            <label className="mb-2 block text-[9px] font-black uppercase tracking-[.12em] text-slate-500">Ida</label>
+                            <input type="number" min="1" placeholder="Rod." className="h-12 w-[72px] rounded-xl border border-white/10 bg-[#080908] text-center text-sm font-black text-white outline-none transition focus:border-[#f4b900]/60" value={rodadaIda} onChange={e => setRodadaIda(e.target.value)} />
                         </div>
                         {!isJogoUnico(Number(faseAtual)) && (
-                            <div className="flex flex-col">
-                                <label className="text-[9px] text-gray-500 font-bold uppercase mb-1 ml-1">Volta</label>
-                                <input type="number" placeholder="#" className="w-14 bg-black border border-gray-700 text-white p-2.5 rounded-lg text-center outline-none focus:border-blue-600 transition text-sm" value={rodadaVolta} onChange={e => setRodadaVolta(e.target.value)} />
+                            <div>
+                                <label className="mb-2 block text-[9px] font-black uppercase tracking-[.12em] text-slate-500">Volta</label>
+                                <input type="number" min="1" placeholder="Rod." className="h-12 w-[72px] rounded-xl border border-white/10 bg-[#080908] text-center text-sm font-black text-white outline-none transition focus:border-[#f4b900]/60" value={rodadaVolta} onChange={e => setRodadaVolta(e.target.value)} />
                             </div>
                         )}
-                        <div className="flex items-end">
-                            <button onClick={handleAtualizarAPI} disabled={loading} className="h-[42px] bg-blue-600 text-white px-4 rounded-lg font-bold uppercase text-[10px] hover:bg-blue-500 transition shadow-lg shadow-blue-900/20 flex items-center gap-2">
-                                {loading ? <RefreshCw className="animate-spin w-3 h-3"/> : <RefreshCw className="w-3 h-3" />} <span className="hidden sm:inline">Atualizar & Avançar</span>
-                            </button>
+                        <div>
+                            <label className="mb-2 block text-[9px] font-black uppercase tracking-[.12em] text-amber-400">Decisivo</label>
+                            <input type="number" min="1" placeholder="Se empatar" className="h-12 w-[92px] rounded-xl border border-amber-400/25 bg-amber-400/5 text-center text-xs font-black text-amber-200 outline-none transition placeholder:text-amber-200/35 focus:border-amber-400/70" value={rodadaDesempate} onChange={e => setRodadaDesempate(e.target.value)} />
                         </div>
                     </div>
 
-                    <div className="flex gap-2 ml-auto items-center pl-4 border-l border-gray-800 z-10">
+                    <div className="flex items-center gap-2">
+                        <button onClick={handleAtualizarAPI} disabled={loading} className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-[#f4b900] px-5 text-[10px] font-black uppercase tracking-[.08em] text-black transition hover:bg-[#ffd12a] disabled:cursor-wait disabled:opacity-60 lg:flex-none">
+                            <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+                            Atualizar resultados
+                        </button>
                         <button 
                             onClick={handleLimpar} 
-                            className="h-[42px] text-red-500 bg-red-500/10 px-3 rounded-lg hover:bg-red-500 hover:text-white transition border border-red-500/20"
+                            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-red-500/20 bg-red-500/5 text-red-400 transition hover:bg-red-500 hover:text-white"
                             title="Limpar / Resetar Fase"
                         >
                             <Trash2 className="w-4 h-4" />
                         </button>
                     </div>
-                </div>
+                  </div>
+
+                  <div className="border-t border-white/8 bg-black/15 px-5 py-3 text-[11px] leading-relaxed text-slate-500">
+                    <strong className="text-slate-300">Desempate automático:</strong> informe a rodada decisiva. Ela só será aplicada aos confrontos que terminarem empatados no agregado.
+                  </div>
+                </section>
 
                 {/* === ABAS === */}
-                <div className="flex gap-1 bg-gray-900/50 p-1 rounded-lg w-fit border border-gray-800">
+                <div className="flex w-fit gap-1 rounded-xl border border-white/10 bg-[#0d0f0d] p-1">
                      <button onClick={() => setModoEdicao(false)} className={`text-xs font-bold px-4 py-2 rounded-md flex items-center gap-2 transition-all ${!modoEdicao ? 'bg-gray-800 text-white shadow' : 'text-gray-500 hover:text-gray-300'}`}>
                         <Eye size={14} /> Chaveamento
                      </button>
-                     <button onClick={() => setModoEdicao(true)} className={`text-xs font-bold px-4 py-2 rounded-md flex items-center gap-2 transition-all ${modoEdicao ? 'bg-blue-600 text-white shadow' : 'text-gray-500 hover:text-gray-300'}`}>
-                        <Edit3 size={14} /> Editar Placar / Desempate
+                     <button onClick={() => setModoEdicao(true)} className={`text-xs font-bold px-4 py-2 rounded-md flex items-center gap-2 transition-all ${modoEdicao ? 'bg-[#f4b900] text-black shadow' : 'text-gray-500 hover:text-gray-300'}`}>
+                        <Edit3 size={14} /> Resultados e desempates
                      </button>
                 </div>
 
@@ -245,8 +302,8 @@ export default function PainelMataMata({ campeonatoId, rodadasCorte, bloquearGer
                               <div className="flex items-start gap-3 bg-blue-500/10 p-4 rounded-lg border border-blue-500/20 text-blue-200 text-xs">
                                 <div className="bg-blue-500 p-1.5 rounded-full mt-0.5"><Edit3 size={12} className="text-white"/></div>
                                 <div>
-                                    <strong className="block mb-1 text-blue-100">Modo de Edição Manual</strong>
-                                    Use esta área para corrigir placares ou inserir o vencedor dos pênaltis caso haja empate no agregado.
+                                    <strong className="block mb-1 text-blue-100">Correção manual</strong>
+                                    Use esta área apenas para corrigir resultados ou informar manualmente o placar do terceiro jogo.
                                 </div>
                               </div>
                               <ListaEditavel partidas={partidas} onUpdate={carregarDados} />

@@ -33,8 +33,8 @@ type Confronto = {
   tipo?: 'padrao' | 'final' | 'terceiro';
 };
 
-const CARD_WIDTH = 248;
-const CARD_HEIGHT = 92;
+const CARD_WIDTH = 276;
+const CARD_HEIGHT = 130;
 const GAP_HORIZ = 64;
 const GAP_VERT_BASE = 20;
 const DRAG_THRESHOLD = 6;
@@ -568,6 +568,12 @@ function BracketCard({
   }
 
   const isPenalts = finalizado && total1 === total2 && !temDesempate;
+  let placarDesempate1 = desempateC;
+  let placarDesempate2 = desempateV;
+  if (temDesempate && volta && volta.time_casa === jogoDados.time_visitante) {
+    placarDesempate1 = desempateV;
+    placarDesempate2 = desempateC;
+  }
 
   return (
     <div
@@ -596,19 +602,29 @@ function BracketCard({
       style={{ width: CARD_WIDTH, height: CARD_HEIGHT }}
     >
       {emAndamento && (
-        <div className="absolute top-0 right-0 w-2 h-2 bg-green-500 rounded-bl-lg animate-pulse z-20" />
+        <div className="absolute left-0 top-0 h-full w-0.5 animate-pulse bg-green-500 z-20" />
+      )}
+
+      {!isPlaceholder && (
+        <div className="grid h-6 grid-cols-[minmax(0,1fr)_28px_8px_28px_40px] items-center gap-1 border-b border-white/[0.06] bg-black/20 px-3 text-[7px] font-bold uppercase tracking-[0.08em] text-gray-600">
+          <span>{finalizado ? 'Confronto encerrado' : emAndamento ? 'Parcial' : 'Confronto'}</span>
+          <span className="text-center">Ida</span>
+          <span />
+          <span className="text-center">{volta ? 'Volta' : ''}</span>
+          <span className="text-center text-gray-500">Total</span>
+        </div>
       )}
 
       <div
-        className={`flex justify-between items-center px-3 py-1.5 border-b border-gray-800/40 ${
-          finalizado && !w1 && !isPenalts && !temDesempate ? 'opacity-40 grayscale' : ''
+        className={`grid flex-1 grid-cols-[minmax(0,1fr)_28px_8px_28px_40px] items-center gap-1 border-b border-white/[0.055] px-3 ${
+          finalizado && !w1 && !isPenalts && !temDesempate ? 'opacity-45' : ''
         }`}
       >
-        <div className="flex items-center gap-2 w-[60%] overflow-hidden">
+        <div className="flex min-w-0 items-center gap-2 overflow-hidden">
           {casa.escudo ? (
             <img
               src={casa.escudo}
-              className="w-5 h-5 object-contain pointer-events-none"
+              className="h-6 w-6 shrink-0 object-contain pointer-events-none"
               alt=""
               draggable={false}
               onError={(e) => {
@@ -616,44 +632,32 @@ function BracketCard({
               }}
             />
           ) : (
-            <div className="w-5 h-5 bg-gray-800 rounded-full" />
+            <div className="h-6 w-6 shrink-0 rounded-full bg-gray-800" />
           )}
           <span
-            className={`text-[11px] font-bold truncate ${
+            className={`truncate text-[10px] font-bold ${
               w1 ? 'text-yellow-400' : isPlaceholder ? 'text-gray-600' : 'text-gray-300'
             }`}
           >
             {casa.nome}
           </span>
         </div>
-        <div className="flex items-center justify-end gap-1 w-[40%] font-mono text-xs text-gray-500">
-          {!isPlaceholder && (
-            <>
-              <span className="min-w-4 text-center">{formatPlacar(p1_ida, usarDecimais)}</span>
-              {volta && <span className="text-[9px] text-gray-700">+</span>}
-              {volta && <span className="min-w-4 text-center">{formatPlacar(p1_volta, usarDecimais)}</span>}
-              <div
-                className={`ml-2 min-w-6 h-5 px-0.5 flex items-center justify-center text-[11px] font-bold text-white rounded ${
-                  w1 ? 'bg-yellow-500 text-black' : 'bg-[#242720]'
-                }`}
-              >
-                {formatPlacar(total1, usarDecimais)}
-              </div>
-            </>
-          )}
-        </div>
+        <span className="text-center font-mono text-xs font-bold text-gray-300">{!isPlaceholder ? formatPlacar(p1_ida, usarDecimais) : ''}</span>
+        <span className="text-center text-[8px] text-gray-700">{volta ? '+' : ''}</span>
+        <span className="text-center font-mono text-xs font-bold text-gray-300">{volta ? formatPlacar(p1_volta, usarDecimais) : ''}</span>
+        {!isPlaceholder ? <span className={`flex h-7 items-center justify-center rounded-md font-mono text-sm font-black ${w1 ? 'bg-yellow-500 text-black' : 'border border-white/[0.07] bg-white/[0.045] text-white'}`}>{formatPlacar(total1, usarDecimais)}</span> : <span />}
       </div>
 
       <div
-        className={`flex justify-between items-center px-3 py-1.5 ${
-          finalizado && !w2 && !isPenalts && !temDesempate ? 'opacity-40 grayscale' : ''
+        className={`grid flex-1 grid-cols-[minmax(0,1fr)_28px_8px_28px_40px] items-center gap-1 px-3 ${
+          finalizado && !w2 && !isPenalts && !temDesempate ? 'opacity-45' : ''
         }`}
       >
-        <div className="flex items-center gap-2 w-[60%] overflow-hidden">
+        <div className="flex min-w-0 items-center gap-2 overflow-hidden">
           {visitante?.escudo ? (
             <img
               src={visitante.escudo}
-              className="w-5 h-5 object-contain pointer-events-none"
+              className="h-6 w-6 shrink-0 object-contain pointer-events-none"
               alt=""
               draggable={false}
               onError={(e) => {
@@ -661,48 +665,34 @@ function BracketCard({
               }}
             />
           ) : (
-            <div className="w-5 h-5 bg-gray-800 rounded-full" />
+            <div className="h-6 w-6 shrink-0 rounded-full bg-gray-800" />
           )}
           <span
-            className={`text-[11px] font-bold truncate ${
+            className={`truncate text-[10px] font-bold ${
               w2 ? 'text-yellow-400' : isPlaceholder ? 'text-gray-600' : 'text-gray-300'
             }`}
           >
             {visitante?.nome || 'A definir'}
           </span>
         </div>
-        <div className="flex items-center justify-end gap-1 w-[40%] font-mono text-xs text-gray-500">
-          {!isPlaceholder && (
-            <>
-              <span className="min-w-4 text-center">{formatPlacar(p2_ida, usarDecimais)}</span>
-              {volta && <span className="text-[9px] text-gray-700">+</span>}
-              {volta && <span className="min-w-4 text-center">{formatPlacar(p2_volta, usarDecimais)}</span>}
-              <div
-                className={`ml-2 min-w-6 h-5 px-0.5 flex items-center justify-center text-[11px] font-bold text-white rounded ${
-                  w2 ? 'bg-yellow-500 text-black' : 'bg-[#242720]'
-                }`}
-              >
-                {formatPlacar(total2, usarDecimais)}
-              </div>
-            </>
-          )}
-        </div>
+        <span className="text-center font-mono text-xs font-bold text-gray-300">{!isPlaceholder ? formatPlacar(p2_ida, usarDecimais) : ''}</span>
+        <span className="text-center text-[8px] text-gray-700">{volta ? '+' : ''}</span>
+        <span className="text-center font-mono text-xs font-bold text-gray-300">{volta ? formatPlacar(p2_volta, usarDecimais) : ''}</span>
+        {!isPlaceholder ? <span className={`flex h-7 items-center justify-center rounded-md font-mono text-sm font-black ${w2 ? 'bg-yellow-500 text-black' : 'border border-white/[0.07] bg-white/[0.045] text-white'}`}>{formatPlacar(total2, usarDecimais)}</span> : <span />}
       </div>
 
-      {isPenalts && (
-        <div className="absolute right-1 top-1/2 -translate-y-1/2 bg-yellow-600 text-black text-[8px] font-black px-1.5 py-0.5 rounded z-20 shadow-sm">
-          PEN
-        </div>
-      )}
-
-      {temDesempate && (
-        <div className="absolute right-1 top-1/2 -translate-y-1/2 bg-yellow-500 text-black text-[8px] font-bold px-1.5 py-0.5 rounded z-20 shadow-sm flex flex-col items-center leading-tight">
-          <span>EXTRA</span>
-          <span>
-            {desempateC} x {desempateV}
-          </span>
-        </div>
-      )}
+      <div className={`flex h-7 items-center justify-between border-t px-3 text-[7px] font-bold uppercase tracking-[0.08em] ${temDesempate ? 'border-yellow-500/20 bg-yellow-500/[0.06]' : isPenalts ? 'border-yellow-500/15 bg-yellow-500/[0.035]' : 'border-white/[0.045] bg-black/10'}`}>
+        {temDesempate ? (
+          <>
+            <span className="flex items-center gap-1.5 text-yellow-500"><span className="h-1.5 w-1.5 rounded-full bg-yellow-500" /> Jogo de desempate</span>
+            <span className="flex items-center gap-1.5 font-mono text-xs font-black tracking-normal text-white"><span className={w1 ? 'text-yellow-500' : ''}>{formatPlacar(placarDesempate1, usarDecimais)}</span><span className="text-gray-700">×</span><span className={w2 ? 'text-yellow-500' : ''}>{formatPlacar(placarDesempate2, usarDecimais)}</span></span>
+          </>
+        ) : isPenalts ? (
+          <><span className="text-yellow-500">Desempate necessário</span><span className="text-gray-600">Agregado igual</span></>
+        ) : (
+          <><span className={emAndamento ? 'text-green-400' : 'text-gray-700'}>{emAndamento ? 'Parcial em andamento' : finalizado ? 'Resultado confirmado' : 'Aguardando resultado'}</span><span className="text-gray-700">{volta ? 'Ida e volta' : 'Jogo único'}</span></>
+        )}
+      </div>
 
       {isFinal && (
         <div className="absolute top-2 right-2 text-yellow-500">

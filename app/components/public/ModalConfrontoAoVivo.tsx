@@ -33,44 +33,47 @@ export default function ModalConfrontoAoVivo({ jogo, onClose }: Props) {
   const handleContentClick = (e: React.MouseEvent) => e.stopPropagation();
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-md p-0 md:p-6" onClick={onClose}>
-      <div className="bg-[#0a0a0a] border-0 md:border md:border-gray-800 rounded-none md:rounded-3xl w-full max-w-7xl h-full md:h-[90vh] overflow-hidden flex flex-col shadow-2xl animate-fadeIn relative" onClick={handleContentClick}>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 p-0 backdrop-blur-lg md:p-5" onClick={onClose}>
+      <div className="relative flex h-full w-full max-w-[1180px] animate-fadeIn flex-col overflow-hidden rounded-none border-0 bg-[#090a09] shadow-[0_35px_120px_rgba(0,0,0,0.75)] md:h-[92vh] md:rounded-3xl md:border md:border-white/[0.1]" onClick={handleContentClick}>
         
-        <div className="bg-[#121212] border-b border-gray-800 p-4 flex justify-between items-center shrink-0 z-[110] sticky top-0">
-          <h3 className="text-white font-black uppercase tracking-widest text-xs md:text-sm flex items-center gap-2">
-            <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span> Análise Tática (Rod. {jogo.rodada})
-          </h3>
-          <div className="flex gap-2 md:gap-4 items-center">
+        <header className="z-[110] flex shrink-0 items-center justify-between border-b border-white/[0.08] bg-[#131513] px-4 py-3.5 md:px-6">
+          <div>
+            <div className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.14em] text-green-400"><span className="h-2 w-2 animate-pulse rounded-full bg-green-400" /> Parcial em andamento</div>
+            <h2 className="mt-0.5 text-sm font-black tracking-[-0.015em] text-white md:text-base">Central do confronto <span className="font-medium text-gray-600">· Rodada {jogo.rodada}</span></h2>
+          </div>
+          <div className="flex items-center gap-2">
             {/* BOTÃO TOGGLE CAMPINHO/LISTA */}
             <button 
                 onClick={() => setViewMode(prev => prev === 'pitch' ? 'list' : 'pitch')} 
-                className="flex items-center gap-2 bg-[#151515] hover:bg-gray-800 border border-gray-700 px-2 md:px-3 py-1.5 rounded-lg text-[10px] md:text-xs text-gray-300 font-bold transition"
+                className="flex items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.035] px-2.5 py-2 text-[9px] font-bold uppercase tracking-[0.08em] text-gray-300 transition hover:bg-white/[0.07] hover:text-white md:px-3"
             >
                 {viewMode === 'pitch' ? <List size={14} /> : <LayoutGrid size={14} />}
                 <span className="hidden sm:inline">{viewMode === 'pitch' ? 'Ver Lista' : 'Ver Campo'}</span>
             </button>
             
-            <button onClick={carregarDetalhes} className="flex items-center gap-2 bg-black border border-gray-800 px-2 md:px-3 py-1.5 rounded-lg text-[10px] md:text-xs text-gray-400 font-bold hover:text-white transition">
+            <button onClick={carregarDetalhes} className="flex items-center gap-2 rounded-lg border border-white/[0.08] bg-[#090a09] px-2.5 py-2 text-[9px] font-bold uppercase tracking-[0.08em] text-gray-400 transition hover:text-white md:px-3">
               <RefreshCw size={14} className={loading ? "animate-spin" : ""} /> <span className="hidden sm:inline">Atualizar</span>
             </button>
             
-            <button onClick={onClose} className="text-gray-500 hover:text-red-500 transition bg-black p-1.5 rounded-lg border border-gray-800">
+            <button onClick={onClose} aria-label="Fechar confronto" className="rounded-lg border border-white/[0.08] bg-[#090a09] p-1.5 text-gray-500 transition hover:border-red-500/30 hover:text-red-400">
               <X size={18} />
             </button>
           </div>
-        </div>
+        </header>
 
-        <div className="overflow-y-auto p-4 md:p-6 custom-scrollbar flex-1 relative bg-[url('/bg-grid.svg')] bg-repeat">
+        <div className="custom-scrollbar relative flex-1 overflow-y-auto bg-[radial-gradient(circle_at_50%_0%,rgba(234,179,8,0.035),transparent_34%)] p-4 md:p-6">
           {loading ? (
             <div className="flex flex-col items-center justify-center h-64 text-gray-500 gap-4">
-              <RefreshCw size={32} className="animate-spin text-blue-500" />
+              <RefreshCw size={28} className="animate-spin text-yellow-500" />
               <p className="font-bold text-[10px] uppercase tracking-widest text-center">Processando dados oficiais...</p>
             </div>
           ) : dados ? (
-            <div className="flex flex-col lg:flex-row gap-12 lg:gap-10 max-w-7xl mx-auto pb-8 md:pb-0 h-auto">
-              <TeamColumn team={dados.casa} placar={jogo.placar_casa} isCasa={true} title="Mandante" viewMode={viewMode} />
-              <div className="hidden lg:flex w-px bg-gradient-to-b from-transparent via-gray-800 to-transparent shrink-0"></div>
-              <TeamColumn team={dados.visitante} placar={jogo.placar_visitante} isCasa={false} title="Visitante" viewMode={viewMode} />
+            <div className="mx-auto max-w-[1080px] pb-8">
+              <MatchScoreHero casa={dados.casa} visitante={dados.visitante} placarCasa={jogo.placar_casa} placarVisitante={jogo.placar_visitante} />
+              <div className={`mt-5 grid lg:grid-cols-2 lg:gap-6 ${viewMode === 'list' ? 'grid-cols-2 gap-2.5' : 'grid-cols-1 gap-8'}`}>
+                <TeamColumn team={dados.casa} isCasa={true} viewMode={viewMode} />
+                <TeamColumn team={dados.visitante} isCasa={false} viewMode={viewMode} />
+              </div>
             </div>
           ) : (
             <div className="text-center text-gray-500 py-20 font-bold uppercase text-xs tracking-widest">Erro ao carregar dados da rodada.</div>
@@ -78,6 +81,30 @@ export default function ModalConfrontoAoVivo({ jogo, onClose }: Props) {
         </div>
       </div>
     </div>
+  );
+}
+
+function MatchScoreHero({ casa, visitante, placarCasa, placarVisitante }: { casa: any, visitante: any, placarCasa: number, placarVisitante: number }) {
+  const scoreCasa = placarCasa !== undefined && placarCasa !== null ? Math.trunc(placarCasa) : Math.trunc(casa.pontos || 0);
+  const scoreVisitante = placarVisitante !== undefined && placarVisitante !== null ? Math.trunc(placarVisitante) : Math.trunc(visitante.pontos || 0);
+
+  return (
+    <section className="overflow-hidden rounded-2xl border border-white/[0.08] bg-[#121412]">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 px-4 py-4 md:gap-8 md:px-8 md:py-5">
+        <div className="flex min-w-0 items-center gap-3 md:gap-4">
+          <img src={casa.escudo} className="h-11 w-11 shrink-0 object-contain md:h-14 md:w-14" alt={`Escudo ${casa.nome}`} />
+          <div className="min-w-0"><span className="text-[8px] font-bold uppercase tracking-[0.12em] text-gray-600">Mandante</span><h3 className="truncate text-xs font-black text-white md:text-base">{casa.nome}</h3></div>
+        </div>
+        <div className="flex items-center gap-2 rounded-xl border border-white/[0.08] bg-[#080908] px-3 py-2 font-mono text-2xl font-black tabular-nums text-white md:gap-3 md:px-5 md:text-3xl">
+          <span>{scoreCasa}</span><span className="text-sm text-gray-700">×</span><span>{scoreVisitante}</span>
+        </div>
+        <div className="flex min-w-0 items-center justify-end gap-3 text-right md:gap-4">
+          <div className="min-w-0"><span className="text-[8px] font-bold uppercase tracking-[0.12em] text-gray-600">Visitante</span><h3 className="truncate text-xs font-black text-white md:text-base">{visitante.nome}</h3></div>
+          <img src={visitante.escudo} className="h-11 w-11 shrink-0 object-contain md:h-14 md:w-14" alt={`Escudo ${visitante.nome}`} />
+        </div>
+      </div>
+      <div className="flex items-center justify-center gap-2 border-t border-white/[0.06] px-4 py-2 text-[8px] font-bold uppercase tracking-[0.12em] text-green-400"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-green-400" /> Pontuação parcial da rodada</div>
+    </section>
   );
 }
 
@@ -106,7 +133,7 @@ function IconSaiu({ className }: { className?: string }) {
   );
 }
 
-function TeamColumn({ team, placar, isCasa, title, viewMode }: { team: any, placar: number, isCasa: boolean, title: string, viewMode: 'pitch' | 'list' }) {
+function TeamColumn({ team, isCasa, viewMode }: { team: any, isCasa: boolean, viewMode: 'pitch' | 'list' }) {
     
     const currentPitchPlayers = team.titulares.map((t: any) => {
         const tId = String(t.id || t.atleta_id);
@@ -192,9 +219,10 @@ function TeamColumn({ team, placar, isCasa, title, viewMode }: { team: any, plac
     });
 
     return (
-        <div className="flex flex-col gap-4 md:gap-5 w-full max-w-[500px] mx-auto h-auto">
-            <div className="sticky top-0 z-[105] bg-[#0a0a0a] md:bg-transparent pb-2 -mx-2 px-2 pt-1 md:relative md:top-auto md:p-0 md:m-0">
-                <TeamScoreBoard team={team} placar={placar} isCasa={isCasa} title={title} />
+        <section className={`mx-auto flex h-auto w-full max-w-[520px] flex-col rounded-2xl border border-white/[0.07] bg-[#0e100e] md:gap-5 md:p-4 ${viewMode === 'list' ? 'gap-2 p-2' : 'gap-4 p-3'}`}>
+            <div className={`flex px-1 ${viewMode === 'list' ? 'flex-col gap-0.5' : 'items-center justify-between'}`}>
+              <span className="text-[8px] font-bold uppercase tracking-[0.11em] text-gray-500 md:text-[9px]">{isCasa ? 'Mandante' : 'Visitante'}</span>
+              <span className="text-[8px] font-medium text-gray-700">11 titulares</span>
             </div>
             
             {/* RENDER CONDICIONAL: CAMPINHO VS LISTA */}
@@ -205,28 +233,8 @@ function TeamColumn({ team, placar, isCasa, title, viewMode }: { team: any, plac
             )}
 
             <BenchList benchPlayers={activeBenchPlayers} isCasa={isCasa} />
-        </div>
+        </section>
     );
-}
-
-function TeamScoreBoard({ team, placar, isCasa, title }: { team: any, placar: number, isCasa: boolean, title: string }) {
-    const borderColor = isCasa ? 'border-blue-500/30' : 'border-red-500/30';
-    const bgGradient = isCasa ? 'from-blue-950/20 to-[#151515]' : 'from-red-950/20 to-[#151515]';
-
-    return (
-        <div className={`w-full bg-gradient-to-r ${bgGradient} border ${borderColor} rounded-2xl p-4 flex items-center justify-between shadow-lg`}>
-            <div className="flex items-center gap-3 md:gap-4 truncate">
-                <img src={team.escudo} className="w-11 h-11 md:w-14 md:h-14 object-contain drop-shadow-lg" alt="" />
-                <div className="flex flex-col truncate">
-                    <span className="text-[9px] md:text-[10px] text-gray-500 font-bold uppercase tracking-widest block mb-0.5 leading-tight">{title}</span>
-                    <h4 className="font-black text-white text-sm md:text-base uppercase tracking-wider truncate leading-none">{team.nome}</h4>
-                </div>
-            </div>
-            <div className={`text-2xl md:text-3xl font-black font-mono bg-black/60 px-5 py-2 md:py-2.5 rounded-xl border border-white/5 shadow-inner shrink-0 ${isCasa ? 'text-blue-400' : 'text-red-400'}`}>
-                {placar !== undefined && placar !== null ? Math.trunc(placar) : Math.trunc(team.pontos)}
-            </div>
-        </div>
-    )
 }
 
 function HalfField({ fieldPlayers }: { fieldPlayers: any[] }) {
@@ -237,7 +245,7 @@ function HalfField({ fieldPlayers }: { fieldPlayers: any[] }) {
   });
 
   return (
-    <div className="relative w-full aspect-[4/5] min-h-[420px] md:min-h-[450px] bg-gradient-to-b from-green-800 to-green-950 border-[4px] md:border-[5px] border-[#151515] rounded-xl overflow-hidden shadow-2xl shrink-0 animate-fadeIn">
+    <div className="relative w-full aspect-[4/5] min-h-[400px] overflow-hidden rounded-xl border-[4px] border-[#191c19] bg-gradient-to-b from-[#087036] to-[#034521] shadow-[0_18px_45px_rgba(0,0,0,0.3)] shrink-0 animate-fadeIn md:min-h-[430px]">
         <div className="absolute inset-0 border-[2px] md:border-[3px] border-white/20 m-3 rounded pointer-events-none z-0"></div>
         <div className="absolute top-0 left-0 right-0 h-[2px] md:h-[3px] bg-white/20 pointer-events-none z-0"></div>
         <div className="absolute top-0 left-1/2 w-28 h-14 md:w-36 md:h-18 border-[2px] md:border-[3px] border-white/20 rounded-b-full -translate-x-1/2 pointer-events-none z-0"></div>
@@ -367,13 +375,13 @@ function FieldList({ fieldPlayers, isCasa }: { fieldPlayers: any[], isCasa: bool
     });
 
     return (
-        <div className={`border ${borderColor} ${bgContainer} rounded-2xl p-3 md:p-4 w-full shadow-lg h-auto animate-fadeIn`}>
-            <div className="text-[9px] md:text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-3.5 flex items-center gap-2">
+        <div className={`border ${borderColor} ${bgContainer} h-auto w-full animate-fadeIn rounded-xl p-1.5 shadow-lg md:rounded-2xl md:p-4`}>
+            <div className="mb-2.5 flex items-center gap-1.5 text-[7px] font-bold uppercase tracking-[0.08em] text-gray-500 md:mb-3.5 md:gap-2 md:text-[10px] md:tracking-widest">
                 <div className="flex-1 h-px bg-gray-800"></div>
                 <span>Titulares / Entraram</span>
                 <div className="flex-1 h-px bg-gray-800"></div>
             </div>
-            <div className="flex flex-col gap-2.5">
+            <div className="flex flex-col gap-1.5 md:gap-2.5">
                 {sortedPlayers.map((atleta: any, idx: number) => (
                     <FieldPlayerCard key={`${atleta.id}-${idx}`} atleta={atleta} />
                 ))}
@@ -396,12 +404,12 @@ function FieldPlayerCard({ atleta }: { atleta: any }) {
     }
 
     return (
-        <div className="flex items-center justify-between p-2 rounded-xl border border-gray-800 bg-[#151515] hover:bg-[#1a1a1a] transition-colors gap-2">
-            <div className="flex items-center gap-3 md:gap-3.5 overflow-hidden flex-1">
+        <div className="flex items-center justify-between gap-1 rounded-lg border border-gray-800 bg-[#151515] p-1.5 transition-colors hover:bg-[#1a1a1a] md:gap-2 md:rounded-xl md:p-2">
+            <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden md:gap-3.5">
                 <div className="relative shrink-0">
                     <img 
                         src={atleta.foto} 
-                        className={`w-8 h-8 md:w-9 md:h-9 rounded-full border bg-black object-cover shadow-inner ${atleta.isSubIn ? 'border-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]' : atleta.isCapitao ? 'border-yellow-500' : atleta.isLuxo ? 'border-orange-500' : 'border-gray-700'}`} 
+                        className={`h-7 w-7 rounded-full border bg-black object-cover shadow-inner md:h-9 md:w-9 ${atleta.isSubIn ? 'border-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]' : atleta.isCapitao ? 'border-yellow-500' : atleta.isLuxo ? 'border-orange-500' : 'border-gray-700'}`}
                         alt="" 
                     />
                     
@@ -418,17 +426,17 @@ function FieldPlayerCard({ atleta }: { atleta: any }) {
 
                 <div className="flex flex-col truncate flex-1">
                     <div className="flex items-center gap-1.5 truncate">
-                        <span className="text-[9px] md:text-[10px] font-black uppercase truncate leading-tight text-gray-200">{atleta.nome}</span>
+                        <span className="truncate text-[7px] font-black uppercase leading-tight text-gray-200 md:text-[10px]">{atleta.nome}</span>
                         {atleta.isCapitao && <span className="text-[7px] font-black text-yellow-400 bg-yellow-950 px-1 py-0.5 rounded border border-yellow-500/30">C</span>}
                         {atleta.isLuxo && <span className="text-[7px] font-black text-orange-400 bg-orange-950/40 px-1 py-0.5 rounded border border-orange-500/30">LUXO</span>}
                     </div>
-                    <span className="text-[8px] text-gray-500 uppercase mt-1 leading-none">
+                    <span className="mt-0.5 truncate text-[6px] uppercase leading-none text-gray-500 md:mt-1 md:text-[8px]">
                         {atleta.posicao} {atleta.isSubIn && <span className="text-green-500 font-bold ml-1">ENTROU</span>}
                     </span>
                 </div>
             </div>
             
-            <div className="flex flex-col items-end justify-center shrink-0 ml-1 bg-black/40 px-2.5 py-1 rounded-lg border border-gray-800">
+            <div className="ml-0.5 flex shrink-0 flex-col items-end justify-center rounded-md border border-gray-800 bg-black/40 px-1.5 py-1 md:ml-1 md:rounded-lg md:px-2.5">
                 {isDNP && !atleta.isSubIn ? (
                     <span className="text-[11px] md:text-xs font-black font-mono text-gray-500">-</span>
                 ) : atleta.isCapitao ? (
@@ -453,13 +461,13 @@ function BenchList({ benchPlayers, isCasa }: { benchPlayers: any[], isCasa: bool
     const bgContainer = isCasa ? 'bg-blue-950/5' : 'bg-red-950/5';
 
     return (
-        <div className={`border ${borderColor} ${bgContainer} rounded-2xl p-3 md:p-4 w-full shadow-lg h-auto`}>
-            <div className="text-[9px] md:text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-3.5 flex items-center gap-2">
+        <div className={`border ${borderColor} ${bgContainer} h-auto w-full rounded-xl p-1.5 shadow-lg md:rounded-2xl md:p-4`}>
+            <div className="mb-2.5 flex items-center gap-1.5 text-[7px] font-bold uppercase tracking-[0.08em] text-gray-500 md:mb-3.5 md:gap-2 md:text-[10px] md:tracking-widest">
                 <div className="flex-1 h-px bg-gray-800"></div>
                 <span>Banco / Substituídos</span>
                 <div className="flex-1 h-px bg-gray-800"></div>
             </div>
-            <div className="flex flex-col gap-2.5">
+            <div className="flex flex-col gap-1.5 md:gap-2.5">
                 {benchPlayers.map((atleta: any) => (
                     <BenchPlayerCard key={atleta.id} atleta={atleta} />
                 ))}
@@ -484,10 +492,10 @@ function BenchPlayerCard({ atleta }: { atleta: any }) {
     }
 
     return (
-        <div className={`flex items-center justify-between p-2 rounded-xl border border-gray-800 bg-[#151515] hover:bg-[#1a1a1a] transition-colors gap-2 ${isSubOut ? 'opacity-75' : ''}`}>
-            <div className="flex items-center gap-3 md:gap-3.5 overflow-hidden flex-1">
+        <div className={`flex items-center justify-between gap-1 rounded-lg border border-gray-800 bg-[#151515] p-1.5 transition-colors hover:bg-[#1a1a1a] md:gap-2 md:rounded-xl md:p-2 ${isSubOut ? 'opacity-75' : ''}`}>
+            <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden md:gap-3.5">
                 <div className="relative shrink-0">
-                    <img src={atleta.foto} className={`w-8 h-8 md:w-9 md:h-9 rounded-full border bg-black object-cover shadow-inner ${isSubOut ? 'border-red-500 shadow-[0_0_8px_rgba(239,68,68,0.4)]' : 'border-gray-700'}`} alt="" />
+                    <img src={atleta.foto} className={`h-7 w-7 rounded-full border bg-black object-cover shadow-inner md:h-9 md:w-9 ${isSubOut ? 'border-red-500 shadow-[0_0_8px_rgba(239,68,68,0.4)]' : 'border-gray-700'}`} alt="" />
                     
                     {isSubOut && (
                         <IconSaiu className="absolute -top-1 -left-1 w-4 h-4 z-10" />
@@ -502,17 +510,17 @@ function BenchPlayerCard({ atleta }: { atleta: any }) {
 
                 <div className="flex flex-col truncate flex-1">
                     <div className="flex items-center gap-1.5 truncate">
-                        <span className={`text-[9px] md:text-[10px] font-black uppercase truncate leading-tight ${isSubOut ? 'text-gray-400' : 'text-gray-200'}`}>{atleta.nome}</span>
+                        <span className={`truncate text-[7px] font-black uppercase leading-tight md:text-[10px] ${isSubOut ? 'text-gray-400' : 'text-gray-200'}`}>{atleta.nome}</span>
                         {!isSubOut && atleta.isCapitao && <span className="text-[7px] font-black text-yellow-400 bg-yellow-950 px-1 py-0.5 rounded border border-yellow-500/30">C</span>}
                         {!isSubOut && atleta.isLuxo && <span className="text-[7px] font-black text-orange-400 bg-orange-950/40 px-1 py-0.5 rounded border border-orange-500/30">LUXO</span>}
                     </div>
-                    <span className="text-[8px] text-gray-500 uppercase mt-1 leading-none">
+                    <span className="mt-0.5 truncate text-[6px] uppercase leading-none text-gray-500 md:mt-1 md:text-[8px]">
                         {atleta.posicao} {isSubOut && <span className="text-red-500 font-bold ml-1">SAIU</span>}
                     </span>
                 </div>
             </div>
             
-            <div className={`flex flex-col items-end justify-center shrink-0 ml-1 bg-black/40 px-2.5 py-1 rounded-lg border border-gray-800`}>
+            <div className="ml-0.5 flex shrink-0 flex-col items-end justify-center rounded-md border border-gray-800 bg-black/40 px-1.5 py-1 md:ml-1 md:rounded-lg md:px-2.5">
                 {showDash ? (
                     <span className={`text-[11px] md:text-xs font-black font-mono text-gray-500 ${isSubOut ? 'line-through' : ''}`}>-</span>
                 ) : atleta.isCapitao ? (

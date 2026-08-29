@@ -425,13 +425,10 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
         )}
       </div>
 
-      <div className="lg:col-span-4 space-y-4 lg:sticky lg:top-24">
-        <div className="bg-[#121212] border border-white/[0.07] rounded-2xl md:rounded-3xl p-4 md:p-5 shadow-xl">
-          <div className="flex justify-between items-center mb-4">
-            <span className="text-xs font-black text-white uppercase tracking-widest flex items-center gap-2">
-              <span className="w-1.5 h-1.5 bg-yellow-500 rounded-sm"></span>{" "}
-              Jogos
-            </span>
+      <aside className="space-y-4 lg:col-span-4 lg:sticky lg:top-24">
+        <section className="overflow-hidden rounded-2xl border border-white/[0.07] bg-[#101210] shadow-[0_24px_70px_rgba(0,0,0,0.25)] md:rounded-3xl">
+          <div className="flex items-center justify-between border-b border-white/[0.07] bg-[#141714] px-4 py-4 md:px-5">
+            <div><span className="text-[9px] font-bold uppercase tracking-[0.16em] text-yellow-500">Rodada {rodadaView}</span><h2 className="mt-0.5 text-sm font-black tracking-[-0.015em] text-white">Jogos da fase de grupos</h2></div>
             <div className="flex items-center gap-1 bg-black p-1 rounded-lg border border-gray-800">
               <button
                 onClick={() => setRodadaView((r) => Math.max(1, r - 1))}
@@ -453,17 +450,19 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
             </div>
           </div>
 
-          <button
+          <div className="p-4 md:p-5"><button
             onClick={toggleAoVivo}
             disabled={loadingLive}
-            className={`w-full py-3 mb-4 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg flex items-center justify-center gap-2
-              ${modoAoVivo ? "bg-red-500/10 text-red-500 border border-red-500/50 hover:bg-red-500/20" : "bg-yellow-500 text-black border border-yellow-400 hover:bg-yellow-400"}
+            className={`mb-4 flex w-full items-center justify-center gap-2 rounded-lg border py-3 text-[9px] font-black uppercase tracking-[0.12em] transition-all active:scale-[0.99]
+              ${modoAoVivo ? "border-white/[0.08] bg-white/[0.035] text-gray-300 hover:bg-white/[0.07]" : "border-yellow-500 bg-yellow-500 text-black hover:bg-yellow-400"}
             `}
           >
-            {loadingLive ? "Carregando..." : modoAoVivo ? "Parar Simulação" : "Ver Parciais Ao Vivo"}
+            {loadingLive ? "Atualizando parciais..." : modoAoVivo ? "Encerrar acompanhamento" : "Ver parciais ao vivo"}
           </button>
 
-          <div className="space-y-3">
+          {modoAoVivo && <div className="mb-4 flex items-center gap-2 rounded-lg border border-green-500/15 bg-green-500/[0.045] px-3 py-2.5 text-[9px] font-bold uppercase tracking-[0.1em] text-green-400"><span className="h-2 w-2 animate-pulse rounded-full bg-green-400" /> Parciais ativadas</div>}
+
+          <div className="space-y-2.5">
             {jogosDaRodada.length === 0 && (
               <div className="text-center text-gray-600 text-[10px] py-4">
                 Sem jogos nesta rodada.
@@ -483,66 +482,45 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
 
               const vCasa = temResultado && c > v;
               const vVis = temResultado && v > c;
-              const empate = temResultado && c === v;
-
               return (
                 <div
                   key={j.id}
                   onClick={() => setJogoSelecionado(j)}
-                  className={`
-                    cursor-pointer bg-[#151515] border rounded-xl p-4 transition-all relative overflow-hidden hover:border-yellow-500/35 hover:bg-[#1a1a1a]
-                    ${parcial ? "border-green-500/40 shadow-[0_0_10px_rgba(34,197,94,0.1)]" : "border-gray-800/60"}
-                  `}
+                  className="group relative cursor-pointer overflow-hidden rounded-xl border border-white/[0.07] bg-[#090a09] transition-all hover:border-yellow-500/35 hover:bg-[#0d0f0d] active:scale-[0.995]"
                 >
-                  {parcial ? (
-                    <div className="absolute top-2 right-2 flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse shadow-[0_0_6px_rgba(34,197,94,0.8)]"></span>
-                      <span className="text-[8px] font-bold text-green-500 uppercase tracking-wider">Live</span>
-                    </div>
-                  ) : (
-                    finalizado && <div className="absolute top-2 right-2 w-1.5 h-1.5 bg-gray-600 rounded-full"></div>
-                  )}
-
-                  <div className="grid grid-cols-[1fr_auto_1fr] gap-4 items-center">
-                    <div className="flex flex-col items-end gap-1.5 overflow-hidden">
+                  <div className="px-3.5 py-3">
+                    <div className={`grid grid-cols-[3px_30px_minmax(0,1fr)_auto] items-center gap-2.5 rounded-lg px-1 py-1.5 ${vCasa ? 'bg-white/[0.025]' : ''}`}>
+                      <span className={`h-5 w-[3px] rounded-full ${vCasa ? 'bg-yellow-500' : 'bg-transparent'}`} />
                       <img
                         src={casa?.escudo || "/shield-placeholder.png"}
-                        className={`w-8 h-8 object-contain drop-shadow-md ${!vCasa && temResultado && !empate ? "opacity-60 grayscale" : ""}`}
+                        className="h-8 w-8 shrink-0 object-contain"
                         alt={`Escudo do ${casa?.nome || 'mandante'}`}
                       />
-                      <span className={`text-[10px] font-bold text-right leading-tight w-full truncate ${vCasa ? "text-green-400" : "text-gray-400"}`}>
+                      <span className={`min-w-0 whitespace-normal break-words text-[11px] font-bold leading-tight ${vCasa ? 'text-white' : 'text-gray-400'}`}>
                         {casa?.nome || "Mandante"}
                       </span>
+                      <span className={`min-w-11 rounded-md bg-white/[0.035] px-2 py-1 text-center font-mono text-base font-black tabular-nums ${vCasa ? 'text-white' : 'text-gray-300'}`}>{j.placar_casa !== undefined ? Math.trunc(j.placar_casa) : '–'}</span>
                     </div>
-
-                    <div
-                      className={`
-                        flex items-center justify-center gap-2 px-3 py-1.5 rounded-lg border font-mono font-black text-sm w-auto min-w-[80px] shadow-inner
-                        ${parcial ? "bg-green-900/10 border-green-900/40 text-green-400" : temResultado ? "bg-black/40 border-gray-700 text-white" : "bg-black/20 border-gray-800 text-gray-600"}
-                      `}
-                    >
-                      <span className={vCasa ? "text-green-400" : ""}>{j.placar_casa !== undefined ? Math.trunc(j.placar_casa) : "-"}</span>
-                      <span className={`text-[10px] ${parcial ? "text-green-600" : "text-gray-700"}`}>✕</span>
-                      <span className={vVis ? "text-green-400" : ""}>{j.placar_visitante !== undefined ? Math.trunc(j.placar_visitante) : "-"}</span>
-                    </div>
-
-                    <div className="flex flex-col items-start gap-1.5 overflow-hidden">
+                    <div className={`grid grid-cols-[3px_30px_minmax(0,1fr)_auto] items-center gap-2.5 rounded-lg px-1 py-1.5 ${vVis ? 'bg-white/[0.025]' : ''}`}>
+                      <span className={`h-5 w-[3px] rounded-full ${vVis ? 'bg-yellow-500' : 'bg-transparent'}`} />
                       <img
                         src={visitante?.escudo || "/shield-placeholder.png"}
-                        className={`w-8 h-8 object-contain drop-shadow-md ${!vVis && temResultado && !empate ? "opacity-60 grayscale" : ""}`}
+                        className="h-8 w-8 shrink-0 object-contain"
                         alt={`Escudo do ${visitante?.nome || 'visitante'}`}
                       />
-                      <span className={`text-[10px] font-bold text-left leading-tight w-full truncate ${vVis ? "text-green-400" : "text-gray-400"}`}>
+                      <span className={`min-w-0 whitespace-normal break-words text-[11px] font-bold leading-tight ${vVis ? 'text-white' : 'text-gray-400'}`}>
                         {visitante?.nome || "Visitante"}
                       </span>
+                      <span className={`min-w-11 rounded-md bg-white/[0.035] px-2 py-1 text-center font-mono text-base font-black tabular-nums ${vVis ? 'text-white' : 'text-gray-300'}`}>{j.placar_visitante !== undefined ? Math.trunc(j.placar_visitante) : '–'}</span>
                     </div>
                   </div>
+                  <div className="flex items-center justify-between border-t border-white/[0.055] px-4 py-2 text-[8px] font-bold uppercase tracking-[0.1em]"><span className={parcial ? 'flex items-center gap-1.5 text-green-400' : 'text-gray-600'}>{parcial && <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-green-400" />}{parcial ? 'Parcial em andamento' : finalizado ? 'Resultado final' : 'Partida agendada'}</span><span className="text-gray-700 transition-colors group-hover:text-yellow-500">Ver confronto →</span></div>
                 </div>
               );
             })}
-          </div>
-        </div>
-      </div>
+          </div></div>
+        </section>
+      </aside>
       
       {jogoSelecionado && (
           <ModalConfrontoAoVivo 

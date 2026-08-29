@@ -410,7 +410,7 @@ export default function PainelFaseGrupos({ campeonatoId, times = [] }: Props) {
   }
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 animate-fadeIn items-start pb-20">
+    <div className="grid grid-cols-1 gap-5 animate-fadeIn items-start pb-16 xl:grid-cols-[minmax(0,1fr)_390px]">
       <ModalConfirmacao 
           isOpen={modalOpen} 
           onClose={() => setModalOpen(false)}
@@ -469,27 +469,27 @@ export default function PainelFaseGrupos({ campeonatoId, times = [] }: Props) {
       )}
 
       {/* LISTA DE GRUPOS */}
-      <div className="lg:col-span-2 space-y-8">
-        <div className="flex justify-between items-center bg-[#121212] p-6 rounded-3xl border border-gray-800 shadow-lg">
+      <section className="min-w-0 space-y-5">
+        <div className="flex flex-col justify-between gap-4 rounded-2xl border border-white/[0.08] bg-[#141714] p-4 sm:flex-row sm:items-center sm:p-5">
              <div className="flex items-center gap-3">
-                <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse shadow-[0_0_10px_rgba(34,197,94,0.5)]"></div>
-                <span className="text-sm font-black text-white uppercase tracking-widest">Fase de Grupos</span>
+                <div className="h-2 w-2 rounded-full bg-green-500"></div>
+                <div><h2 className="text-base font-black tracking-[-0.02em] text-white">Fase de grupos</h2><p className="mt-0.5 text-[11px] text-gray-500">{Object.keys(grupos).length} grupos · {Object.values(grupos).flat().length} clubes</p></div>
              </div>
-             <div className="flex gap-3">
-                <button onClick={() => confirm("Re-sortear", "Deseja voltar para a tela de definição de potes? Isso apagará os grupos atuais.", abrirTelaSorteio)} className="bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition">Re-sortear</button>
+             <div className="flex gap-2">
+                <button onClick={() => confirm("Re-sortear", "Deseja voltar para a tela de definição de potes? Isso apagará os grupos atuais.", abrirTelaSorteio)} className="rounded-lg border border-white/[0.08] bg-white/[0.04] px-4 py-2.5 text-[9px] font-bold uppercase tracking-[0.08em] text-gray-300 transition hover:bg-white/[0.08]">Refazer sorteio</button>
                 {jogos.length === 0 ? (
-                    <button onClick={handleGerarJogos} className="bg-green-600 hover:bg-green-500 text-white px-5 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition shadow-lg shadow-green-900/20 animate-pulse">Gerar Jogos Agora</button>
+                    <button onClick={handleGerarJogos} className="rounded-lg bg-yellow-500 px-5 py-2.5 text-[9px] font-black uppercase tracking-[0.08em] text-black transition hover:bg-yellow-400">Gerar jogos</button>
                 ) : (
-                    <button onClick={handleGerarJogos} className="bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-wider transition">Regerar Jogos</button>
+                    <button onClick={handleGerarJogos} className="rounded-lg border border-white/[0.08] bg-white/[0.04] px-4 py-2.5 text-[9px] font-bold uppercase tracking-[0.08em] text-gray-300 transition hover:bg-white/[0.08]">Regerar jogos</button>
                 )}
              </div>
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
             {Object.keys(grupos).sort().map(letra => (
-                <div key={letra} className="bg-[#0f0f0f] border border-gray-800 rounded-3xl overflow-hidden shadow-2xl flex flex-col">
-                    <div className="bg-[#151515] px-6 py-4 border-b border-gray-800 flex justify-between items-center">
-                        <span className="text-white font-black tracking-widest text-xs uppercase">Grupo {letra}</span>
+                <div key={letra} className="flex flex-col overflow-hidden rounded-2xl border border-white/[0.08] bg-[#101210] shadow-[0_18px_50px_rgba(0,0,0,0.2)]">
+                    <div className="flex items-center justify-between border-b border-white/[0.07] bg-[#141714] px-5 py-3.5">
+                        <span className="text-sm font-black text-white">Grupo {letra}</span><span className="text-[8px] font-bold uppercase tracking-[0.1em] text-gray-600">{grupos[letra].length} clubes</span>
                     </div>
                     <div className="w-full overflow-x-auto custom-scrollbar">
                         <table className="w-full text-left text-[10px]">
@@ -547,25 +547,25 @@ export default function PainelFaseGrupos({ campeonatoId, times = [] }: Props) {
                 </div>
             ))}
         </div>
-      </div>
+      </section>
 
       {/* COLUNA 2: JOGOS E CONTROLES */}
-      <div className="lg:col-span-1 space-y-6">
-         <div className="bg-[#121212] border border-gray-800 rounded-3xl p-6 sticky top-6 shadow-xl h-fit">
-            <div className="flex justify-between items-center mb-6 pb-4 border-b border-gray-800 shrink-0">
-                <h3 className="text-sm font-black text-white uppercase tracking-widest flex items-center gap-2"><Calendar className="text-orange-500 w-4 h-4" /> Jogos</h3>
+      <aside className="min-w-0">
+         <div className="h-fit overflow-hidden rounded-2xl border border-white/[0.08] bg-[#101210] shadow-[0_24px_80px_rgba(0,0,0,0.24)] xl:sticky xl:top-6">
+            <div className="flex items-center justify-between border-b border-white/[0.07] bg-[#141714] p-4 sm:p-5">
+                <div><span className="text-[9px] font-bold uppercase tracking-[0.14em] text-yellow-500">Rodada {rodadaView}</span><h3 className="mt-0.5 text-sm font-black text-white">Jogos da fase</h3></div>
                 <div className="flex items-center gap-1 bg-black p-1 rounded-lg border border-gray-800">
                     <button onClick={() => setRodadaView(r => Math.max(1, r - 1))} className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800 rounded transition disabled:opacity-30">‹</button>
-                    <span className="text-[10px] font-black px-3 text-orange-500 uppercase tracking-widest">R{rodadaView}</span>
+                    <span className="text-[10px] font-black px-3 text-yellow-500 uppercase tracking-widest">R{rodadaView}</span>
                     <button onClick={() => setRodadaView(r => Math.min(totalRodadas, r + 1))} className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-800 rounded transition disabled:opacity-30">›</button>
                 </div>
             </div>
 
             {/* BARRA DE CONTROLE: ATUALIZAR / SALVAR */}
-            {!isPreviewMode ? (
-                <div className="flex gap-2 mb-6 shrink-0">
-                    <input type="number" placeholder="Rodada Cartola" className="flex-1 bg-black border border-gray-800 text-white text-[11px] font-bold p-3 rounded-lg focus:border-blue-500 outline-none transition" value={rodadaCartola} onChange={e => setRodadaCartola(e.target.value)} />
-                    <button onClick={handleBuscarPrevia} disabled={loading} className="bg-blue-600 hover:bg-blue-500 text-white px-4 rounded-lg text-[10px] font-bold uppercase transition disabled:opacity-50 flex items-center justify-center min-w-[100px]">
+            <div className="p-4 sm:p-5">{!isPreviewMode ? (
+                <div className="flex gap-2 mb-5 shrink-0">
+                    <input type="number" placeholder="Rodada do Cartola" className="min-w-0 flex-1 rounded-lg border border-white/[0.08] bg-[#080908] p-3 text-[11px] font-bold text-white outline-none transition focus:border-yellow-500/60" value={rodadaCartola} onChange={e => setRodadaCartola(e.target.value)} />
+                    <button onClick={handleBuscarPrevia} disabled={loading} className="flex min-w-[92px] items-center justify-center rounded-lg bg-yellow-500 px-4 text-[9px] font-black uppercase text-black transition hover:bg-yellow-400 disabled:opacity-50">
                         {loading ? <RefreshCw className="animate-spin w-4 h-4"/> : 'Atualizar'}
                     </button>
                 </div>
@@ -578,7 +578,7 @@ export default function PainelFaseGrupos({ campeonatoId, times = [] }: Props) {
                 </div>
             )}
             
-            <div className="space-y-3 max-h-[600px] overflow-y-auto custom-scrollbar pr-1">
+            <div className="space-y-2.5">
                 {jogosDaRodada.length === 0 && <div className="text-center text-gray-600 text-xs py-10 border border-dashed border-gray-800 rounded-xl">Sem jogos.</div>}
                 
                 {jogosDaRodada.map(j => {
@@ -600,37 +600,27 @@ export default function PainelFaseGrupos({ campeonatoId, times = [] }: Props) {
                     const vVenceu = finalizado && Number(placarV) > Number(placarC);
                     
                     return (
-                    <div key={j.id} onClick={() => !isPreviewMode && abrirModalEdicao(j)} className={`border p-4 rounded-xl transition group relative overflow-hidden ${isPreviewCurrent ? 'bg-yellow-500/5 border-yellow-500/50 cursor-default' : 'bg-black/40 border-gray-800/50 cursor-pointer hover:border-orange-500/50 hover:bg-white/[0.02]'}`}>
-                        
-                        {isPreviewCurrent ? (
-                            <div className="absolute top-0 right-0 w-2 h-2 bg-yellow-500 rounded-bl-lg animate-pulse"></div>
-                        ) : (
-                            finalizado && <div className="absolute top-0 right-0 w-2 h-2 bg-green-500 rounded-bl-lg"></div>
-                        )}
-
-                        <div className="flex justify-between items-center text-xs mt-1">
-                            <div className="flex items-center justify-end gap-3 w-[40%]">
-                                <span className={`text-[10px] font-bold text-right leading-tight ${cVenceu ? 'text-green-400' : 'text-gray-400'}`}>{casa?.nome || 'Time'}</span>
-                                <img src={casa?.escudo || '/shield-placeholder.png'} className="w-8 h-8 object-contain drop-shadow-md" />
+                    <div key={j.id} onClick={() => !isPreviewMode && abrirModalEdicao(j)} className={`group relative overflow-hidden rounded-xl border bg-[#090a09] transition ${isPreviewCurrent ? 'cursor-default border-yellow-500/35' : 'cursor-pointer border-white/[0.07] hover:border-yellow-500/35 hover:bg-[#0d0f0d]'}`}>
+                        <div className="px-3.5 py-3">
+                            <div className={`grid grid-cols-[3px_28px_minmax(0,1fr)_auto] items-center gap-2.5 rounded-lg px-1 py-1.5 ${cVenceu ? 'bg-white/[0.025]' : ''}`}>
+                                <span className={`h-5 w-[3px] rounded-full ${cVenceu ? 'bg-yellow-500' : 'bg-transparent'}`} />
+                                <img src={casa?.escudo || '/shield-placeholder.png'} className="h-7 w-7 shrink-0 object-contain" alt={`Escudo ${casa?.nome || 'mandante'}`} />
+                                <span className={`min-w-0 whitespace-normal break-words text-[11px] font-bold leading-tight ${cVenceu ? 'text-white' : 'text-gray-400'}`}>{casa?.nome || 'Time'}</span>
+                                <span className={`min-w-10 rounded-md px-2 py-1 text-center font-mono text-base font-black ${isPreviewCurrent ? 'bg-yellow-500/10 text-yellow-400' : 'bg-white/[0.035] text-white'}`}>{placarC ?? '–'}</span>
                             </div>
-                            
-                            <div className={`border px-2 py-1.5 rounded-lg text-sm font-black font-mono flex items-center justify-center min-w-[50px] 
-                                ${isPreviewCurrent ? 'bg-yellow-500/10 border-yellow-500/30 text-yellow-500' : finalizado ? 'bg-[#151515] border-gray-800' : 'bg-[#0a0a0a] border-gray-800 text-gray-600'}`}>
-                                <span className={cVenceu ? 'text-green-400' : isPreviewCurrent ? 'text-yellow-500' : 'text-white'}>{placarC ?? '-'}</span>
-                                <span className="text-gray-700 mx-1">:</span>
-                                <span className={vVenceu ? 'text-green-400' : isPreviewCurrent ? 'text-yellow-500' : 'text-white'}>{placarV ?? '-'}</span>
-                            </div>
-
-                            <div className="flex items-center justify-start gap-3 w-[40%]">
-                                <img src={visitante?.escudo || '/shield-placeholder.png'} className="w-8 h-8 object-contain drop-shadow-md" />
-                                <span className={`text-[10px] font-bold text-left leading-tight ${vVenceu ? 'text-green-400' : 'text-gray-400'}`}>{visitante?.nome || 'Time'}</span>
+                            <div className={`grid grid-cols-[3px_28px_minmax(0,1fr)_auto] items-center gap-2.5 rounded-lg px-1 py-1.5 ${vVenceu ? 'bg-white/[0.025]' : ''}`}>
+                                <span className={`h-5 w-[3px] rounded-full ${vVenceu ? 'bg-yellow-500' : 'bg-transparent'}`} />
+                                <img src={visitante?.escudo || '/shield-placeholder.png'} className="h-7 w-7 shrink-0 object-contain" alt={`Escudo ${visitante?.nome || 'visitante'}`} />
+                                <span className={`min-w-0 whitespace-normal break-words text-[11px] font-bold leading-tight ${vVenceu ? 'text-white' : 'text-gray-400'}`}>{visitante?.nome || 'Time'}</span>
+                                <span className={`min-w-10 rounded-md px-2 py-1 text-center font-mono text-base font-black ${isPreviewCurrent ? 'bg-yellow-500/10 text-yellow-400' : 'bg-white/[0.035] text-white'}`}>{placarV ?? '–'}</span>
                             </div>
                         </div>
+                        <div className="flex items-center justify-between border-t border-white/[0.055] px-4 py-2 text-[8px] font-bold uppercase tracking-[0.1em]"><span className={isPreviewCurrent ? 'text-yellow-500' : 'text-gray-600'}>{isPreviewCurrent ? 'Prévia carregada' : finalizado ? 'Resultado final' : 'Partida agendada'}</span><span className="text-gray-700 transition-colors group-hover:text-yellow-500">{isPreviewMode ? 'Revisar resultado' : 'Editar placar →'}</span></div>
                     </div>
                 )})}
             </div>
-         </div>
-      </div>
+         </div></div>
+      </aside>
     </div>
   )
 }

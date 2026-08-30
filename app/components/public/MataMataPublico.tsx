@@ -63,8 +63,14 @@ export default function MataMataPublico({
     if (!modoAoVivo) {
       setLoadingLive(true);
       try {
-        const pendentes = partidasRaw
-          .filter((j) => j.status !== "finalizado" && j.status !== "bye")
+        const todosPendentes = partidasRaw.filter(
+          (j) => j.status !== "finalizado" && j.status !== "bye"
+        );
+        const rodadaPendenteAtual = todosPendentes.length > 0
+          ? Math.min(...todosPendentes.map((j) => j.rodada))
+          : null;
+        const pendentes = todosPendentes
+          .filter((j) => j.rodada === rodadaPendenteAtual)
           .map((j) => ({
             ...j,
             rodada: j.rodada_cartola,

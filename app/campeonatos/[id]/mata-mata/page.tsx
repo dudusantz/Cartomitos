@@ -72,7 +72,11 @@ export default function PaginaMataMataPublica() {
     setLoadingLive(true)
     
     // Busca parciais apenas dos jogos não finalizados
-    const jogosParaAtualizar = partidasOriginais.filter(j => j.status !== 'finalizado' && j.status !== 'bye')
+    const todosPendentes = partidasOriginais.filter(j => j.status !== 'finalizado' && j.status !== 'bye')
+    const rodadaPendenteAtual = todosPendentes.length > 0
+      ? Math.min(...todosPendentes.map(j => j.rodada))
+      : null
+    const jogosParaAtualizar = todosPendentes.filter(j => j.rodada === rodadaPendenteAtual)
     
     if (jogosParaAtualizar.length === 0) {
         // Se não tem jogos rolando, ativa o modo visual mas sem request

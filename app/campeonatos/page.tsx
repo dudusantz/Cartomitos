@@ -2,7 +2,7 @@
 
 import { listarCampeonatos } from '@/app/actions'
 import Link from 'next/link'
-import { Trophy, Calendar, DollarSign, Lock } from 'lucide-react'
+import { Trophy, Calendar, DollarSign, Lock, Radio, Archive } from 'lucide-react'
 import { useState, useEffect } from 'react'
 
 // Função auxiliar para gerar a URL amigável
@@ -39,6 +39,25 @@ export default function CampeonatosPage() {
       if (visualizacao === 'pagas') return ehPaga;
       return !ehPaga; // Se a aba for oficiais, retorna as que NÃO são pagas
   });
+
+  const secoesCampeonatos = [
+    {
+      id: 'andamento',
+      titulo: 'Em andamento',
+      descricao: 'Competições abertas com jogos e classificações em atualização.',
+      icone: Radio,
+      itens: campeonatosFiltrados.filter(c => c.ativo),
+      destaque: true,
+    },
+    {
+      id: 'finalizados',
+      titulo: 'Finalizados',
+      descricao: 'Campeonatos encerrados disponíveis para consulta de resultados.',
+      icone: Archive,
+      itens: campeonatosFiltrados.filter(c => !c.ativo),
+      destaque: false,
+    },
+  ];
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-7 md:p-10 animate-fadeIn min-h-screen">
@@ -93,8 +112,30 @@ export default function CampeonatosPage() {
                 <p className="text-gray-500 text-sm">Em breve novos campeonatos estarão disponíveis.</p>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {campeonatosFiltrados.map((camp: any) => {
+                <div className="space-y-12 md:space-y-16">
+                {secoesCampeonatos.map((secao) => {
+                  if (secao.itens.length === 0) return null
+                  const IconeSecao = secao.icone
+
+                  return (
+                  <section key={secao.id} aria-labelledby={`titulo-${secao.id}`}>
+                    <div className="mb-5 flex flex-col gap-3 border-b border-white/[0.07] pb-5 sm:flex-row sm:items-end sm:justify-between">
+                      <div className="flex items-start gap-3">
+                        <div className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border ${secao.destaque ? 'border-emerald-400/20 bg-emerald-400/10 text-emerald-400' : 'border-white/10 bg-white/[0.035] text-slate-500'}`}>
+                          <IconeSecao size={16} className={secao.destaque ? 'animate-pulse' : ''} />
+                        </div>
+                        <div>
+                          <h2 id={`titulo-${secao.id}`} className="text-xl font-black tracking-[-0.025em] text-white md:text-2xl">{secao.titulo}</h2>
+                          <p className="mt-1 text-xs leading-relaxed text-slate-500">{secao.descricao}</p>
+                        </div>
+                      </div>
+                      <span className={`w-fit rounded-full border px-3 py-1.5 text-[10px] font-black uppercase tracking-[.1em] ${secao.destaque ? 'border-emerald-400/20 bg-emerald-400/10 text-emerald-400' : 'border-white/10 bg-white/[.03] text-slate-500'}`}>
+                        {secao.itens.length} {secao.itens.length === 1 ? 'competição' : 'competições'}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {secao.itens.map((camp: any) => {
                     const isPontos = camp.tipo === 'pontos_corridos';
                     const isMata = camp.tipo === 'mata_mata';
                     const isFinalizado = !camp.ativo;
@@ -184,6 +225,10 @@ export default function CampeonatosPage() {
                         </div>
                         </Link>
                     )
+                })}
+                    </div>
+                  </section>
+                  )
                 })}
                 </div>
             )}

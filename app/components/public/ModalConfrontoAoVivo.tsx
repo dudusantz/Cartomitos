@@ -74,7 +74,7 @@ export default function ModalConfrontoAoVivo({ jogo, onClose }: Props) {
             </div>
           ) : dados ? (
             <div className="mx-auto max-w-[1080px] pb-8">
-              <MatchScoreHero casa={dados.casa} visitante={dados.visitante} placarCasa={jogo.placar_casa} placarVisitante={jogo.placar_visitante} />
+              <MatchScoreHero casa={dados.casa} visitante={dados.visitante} />
               <div className={`mt-5 grid lg:grid-cols-2 lg:gap-6 ${viewMode === 'list' ? 'grid-cols-2 gap-2.5' : 'grid-cols-1 gap-8'}`}>
                 <TeamColumn team={dados.casa} isCasa={true} viewMode={viewMode} />
                 <TeamColumn team={dados.visitante} isCasa={false} viewMode={viewMode} />
@@ -89,9 +89,9 @@ export default function ModalConfrontoAoVivo({ jogo, onClose }: Props) {
   );
 }
 
-function MatchScoreHero({ casa, visitante, placarCasa, placarVisitante }: { casa: any, visitante: any, placarCasa: number, placarVisitante: number }) {
-  const scoreCasa = placarCasa !== undefined && placarCasa !== null ? Math.trunc(placarCasa) : Math.trunc(casa.pontos || 0);
-  const scoreVisitante = placarVisitante !== undefined && placarVisitante !== null ? Math.trunc(placarVisitante) : Math.trunc(visitante.pontos || 0);
+function MatchScoreHero({ casa, visitante }: { casa: any, visitante: any }) {
+  const scoreCasa = Math.trunc(casa.pontos || 0);
+  const scoreVisitante = Math.trunc(visitante.pontos || 0);
 
   return (
     <section className="overflow-hidden rounded-2xl border border-white/[0.08] bg-[#121412]">

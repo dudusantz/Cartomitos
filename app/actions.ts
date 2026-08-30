@@ -448,6 +448,27 @@ async function atualizarJogoIndividual(jogo: any, rodadaCartola: number, usarDec
     }
 }
 
+type EstadoPartidaCartola = 'nao_iniciada' | 'em_andamento' | 'encerrada';
+
+function obterEstadoPartidaCartola(partida: any): EstadoPartidaCartola {
+  const statusTransmissao = typeof partida?.status_transmissao_tr === 'string'
+    ? partida.status_transmissao_tr
+    : partida?.status_transmissao_tr?.nome || partida?.status_transmissao_tr?.status || '';
+  const periodo = partida?.periodo_tr || partida?.status_cronometro_tr || '';
+  const statusTexto = `${statusTransmissao} ${periodo}`.toUpperCase();
+
+  if (/(ENCERRAD|FINALIZAD|FIM|POS_JOGO)/.test(statusTexto)) return 'encerrada';
+  if (/(AO_VIVO|ANDAMENTO|PRIMEIRO_TEMPO|SEGUNDO_TEMPO|INTERVALO)/.test(statusTexto)) return 'em_andamento';
+  if (/(AGENDAD|NAO_INICIAD|NÃO_INICIAD|PRE_JOGO)/.test(statusTexto)) return 'nao_iniciada';
+
+  const statusNumerico = partida?.status_partida_id ?? partida?.status_transmissao_tr?.id;
+  if (statusNumerico !== undefined && Number(statusNumerico) !== 1) return 'em_andamento';
+
+  const inicio = Number(partida?.timestamp || 0) * 1000;
+  if (inicio > 0 && inicio <= Date.now()) return 'em_andamento';
+  return 'nao_iniciada';
+}
+
 export async function atualizarPlacarManual(
   partidaId: number, 
   casa: number, 
@@ -1553,19 +1574,16 @@ export async function buscarParciaisAoVivo(jogos: any[]) {
     });
   }
 
-  const statusClubes: Record<number, number> = {};
+  const statusClubes: Record<number, EstadoPartidaCartola> = {};
   if (partidasCartola?.partidas) {
       partidasCartola.partidas.forEach((p: any) => {
-          const status = p.status_transmissao_tr?.id || 1;
+          const status = obterEstadoPartidaCartola(p);
           statusClubes[p.clube_casa_id] = status;
           statusClubes[p.clube_visitante_id] = status;
       });
   }
 
-  const jogoComecou = (clubeId: number) => {
-      const status = statusClubes[clubeId];
-      return status !== undefined ? status !== 1 : true; 
-  };
+  const jogoEncerrou = (clubeId: number) => statusClubes[clubeId] === 'encerrada';
 
   // 2. FUNÇÃO PURA
   const calcularTime = (dataTime: any) => {
@@ -1628,8 +1646,8 @@ export async function buscarParciaisAoVivo(jogos: any[]) {
               const jogou = checarJogou(titular.idStr);
               
               if (!jogou) {
-                  const comecou = jogoComecou(titular.clube_id);
-                  if (comecou) {
+                  const encerrou = jogoEncerrou(titular.clube_id);
+                  if (encerrou) {
                       const reservaDisponivel = res.find((r: any) => r.jogou && !r.usado);
                       if (reservaDisponivel) {
                           reservaDisponivel.usado = true;
@@ -1653,7 +1671,7 @@ export async function buscarParciaisAoVivo(jogos: any[]) {
 
               if (reservaLuxo && reservaLuxo.jogou && !reservaLuxo.usado) {
                   // Pega APENAS os titulares que já começaram a jogar
-                  const titsQueJaComecaram = titularesDestaPosicao.filter((tit: any) => jogoComecou(tit.clube_id));
+                  const titsQueJaComecaram = titularesDestaPosicao.filter((tit: any) => jogoEncerrou(tit.clube_id));
 
                   if (titsQueJaComecaram.length > 0) {
                       const piorTitular = titsQueJaComecaram.reduce((min:any, curr:any) => curr.pts < min.pts ? curr : min, titsQueJaComecaram[0]);
@@ -2566,22 +2584,18 @@ export async function buscarDetalhesConfrontoAoVivo(timeCasaIdCartola: number, t
       ]);
 
       // Mapa de Status de Partidas 
-      const statusClubes: Record<number, boolean> = {};
+      const statusClubes: Record<number, EstadoPartidaCartola> = {};
       if (partidasCartola?.partidas) {
           partidasCartola.partidas.forEach((p: any) => {
-              const s1 = p.status_partida_id;
-              const s2 = p.status_transmissao_tr?.id;
-              if ((s1 && s1 !== 1) || (s2 && s2 !== 1)) {
-                  statusClubes[p.clube_casa_id] = true;
-                  statusClubes[p.clube_visitante_id] = true;
-              }
+              const status = obterEstadoPartidaCartola(p);
+              statusClubes[p.clube_casa_id] = status;
+              statusClubes[p.clube_visitante_id] = status;
           });
       }
       
-      const jogoComecou = (clubeId: number, atletaJogou: boolean) => {
+      const jogoEncerrou = (clubeId: number) => {
           if (isRodadaPassada) return true;
-          if (atletaJogou) return true;
-          return !!statusClubes[clubeId];
+          return statusClubes[clubeId] === 'encerrada';
       };
 
       // Engine de Processamento de Escalação
@@ -2665,7 +2679,7 @@ export async function buscarDetalhesConfrontoAoVivo(timeCasaIdCartola: number, t
               
               for (let i = 0; i < titsByPos[posId].length; i++) {
                   const titular = titsByPos[posId][i];
-                  if (!titular.jogou && jogoComecou(titular.clube_id, titular.jogou)) {
+                  if (!titular.jogou && jogoEncerrou(titular.clube_id)) {
                       const rDisponivel = res.find((r: any) => r.jogou && !r.usado);
                       if (rDisponivel) {
                           rDisponivel.usado = true;
@@ -2683,7 +2697,7 @@ export async function buscarDetalhesConfrontoAoVivo(timeCasaIdCartola: number, t
                   const titsDaMesmaPosicao = titsByPos[rLuxo.posicao_id] || [];
                   
                   // Pega apenas os titulares da posição que JÁ COMEÇARAM a jogar
-                  const titsQueJaComecaram = titsDaMesmaPosicao.filter((tit: any) => jogoComecou(tit.clube_id, tit.jogou));
+                  const titsQueJaComecaram = titsDaMesmaPosicao.filter((tit: any) => jogoEncerrou(tit.clube_id));
 
                   if (titsQueJaComecaram.length > 0) {
                       let piorTitular = titsQueJaComecaram[0];

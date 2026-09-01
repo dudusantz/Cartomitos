@@ -27,7 +27,6 @@ export default function PainelMataMata({ campeonatoId, rodadasCorte, bloquearGer
   const [faseAtual, setFaseAtual] = useState('1')
   const [rodadaIda, setRodadaIda] = useState('')
   const [rodadaVolta, setRodadaVolta] = useState('')
-  const [rodadaDesempate, setRodadaDesempate] = useState('')
   
   // Estados de Interface
   const [loading, setLoading] = useState(false)
@@ -106,8 +105,7 @@ export default function PainelMataMata({ campeonatoId, rodadasCorte, bloquearGer
       campeonatoId,
       rodadaReal,
       Number(rodadaIda),
-      volta,
-      rodadaDesempate ? Number(rodadaDesempate) : undefined
+      volta
     )
     
     if(res.success) { 
@@ -256,7 +254,7 @@ export default function PainelMataMata({ campeonatoId, rodadasCorte, bloquearGer
                         </select>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-2 gap-2">
                         <div>
                             <label className="mb-2 block text-[9px] font-black uppercase tracking-[.12em] text-slate-500">Ida</label>
                             <input type="number" min="1" placeholder="Rod." className="h-12 w-[72px] rounded-xl border border-white/10 bg-[#080908] text-center text-sm font-black text-white outline-none transition focus:border-[#f4b900]/60" value={rodadaIda} onChange={e => setRodadaIda(e.target.value)} />
@@ -267,10 +265,6 @@ export default function PainelMataMata({ campeonatoId, rodadasCorte, bloquearGer
                                 <input type="number" min="1" placeholder="Rod." className="h-12 w-[72px] rounded-xl border border-white/10 bg-[#080908] text-center text-sm font-black text-white outline-none transition focus:border-[#f4b900]/60" value={rodadaVolta} onChange={e => setRodadaVolta(e.target.value)} />
                             </div>
                         )}
-                        <div>
-                            <label className="mb-2 block text-[9px] font-black uppercase tracking-[.12em] text-amber-400">Decisivo</label>
-                            <input type="number" min="1" placeholder="Se empatar" className="h-12 w-[92px] rounded-xl border border-amber-400/25 bg-amber-400/5 text-center text-xs font-black text-amber-200 outline-none transition placeholder:text-amber-200/35 focus:border-amber-400/70" value={rodadaDesempate} onChange={e => setRodadaDesempate(e.target.value)} />
-                        </div>
                     </div>
 
                     <div className="flex items-center gap-2">
@@ -289,7 +283,7 @@ export default function PainelMataMata({ campeonatoId, rodadasCorte, bloquearGer
                   </div>
 
                   <div className="border-t border-white/8 bg-black/15 px-5 py-3 text-[11px] leading-relaxed text-slate-500">
-                    <strong className="text-slate-300">Desempate automático:</strong> informe a rodada decisiva. Ela só será aplicada aos confrontos que terminarem empatados no agregado.
+                    <strong className="text-slate-300">Desempate automático:</strong> usa a rodada seguinte do Cartola. Se o empate ocorrer na R38, compara R37, R36 e assim por diante até encontrar uma rodada sem empate.
                   </div>
                 </section>
 

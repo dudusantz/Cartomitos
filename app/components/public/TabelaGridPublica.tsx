@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { buscarTabelaGrid, buscarParciaisGrid } from '@/app/actions'
 import { Trophy, RefreshCw, Zap, X } from 'lucide-react'
 import toast from 'react-hot-toast'
+import TeamLink from './TeamLink'
 
 interface Props {
   campeonatoId: number
@@ -186,13 +187,13 @@ export default function TabelaGridPublica({ campeonatoId }: Props) {
                                       </td>
                                       
                                       <td className="py-4 px-4 bg-[#121212] sticky left-[50px] z-10 group-hover:bg-[#1a1a1a] border-r border-gray-800/50 shadow-[2px_0_5px_rgba(0,0,0,0.2)]">
-                                          <div className="flex items-center gap-3">
+                                          <TeamLink team={time} className="flex items-center gap-3">
                                               <img src={time?.escudo || '/shield-placeholder.png'} className="w-8 h-8 object-contain" />
                                               <div className="truncate max-w-[140px]">
                                                   <div className="font-bold text-gray-200 text-sm">{time?.nome}</div>
                                                   <div className="text-[10px] text-gray-600 uppercase font-bold tracking-wide">{time?.nome_cartola}</div>
                                               </div>
-                                          </div>
+                                          </TeamLink>
                                       </td>
 
                                       {/* Coluna Ao Vivo Valor */}

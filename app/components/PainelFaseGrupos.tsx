@@ -269,7 +269,16 @@ export default function PainelFaseGrupos({ campeonatoId, times = [] }: Props) {
     if(!editingId) return
     setSaving(true)
     try {
-        await atualizarPlacarManual(editingId, Number(tempCasa), Number(tempVisitante))
+        const rodadaSelecionada = rodadaCartola ? Number(rodadaCartola) : undefined
+        const res = await atualizarPlacarManual(
+          editingId,
+          Number(tempCasa),
+          Number(tempVisitante),
+          undefined,
+          undefined,
+          rodadaSelecionada
+        )
+        if (!res?.success) throw new Error(res?.msg || "Não foi possível salvar o placar.")
         toast.success("Placar atualizado!")
         await carregarDados()
     } catch (error) {

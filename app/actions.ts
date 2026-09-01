@@ -366,6 +366,72 @@ export async function listarTodosTimes() {
   return data || []
 }
 
+const ULTIMA_RODADA_CARTOLA = 38;
+
+async function buscarDesempateAutomatico(
+  jogoDecisivo: any,
+  rodadaOficial: number,
+  usarDecimais: boolean
+) {
+  const rodadaInicial = Math.min(Math.max(Math.trunc(rodadaOficial), 1), ULTIMA_RODADA_CARTOLA);
+  const rodadasCandidatas = rodadaInicial < ULTIMA_RODADA_CARTOLA
+    ? [rodadaInicial + 1]
+    : Array.from({ length: ULTIMA_RODADA_CARTOLA - 1 }, (_, indice) => ULTIMA_RODADA_CARTOLA - 1 - indice);
+
+  for (const rodada of rodadasCandidatas) {
+    const [resCasa, resVisitante] = await Promise.all([
+      fetchCartola(`https://api.cartola.globo.com/time/id/${jogoDecisivo.casa.time_id_cartola}/${rodada}`),
+      fetchCartola(`https://api.cartola.globo.com/time/id/${jogoDecisivo.visitante.time_id_cartola}/${rodada}`)
+    ]);
+
+    const pontosCasaBrutos = Number(resCasa?.pontos);
+    const pontosVisitanteBrutos = Number(resVisitante?.pontos);
+    if (!Number.isFinite(pontosCasaBrutos) || !Number.isFinite(pontosVisitanteBrutos)) continue;
+
+    const pontosCasa = usarDecimais ? pontosCasaBrutos : Math.floor(pontosCasaBrutos);
+    const pontosVisitante = usarDecimais ? pontosVisitanteBrutos : Math.floor(pontosVisitanteBrutos);
+
+    if (Number(pontosCasa.toFixed(2)) !== Number(pontosVisitante.toFixed(2))) {
+      return { rodada, pontosCasa, pontosVisitante };
+    }
+
+    // Fora da última rodada, a regra prevê somente a rodada imediatamente
+    // seguinte. Se ela também empatar, o confronto continua pendente.
+    if (rodadaInicial < ULTIMA_RODADA_CARTOLA) break;
+  }
+
+  return null;
+}
+
+export async function buscarPerfilPublicoTime(timeId: number) {
+  if (!Number.isInteger(timeId) || timeId <= 0) return null;
+
+  const [{ data: time, error: timeError }, { data: partidas, error: partidasError }] = await Promise.all([
+    supabase.from('times').select('*').eq('id', timeId).single(),
+    supabase
+      .from('partidas')
+      .select(`
+        *,
+        casa:times!partidas_time_casa_fkey(*),
+        visitante:times!partidas_time_visitante_fkey(*),
+        campeonato:campeonatos(*)
+      `)
+      .or(`time_casa.eq.${timeId},time_visitante.eq.${timeId}`)
+      .order('id', { ascending: false }),
+  ]);
+
+  if (timeError || !time) {
+    console.error('Erro ao buscar perfil público do time:', timeError);
+    return null;
+  }
+  if (partidasError) {
+    console.error('Erro ao buscar histórico público do time:', partidasError);
+    return { time, partidas: [], erroPartidas: true };
+  }
+
+  return { time, partidas: partidas || [], erroPartidas: false };
+}
+
 export async function removerTime(timeIdCartola: number) {
   try {
     await verificarAdmin();
@@ -819,8 +885,7 @@ export async function atualizarRodadaMataMata(
   campeonatoId: number,
   fase: number,
   rodadaIda: number,
-  rodadaVolta: number,
-  rodadaDesempate?: number
+  rodadaVolta: number
 ) {
   try {
     await verificarAdmin();
@@ -847,23 +912,24 @@ export async function atualizarRodadaMataMata(
         if (r > 0) await atualizarJogoIndividual(jogo, r, usarDecimais); 
     }
 
-    // Se o agregado terminar empatado, usa uma rodada adicional do Cartola
-    // como jogo decisivo. O placar é salvo no confronto de volta (ou no jogo
-    // único), que já é a fonte usada pelo avanço automático do chaveamento.
-    if (rodadaDesempate && rodadaDesempate > 0) {
-      const { data: jogosAtualizados, error: erroAtualizados } = await db.from('partidas')
+    // O desempate é automático. Antes da R38, usa exclusivamente a rodada
+    // seguinte. Se o jogo oficial for na R38, percorre R37, R36... até achar
+    // a primeira rodada anterior em que as pontuações dos times foram diferentes.
+    let desempatesResolvidos = 0;
+    let desempatesPendentes = 0;
+    const { data: jogosAtualizados, error: erroAtualizados } = await db.from('partidas')
         .select('*, casa:times!partidas_time_casa_fkey(*), visitante:times!partidas_time_visitante_fkey(*)')
         .eq('campeonato_id', campeonatoId)
         .in('rodada', [fase, fase + 1])
         .neq('status', 'bye')
         .order('id', { ascending: true });
 
-      if (erroAtualizados) throw erroAtualizados;
+    if (erroAtualizados) throw erroAtualizados;
 
-      const jogos = (jogosAtualizados || []) as any[];
-      const jogosIda = jogos.filter(j => j.rodada === fase);
+    const jogos = (jogosAtualizados || []) as any[];
+    const jogosIda = jogos.filter(j => j.rodada === fase);
 
-      for (const ida of jogosIda) {
+    for (const ida of jogosIda) {
         const volta = jogos.find(j =>
           j.rodada === fase + 1 &&
           ((j.time_casa === ida.time_visitante && j.time_visitante === ida.time_casa) ||
@@ -886,20 +952,34 @@ export async function atualizarRodadaMataMata(
           }
         }
 
-        if (Number(totalCasa.toFixed(2)) !== Number(totalVisitante.toFixed(2))) continue;
+        if (Number(totalCasa.toFixed(2)) !== Number(totalVisitante.toFixed(2))) {
+          await db.from('partidas').update({
+            desempate_casa: null,
+            desempate_visitante: null,
+            rodada_desempate: null
+          }).eq('id', decisivo.id);
+          continue;
+        }
 
-        const [resCasa, resVisitante] = await Promise.all([
-          fetchCartola(`https://api.cartola.globo.com/time/id/${decisivo.casa.time_id_cartola}/${rodadaDesempate}`),
-          fetchCartola(`https://api.cartola.globo.com/time/id/${decisivo.visitante.time_id_cartola}/${rodadaDesempate}`)
-        ]);
-        const pontosCasa = Number(resCasa?.pontos || 0);
-        const pontosVisitante = Number(resVisitante?.pontos || 0);
+        const rodadaOficial = Math.max(
+          Number(ida.rodada_cartola || rodadaIda || 0),
+          Number(volta?.rodada_cartola || rodadaVolta || 0)
+        );
+        const desempate = await buscarDesempateAutomatico(decisivo, rodadaOficial, usarDecimais);
 
-        await db.from('partidas').update({
-          desempate_casa: usarDecimais ? pontosCasa : Math.floor(pontosCasa),
-          desempate_visitante: usarDecimais ? pontosVisitante : Math.floor(pontosVisitante)
+        const { error: erroDesempate } = await db.from('partidas').update(desempate ? {
+          desempate_casa: desempate.pontosCasa,
+          desempate_visitante: desempate.pontosVisitante,
+          rodada_desempate: desempate.rodada
+        } : {
+          desempate_casa: null,
+          desempate_visitante: null,
+          rodada_desempate: null
         }).eq('id', decisivo.id);
-      }
+        if (erroDesempate) throw erroDesempate;
+
+        if (desempate) desempatesResolvidos += 1;
+        else desempatesPendentes += 1;
     }
 
     await verificarEAvancarFase(campeonatoId, fase);
@@ -907,7 +987,11 @@ export async function atualizarRodadaMataMata(
     revalidatePath(`/campeonatos/${campeonatoId}`)
     return {
       success: true,
-      msg: rodadaDesempate ? 'Resultados e jogos decisivos atualizados!' : 'Resultados atualizados!'
+      msg: desempatesPendentes > 0
+        ? `Resultados atualizados. ${desempatesPendentes} desempate(s) ainda aguarda(m) pontuação válida.`
+        : desempatesResolvidos > 0
+          ? `Resultados atualizados e ${desempatesResolvidos} desempate(s) resolvido(s) automaticamente!`
+          : 'Resultados atualizados!'
     };
   } catch (error: any) {
     console.error("Erro em atualizarRodadaMataMata:", error);

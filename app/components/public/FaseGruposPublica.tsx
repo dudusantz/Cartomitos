@@ -8,6 +8,7 @@ import {
   buscarParciaisAoVivo,
 } from "../../actions";
 import ModalConfrontoAoVivo from "./ModalConfrontoAoVivo";
+import TeamLink from "./TeamLink";
 import toast from "react-hot-toast";
 
 interface Props {
@@ -289,7 +290,7 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
                           {idx + 1}
                         </td>
                         <td className="py-2.5 pr-1">
-                          <div className="flex min-w-0 items-center gap-1.5">
+                          <TeamLink team={time} className="flex min-w-0 items-center gap-1.5">
                             <img
                               src={time?.escudo || "/shield-placeholder.png"}
                               className="h-5 w-5 shrink-0 object-contain"
@@ -298,7 +299,7 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
                             <span className="min-w-0 whitespace-normal break-words text-[9px] font-semibold leading-[1.15] text-gray-100">
                               {time?.nome}
                             </span>
-                          </div>
+                          </TeamLink>
                         </td>
                         <td className="py-2.5 text-center font-mono text-[8px] text-gray-400">{t.pj}</td>
                         <td className="py-2.5 text-center font-mono text-[8px] text-gray-300">{formatDecimal(t.pp)}:{formatDecimal(t.pc)}</td>
@@ -355,7 +356,7 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
                               </span>
                             </td>
                             <td className="py-3 px-1">
-                              <div className="flex items-center gap-2 min-w-0">
+                              <TeamLink team={time} className="flex min-w-0 items-center gap-2">
                                 <img
                                   src={time?.escudo || "/shield-placeholder.png"}
                                   className="w-7 h-7 object-contain shrink-0"
@@ -375,7 +376,7 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
                                     </span>
                                   </span>
                                 </div>
-                              </div>
+                              </TeamLink>
                             </td>
                             <td className="py-2 text-center font-mono font-bold text-sm text-white bg-white/[0.018]">
                               {t.pts}
@@ -497,26 +498,30 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
                   <div className="px-3.5 py-3">
                     <div className={`grid grid-cols-[3px_30px_minmax(0,1fr)_auto] items-center gap-2.5 rounded-lg px-1 py-1.5 ${vCasa ? 'bg-white/[0.025]' : ''}`}>
                       <span className={`h-5 w-[3px] rounded-full ${vCasa ? 'bg-yellow-500' : 'bg-transparent'}`} />
-                      <img
-                        src={casa?.escudo || "/shield-placeholder.png"}
-                        className="h-8 w-8 shrink-0 object-contain"
-                        alt={`Escudo do ${casa?.nome || 'mandante'}`}
-                      />
-                      <span className={`min-w-0 whitespace-normal break-words text-[11px] font-bold leading-tight ${vCasa ? 'text-white' : 'text-gray-400'}`}>
-                        {casa?.nome || "Mandante"}
-                      </span>
+                      <TeamLink team={casa} className="contents">
+                        <img
+                          src={casa?.escudo || "/shield-placeholder.png"}
+                          className="h-8 w-8 shrink-0 object-contain"
+                          alt={`Escudo do ${casa?.nome || 'mandante'}`}
+                        />
+                        <span className={`min-w-0 whitespace-normal break-words text-[11px] font-bold leading-tight ${vCasa ? 'text-white' : 'text-gray-400'}`}>
+                          {casa?.nome || "Mandante"}
+                        </span>
+                      </TeamLink>
                       <span className={`min-w-11 rounded-md bg-white/[0.035] px-2 py-1 text-center font-mono text-base font-black tabular-nums ${vCasa ? 'text-white' : 'text-gray-300'}`}>{j.placar_casa !== undefined ? Math.trunc(j.placar_casa) : '–'}</span>
                     </div>
                     <div className={`grid grid-cols-[3px_30px_minmax(0,1fr)_auto] items-center gap-2.5 rounded-lg px-1 py-1.5 ${vVis ? 'bg-white/[0.025]' : ''}`}>
                       <span className={`h-5 w-[3px] rounded-full ${vVis ? 'bg-yellow-500' : 'bg-transparent'}`} />
-                      <img
-                        src={visitante?.escudo || "/shield-placeholder.png"}
-                        className="h-8 w-8 shrink-0 object-contain"
-                        alt={`Escudo do ${visitante?.nome || 'visitante'}`}
-                      />
-                      <span className={`min-w-0 whitespace-normal break-words text-[11px] font-bold leading-tight ${vVis ? 'text-white' : 'text-gray-400'}`}>
-                        {visitante?.nome || "Visitante"}
-                      </span>
+                      <TeamLink team={visitante} className="contents">
+                        <img
+                          src={visitante?.escudo || "/shield-placeholder.png"}
+                          className="h-8 w-8 shrink-0 object-contain"
+                          alt={`Escudo do ${visitante?.nome || 'visitante'}`}
+                        />
+                        <span className={`min-w-0 whitespace-normal break-words text-[11px] font-bold leading-tight ${vVis ? 'text-white' : 'text-gray-400'}`}>
+                          {visitante?.nome || "Visitante"}
+                        </span>
+                      </TeamLink>
                       <span className={`min-w-11 rounded-md bg-white/[0.035] px-2 py-1 text-center font-mono text-base font-black tabular-nums ${vVis ? 'text-white' : 'text-gray-300'}`}>{j.placar_visitante !== undefined ? Math.trunc(j.placar_visitante) : '–'}</span>
                     </div>
                   </div>

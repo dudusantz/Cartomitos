@@ -12,6 +12,7 @@ export type JogoBracket = {
   placar_visitante: number | null;
   desempate_casa?: number | null;
   desempate_visitante?: number | null;
+  rodada_desempate?: number | null;
   vencedor_desempate?: number | null;
   status: string;
   pontos_reais_casa?: number;
@@ -229,9 +230,6 @@ export default function MataMataBracket({
                 vencedor = jogoDecisivo.visitante || null;
                 idVencedor = jogoDecisivo.time_visitante;
               }
-            } else {
-              vencedor = ida.casa;
-              idVencedor = ida.time_casa;
             }
           }
         }

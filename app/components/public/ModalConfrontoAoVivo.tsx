@@ -24,8 +24,10 @@ export default function ModalConfrontoAoVivo({ jogo, onClose }: Props) {
     const idCasa = Array.isArray(jogo.casa) ? jogo.casa[0]?.time_id_cartola : jogo.casa?.time_id_cartola;
     const idVis = Array.isArray(jogo.visitante) ? jogo.visitante[0]?.time_id_cartola : jogo.visitante?.time_id_cartola;
     
+    const rodadaCartola = jogo.rodada_cartola ?? jogo.rodada;
+
     if (idCasa && idVis) {
-      const res = await buscarDetalhesConfrontoAoVivo(idCasa, idVis, jogo.rodada);
+      const res = await buscarDetalhesConfrontoAoVivo(idCasa, idVis, rodadaCartola);
       if (res.success) setDados(res);
       else {
         setDados(null);
@@ -36,6 +38,8 @@ export default function ModalConfrontoAoVivo({ jogo, onClose }: Props) {
   }
 
   const handleContentClick = (e: React.MouseEvent) => e.stopPropagation();
+  const finalizado = jogo.status === 'finalizado';
+  const rodadaExibida = jogo.rodada_cartola ?? jogo.rodada;
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 p-0 backdrop-blur-lg md:p-5" onClick={onClose}>
@@ -43,8 +47,8 @@ export default function ModalConfrontoAoVivo({ jogo, onClose }: Props) {
         
         <header className="z-[110] flex shrink-0 items-center justify-between border-b border-white/[0.08] bg-[#131513] px-4 py-3.5 md:px-6">
           <div>
-            <div className="flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.14em] text-green-400"><span className="h-2 w-2 animate-pulse rounded-full bg-green-400" /> Parcial em andamento</div>
-            <h2 className="mt-0.5 text-sm font-black tracking-[-0.015em] text-white md:text-base">Central do confronto <span className="font-medium text-gray-600">· Rodada {jogo.rodada}</span></h2>
+            <div className={`flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.14em] ${finalizado ? 'text-yellow-400' : 'text-green-400'}`}><span className={`h-2 w-2 rounded-full ${finalizado ? 'bg-yellow-400' : 'animate-pulse bg-green-400'}`} /> {finalizado ? 'Confronto encerrado' : 'Parcial em andamento'}</div>
+            <h2 className="mt-0.5 text-sm font-black tracking-[-0.015em] text-white md:text-base">Central do confronto <span className="font-medium text-gray-600">· Rodada {rodadaExibida}</span></h2>
           </div>
           <div className="flex items-center gap-2">
             {/* BOTÃO TOGGLE CAMPINHO/LISTA */}
@@ -74,7 +78,7 @@ export default function ModalConfrontoAoVivo({ jogo, onClose }: Props) {
             </div>
           ) : dados ? (
             <div className="mx-auto max-w-[1080px] pb-8">
-              <MatchScoreHero casa={dados.casa} visitante={dados.visitante} />
+              <MatchScoreHero casa={dados.casa} visitante={dados.visitante} finalizado={finalizado} />
               <div className={`mt-5 grid lg:grid-cols-2 lg:gap-6 ${viewMode === 'list' ? 'grid-cols-2 gap-2.5' : 'grid-cols-1 gap-8'}`}>
                 <TeamColumn team={dados.casa} isCasa={true} viewMode={viewMode} />
                 <TeamColumn team={dados.visitante} isCasa={false} viewMode={viewMode} />
@@ -89,7 +93,7 @@ export default function ModalConfrontoAoVivo({ jogo, onClose }: Props) {
   );
 }
 
-function MatchScoreHero({ casa, visitante }: { casa: any, visitante: any }) {
+function MatchScoreHero({ casa, visitante, finalizado }: { casa: any, visitante: any, finalizado: boolean }) {
   const scoreCasa = Math.trunc(casa.pontos || 0);
   const scoreVisitante = Math.trunc(visitante.pontos || 0);
 
@@ -108,7 +112,7 @@ function MatchScoreHero({ casa, visitante }: { casa: any, visitante: any }) {
           <img src={visitante.escudo} className="h-11 w-11 shrink-0 object-contain md:h-14 md:w-14" alt={`Escudo ${visitante.nome}`} />
         </div>
       </div>
-      <div className="flex items-center justify-center gap-2 border-t border-white/[0.06] px-4 py-2 text-[8px] font-bold uppercase tracking-[0.12em] text-green-400"><span className="h-1.5 w-1.5 animate-pulse rounded-full bg-green-400" /> Pontuação parcial da rodada</div>
+      <div className={`flex items-center justify-center gap-2 border-t border-white/[0.06] px-4 py-2 text-[8px] font-bold uppercase tracking-[0.12em] ${finalizado ? 'text-yellow-400' : 'text-green-400'}`}><span className={`h-1.5 w-1.5 rounded-full ${finalizado ? 'bg-yellow-400' : 'animate-pulse bg-green-400'}`} /> {finalizado ? 'Pontuação final da rodada' : 'Pontuação parcial da rodada'}</div>
     </section>
   );
 }

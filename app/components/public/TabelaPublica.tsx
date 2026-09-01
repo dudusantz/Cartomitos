@@ -8,6 +8,7 @@ import {
   listarPartidas,
 } from "../../actions";
 import ModalConfrontoAoVivo from "./ModalConfrontoAoVivo";
+import TeamLink from "./TeamLink";
 import toast from "react-hot-toast";
 
 interface Props {
@@ -265,7 +266,7 @@ export default function TabelaPublica({ campeonatoId }: Props) {
                         </div>
                       </td>
                       <td className="sticky left-[52px] z-10 bg-[#121212] px-3 py-2.5 shadow-[8px_0_18px_rgba(0,0,0,0.18)] transition-colors group-hover:bg-[#171917]">
-                        <div className="flex items-center gap-3 min-w-0">
+                        <TeamLink team={time} className="flex min-w-0 items-center gap-3">
                           <img
                             src={time?.escudo || "/shield-placeholder.png"}
                             className="w-8 h-8 object-contain shrink-0 drop-shadow-md"
@@ -281,7 +282,7 @@ export default function TabelaPublica({ campeonatoId }: Props) {
                               </span>
                             )}
                           </div>
-                        </div>
+                        </TeamLink>
                       </td>
                       <td className="text-center font-mono font-bold text-sm text-white bg-white/[0.018]">
                         {t.pts}
@@ -399,28 +400,32 @@ export default function TabelaPublica({ campeonatoId }: Props) {
                   <div className="px-3.5 py-3">
                     <div className={`grid grid-cols-[3px_30px_minmax(0,1fr)_auto] items-center gap-2.5 rounded-lg px-1 py-1.5 ${cWin ? "bg-white/[0.025]" : ""}`}>
                       <span className={`h-5 w-[3px] rounded-full ${cWin ? "bg-yellow-500" : "bg-transparent"}`} />
-                      <img
-                        src={casa?.escudo || "/shield-placeholder.png"}
-                        className="h-8 w-8 shrink-0 object-contain transition-transform group-hover:scale-105"
-                        alt={`Escudo do ${casa?.nome || 'mandante'}`}
-                      />
-                      <span className={`min-w-0 truncate text-[11px] font-bold ${cWin ? "text-white" : "text-gray-400"}`}>
-                        {casa?.nome}
-                      </span>
+                      <TeamLink team={casa} className="contents">
+                        <img
+                          src={casa?.escudo || "/shield-placeholder.png"}
+                          className="h-8 w-8 shrink-0 object-contain transition-transform group-hover:scale-105"
+                          alt={`Escudo do ${casa?.nome || 'mandante'}`}
+                        />
+                        <span className={`min-w-0 truncate text-[11px] font-bold ${cWin ? "text-white" : "text-gray-400"}`}>
+                          {casa?.nome}
+                        </span>
+                      </TeamLink>
                       <span className={`min-w-11 rounded-md bg-white/[0.035] px-2 py-1 text-center font-mono text-base font-black tabular-nums ${cWin ? "text-white" : "text-gray-300"}`}>
                         {j.placar_casa !== undefined ? Math.trunc(j.placar_casa) : "–"}
                       </span>
                     </div>
                     <div className={`grid grid-cols-[3px_30px_minmax(0,1fr)_auto] items-center gap-2.5 rounded-lg px-1 py-1.5 ${vWin ? "bg-white/[0.025]" : ""}`}>
                       <span className={`h-5 w-[3px] rounded-full ${vWin ? "bg-yellow-500" : "bg-transparent"}`} />
-                      <img
-                        src={visitante?.escudo || "/shield-placeholder.png"}
-                        className="h-8 w-8 shrink-0 object-contain transition-transform group-hover:scale-105"
-                        alt={`Escudo do ${visitante?.nome || 'visitante'}`}
-                      />
-                      <span className={`min-w-0 truncate text-[11px] font-bold ${vWin ? "text-white" : "text-gray-400"}`}>
-                        {visitante?.nome}
-                      </span>
+                      <TeamLink team={visitante} className="contents">
+                        <img
+                          src={visitante?.escudo || "/shield-placeholder.png"}
+                          className="h-8 w-8 shrink-0 object-contain transition-transform group-hover:scale-105"
+                          alt={`Escudo do ${visitante?.nome || 'visitante'}`}
+                        />
+                        <span className={`min-w-0 truncate text-[11px] font-bold ${vWin ? "text-white" : "text-gray-400"}`}>
+                          {visitante?.nome}
+                        </span>
+                      </TeamLink>
                       <span className={`min-w-11 rounded-md bg-white/[0.035] px-2 py-1 text-center font-mono text-base font-black tabular-nums ${vWin ? "text-white" : "text-gray-300"}`}>
                         {j.placar_visitante !== undefined ? Math.trunc(j.placar_visitante) : "–"}
                       </span>

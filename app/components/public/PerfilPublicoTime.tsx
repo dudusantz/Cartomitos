@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowLeft, CalendarDays, ChevronRight, CircleAlert, Trophy } from "lucide-react";
 import TeamLink from "./TeamLink";
 import ModalConfrontoAoVivo from "./ModalConfrontoAoVivo";
@@ -176,6 +177,7 @@ function MatchRow({ match, teamId, onSelect }: { match: Partida; teamId: number;
 }
 
 export default function PerfilPublicoTime({ time, partidas, erroPartidas = false }: { time: Team; partidas: Partida[]; erroPartidas?: boolean }) {
+  const router = useRouter();
   const seasons = useMemo(() => Array.from(new Set(partidas.map((match) => unwrap(match.campeonato)?.ano).filter((year): year is number => Boolean(year)))).sort((a, b) => b - a), [partidas]);
   const [season, setSeason] = useState<number | "all">(seasons[0] || "all");
   const [matchView, setMatchView] = useState<"finished" | "upcoming">("finished");
@@ -217,13 +219,18 @@ export default function PerfilPublicoTime({ time, partidas, erroPartidas = false
   const nextOpponent = nextMatch ? (nextMatch.time_casa === time.id ? unwrap(nextMatch.visitante) : unwrap(nextMatch.casa)) : null;
   const nextCompetition = nextMatch ? unwrap(nextMatch.campeonato) : null;
 
+  function voltarParaOrigem() {
+    if (window.history.length > 1) router.back();
+    else router.push("/campeonatos");
+  }
+
   return (
     <div className="min-h-[100dvh] pb-16 text-slate-100">
       <section className="border-b border-white/[0.07] bg-[#0b0d0b]">
         <div className="mx-auto max-w-7xl px-4 py-7 md:px-6 md:py-10">
-          <Link href="/campeonatos" className="mb-7 inline-flex items-center gap-2 text-[11px] font-bold text-slate-500 hover:text-white">
-            <ArrowLeft size={15} /> Voltar aos campeonatos
-          </Link>
+          <button type="button" onClick={voltarParaOrigem} className="mb-7 inline-flex items-center gap-2 rounded-md text-[11px] font-bold text-slate-500 outline-none transition-colors hover:text-white focus-visible:ring-2 focus-visible:ring-yellow-400">
+            <ArrowLeft size={15} /> Voltar
+          </button>
 
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1.25fr)_minmax(320px,.75fr)] lg:items-stretch">
             <div className="flex flex-col items-start gap-5 rounded-2xl border border-white/[0.07] bg-[#111410] p-5 sm:flex-row sm:items-center sm:gap-7 sm:p-7">

@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { X, RefreshCw, ChevronDown, ChevronUp, LayoutGrid, List } from "lucide-react";
 import { buscarDetalhesConfrontoAoVivo } from "@/app/actions";
+import { teamPath } from "@/lib/routes";
 import toast from "react-hot-toast";
 
 interface Props {
@@ -40,6 +42,8 @@ export default function ModalConfrontoAoVivo({ jogo, onClose }: Props) {
   const handleContentClick = (e: React.MouseEvent) => e.stopPropagation();
   const finalizado = jogo.status === 'finalizado';
   const rodadaExibida = jogo.rodada_cartola ?? jogo.rodada;
+  const perfilCasa = Array.isArray(jogo.casa) ? jogo.casa[0] : jogo.casa;
+  const perfilVisitante = Array.isArray(jogo.visitante) ? jogo.visitante[0] : jogo.visitante;
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 p-0 backdrop-blur-lg md:p-5" onClick={onClose}>
@@ -78,7 +82,7 @@ export default function ModalConfrontoAoVivo({ jogo, onClose }: Props) {
             </div>
           ) : dados ? (
             <div className="mx-auto max-w-[1080px] pb-8">
-              <MatchScoreHero casa={dados.casa} visitante={dados.visitante} finalizado={finalizado} />
+              <MatchScoreHero casa={dados.casa} visitante={dados.visitante} perfilCasa={perfilCasa} perfilVisitante={perfilVisitante} finalizado={finalizado} onNavigate={onClose} />
               <div className={`mt-5 grid lg:grid-cols-2 lg:gap-6 ${viewMode === 'list' ? 'grid-cols-2 gap-2.5' : 'grid-cols-1 gap-8'}`}>
                 <TeamColumn team={dados.casa} isCasa={true} viewMode={viewMode} />
                 <TeamColumn team={dados.visitante} isCasa={false} viewMode={viewMode} />
@@ -93,7 +97,7 @@ export default function ModalConfrontoAoVivo({ jogo, onClose }: Props) {
   );
 }
 
-function MatchScoreHero({ casa, visitante, finalizado }: { casa: any, visitante: any, finalizado: boolean }) {
+function MatchScoreHero({ casa, visitante, perfilCasa, perfilVisitante, finalizado, onNavigate }: { casa: any, visitante: any, perfilCasa?: any, perfilVisitante?: any, finalizado: boolean, onNavigate: () => void }) {
   const scoreCasa = Math.trunc(casa.pontos || 0);
   const scoreVisitante = Math.trunc(visitante.pontos || 0);
 
@@ -102,13 +106,13 @@ function MatchScoreHero({ casa, visitante, finalizado }: { casa: any, visitante:
       <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 px-4 py-4 md:gap-8 md:px-8 md:py-5">
         <div className="flex min-w-0 items-center gap-3 md:gap-4">
           <img src={casa.escudo} className="h-11 w-11 shrink-0 object-contain md:h-14 md:w-14" alt={`Escudo ${casa.nome}`} />
-          <div className="min-w-0"><span className="text-[8px] font-bold uppercase tracking-[0.12em] text-gray-600">Mandante</span><h3 className="truncate text-xs font-black text-white md:text-base">{casa.nome}</h3></div>
+          <div className="min-w-0"><span className="text-[8px] font-bold uppercase tracking-[0.12em] text-gray-600">Mandante</span>{perfilCasa?.id ? <Link href={teamPath(perfilCasa)} onClick={onNavigate} className="block truncate rounded-sm text-xs font-black text-white outline-none transition-colors hover:text-yellow-400 focus-visible:ring-2 focus-visible:ring-yellow-400 md:text-base">{casa.nome}</Link> : <h3 className="truncate text-xs font-black text-white md:text-base">{casa.nome}</h3>}</div>
         </div>
         <div className="flex items-center gap-2 rounded-xl border border-white/[0.08] bg-[#080908] px-3 py-2 font-mono text-2xl font-black tabular-nums text-white md:gap-3 md:px-5 md:text-3xl">
           <span>{scoreCasa}</span><span className="text-sm text-gray-700">×</span><span>{scoreVisitante}</span>
         </div>
         <div className="flex min-w-0 items-center justify-end gap-3 text-right md:gap-4">
-          <div className="min-w-0"><span className="text-[8px] font-bold uppercase tracking-[0.12em] text-gray-600">Visitante</span><h3 className="truncate text-xs font-black text-white md:text-base">{visitante.nome}</h3></div>
+          <div className="min-w-0"><span className="text-[8px] font-bold uppercase tracking-[0.12em] text-gray-600">Visitante</span>{perfilVisitante?.id ? <Link href={teamPath(perfilVisitante)} onClick={onNavigate} className="block truncate rounded-sm text-xs font-black text-white outline-none transition-colors hover:text-yellow-400 focus-visible:ring-2 focus-visible:ring-yellow-400 md:text-base">{visitante.nome}</Link> : <h3 className="truncate text-xs font-black text-white md:text-base">{visitante.nome}</h3>}</div>
           <img src={visitante.escudo} className="h-11 w-11 shrink-0 object-contain md:h-14 md:w-14" alt={`Escudo ${visitante.nome}`} />
         </div>
       </div>

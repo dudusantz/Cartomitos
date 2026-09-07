@@ -1800,11 +1800,7 @@ export async function buscarParciaisAoVivo(jogos: any[]) {
   // 4. Buscar as escalações
   const escalacoesCache: Record<number, any> = {};
   await Promise.all(Array.from(mapTimes.entries()).map(async ([timeId, rodada]) => {
-      let dataTime = await fetchCartola(`https://api.cartola.globo.com/time/id/${timeId}/${rodada}?_=${ts}`);
-      
-      if (!dataTime || !dataTime.atletas || dataTime.atletas.length === 0) {
-         dataTime = await fetchCartola(`https://api.cartola.globo.com/time/id/${timeId}?_=${ts}`);
-      }
+      const dataTime = await fetchCartola(`https://api.cartola.globo.com/time/id/${timeId}/${rodada}?_=${ts}`);
       escalacoesCache[timeId] = dataTime;
   }));
 
@@ -1814,12 +1810,9 @@ export async function buscarParciaisAoVivo(jogos: any[]) {
   });
 
   if (timesSemEscalacao.length > 0) {
-    console.error('Parciais ao vivo indisponíveis: escalações ausentes para os times', timesSemEscalacao);
-    return {
-      success: false,
-      jogos: [],
-      msg: `Não foi possível carregar ${timesSemEscalacao.length === 1 ? 'uma escalação' : `${timesSemEscalacao.length} escalações`}. Nenhum placar foi alterado.`
-    };
+    // Time sem escalação válida na rodada vale zero. Isso evita que a ausência
+    // de um único time impeça a visualização das parciais de toda a fase.
+    console.warn('Parciais ao vivo: times sem escalação serão exibidos com zero', timesSemEscalacao);
   }
 
   // 5. Mapear os jogos finais

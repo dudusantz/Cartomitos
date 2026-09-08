@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { X, RefreshCw, ChevronDown, ChevronUp, LayoutGrid, List } from "lucide-react";
+import { X, RefreshCw, ChevronDown, ChevronUp, LayoutGrid, List, Users } from "lucide-react";
 import { buscarDetalhesConfrontoAoVivo } from "@/app/actions";
 import { teamPath } from "@/lib/routes";
 import toast from "react-hot-toast";
@@ -44,6 +44,20 @@ export default function ModalConfrontoAoVivo({ jogo, onClose }: Props) {
   const rodadaExibida = jogo.rodada_cartola ?? jogo.rodada;
   const perfilCasa = Array.isArray(jogo.casa) ? jogo.casa[0] : jogo.casa;
   const perfilVisitante = Array.isArray(jogo.visitante) ? jogo.visitante[0] : jogo.visitante;
+  const possuiEscalacoes = Boolean(dados?.casa?.titulares?.length || dados?.visitante?.titulares?.length);
+  const statusLabel = finalizado ? 'Confronto encerrado' : possuiEscalacoes ? 'Parcial em andamento' : 'Escalações indisponíveis';
+  const statusColor = finalizado ? 'text-yellow-400' : possuiEscalacoes ? 'text-green-400' : 'text-slate-400';
+  const statusDot = finalizado ? 'bg-yellow-400' : possuiEscalacoes ? 'animate-pulse bg-green-400' : 'bg-slate-500';
+  const casaExibida = dados ? {
+    ...dados.casa,
+    nome: perfilCasa?.nome || dados.casa.nome,
+    escudo: perfilCasa?.escudo || dados.casa.escudo || '/shield-placeholder.png',
+  } : null;
+  const visitanteExibido = dados ? {
+    ...dados.visitante,
+    nome: perfilVisitante?.nome || dados.visitante.nome,
+    escudo: perfilVisitante?.escudo || dados.visitante.escudo || '/shield-placeholder.png',
+  } : null;
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 p-0 backdrop-blur-lg md:p-5" onClick={onClose}>
@@ -51,7 +65,7 @@ export default function ModalConfrontoAoVivo({ jogo, onClose }: Props) {
         
         <header className="z-[110] flex shrink-0 items-center justify-between border-b border-white/[0.08] bg-[#131513] px-4 py-3.5 md:px-6">
           <div>
-            <div className={`flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.14em] ${finalizado ? 'text-yellow-400' : 'text-green-400'}`}><span className={`h-2 w-2 rounded-full ${finalizado ? 'bg-yellow-400' : 'animate-pulse bg-green-400'}`} /> {finalizado ? 'Confronto encerrado' : 'Parcial em andamento'}</div>
+            <div className={`flex items-center gap-2 text-[9px] font-bold uppercase tracking-[0.14em] ${statusColor}`}><span className={`h-2 w-2 rounded-full ${statusDot}`} /> {statusLabel}</div>
             <h2 className="mt-0.5 text-sm font-black tracking-[-0.015em] text-white md:text-base">Central do confronto <span className="font-medium text-gray-600">· Rodada {rodadaExibida}</span></h2>
           </div>
           <div className="flex items-center gap-2">
@@ -82,11 +96,19 @@ export default function ModalConfrontoAoVivo({ jogo, onClose }: Props) {
             </div>
           ) : dados ? (
             <div className="mx-auto max-w-[1080px] pb-8">
-              <MatchScoreHero casa={dados.casa} visitante={dados.visitante} perfilCasa={perfilCasa} perfilVisitante={perfilVisitante} finalizado={finalizado} onNavigate={onClose} />
-              <div className={`mt-5 grid lg:grid-cols-2 lg:gap-6 ${viewMode === 'list' ? 'grid-cols-2 gap-2.5' : 'grid-cols-1 gap-8'}`}>
-                <TeamColumn team={dados.casa} isCasa={true} viewMode={viewMode} />
-                <TeamColumn team={dados.visitante} isCasa={false} viewMode={viewMode} />
-              </div>
+              <MatchScoreHero casa={casaExibida} visitante={visitanteExibido} perfilCasa={perfilCasa} perfilVisitante={perfilVisitante} finalizado={finalizado} possuiEscalacoes={possuiEscalacoes} onNavigate={onClose} />
+              {possuiEscalacoes ? (
+                <div className={`mt-5 grid lg:grid-cols-2 lg:gap-6 ${viewMode === 'list' ? 'grid-cols-2 gap-2.5' : 'grid-cols-1 gap-8'}`}>
+                  <TeamColumn team={casaExibida} isCasa={true} viewMode={viewMode} />
+                  <TeamColumn team={visitanteExibido} isCasa={false} viewMode={viewMode} />
+                </div>
+              ) : (
+                <section className="mt-5 flex min-h-64 flex-col items-center justify-center rounded-2xl border border-dashed border-white/[0.1] bg-[#0e100e] px-6 text-center">
+                  <span className="grid h-12 w-12 place-items-center rounded-xl border border-white/[0.08] bg-white/[0.035] text-slate-500"><Users size={22} /></span>
+                  <h3 className="mt-4 text-base font-black text-white">Escalações ainda não disponíveis</h3>
+                  <p className="mt-1 max-w-md text-sm leading-relaxed text-slate-500">Os times permanecem com pontuação zero até a API do Cartola publicar as escalações desta rodada.</p>
+                </section>
+              )}
             </div>
           ) : (
             <div className="text-center text-gray-500 py-20 font-bold uppercase text-xs tracking-widest">Erro ao carregar dados da rodada.</div>
@@ -97,7 +119,7 @@ export default function ModalConfrontoAoVivo({ jogo, onClose }: Props) {
   );
 }
 
-function MatchScoreHero({ casa, visitante, perfilCasa, perfilVisitante, finalizado, onNavigate }: { casa: any, visitante: any, perfilCasa?: any, perfilVisitante?: any, finalizado: boolean, onNavigate: () => void }) {
+function MatchScoreHero({ casa, visitante, perfilCasa, perfilVisitante, finalizado, possuiEscalacoes, onNavigate }: { casa: any, visitante: any, perfilCasa?: any, perfilVisitante?: any, finalizado: boolean, possuiEscalacoes: boolean, onNavigate: () => void }) {
   const scoreCasa = Math.trunc(casa.pontos || 0);
   const scoreVisitante = Math.trunc(visitante.pontos || 0);
 
@@ -116,7 +138,7 @@ function MatchScoreHero({ casa, visitante, perfilCasa, perfilVisitante, finaliza
           <img src={visitante.escudo} className="h-11 w-11 shrink-0 object-contain md:h-14 md:w-14" alt={`Escudo ${visitante.nome}`} />
         </div>
       </div>
-      <div className={`flex items-center justify-center gap-2 border-t border-white/[0.06] px-4 py-2 text-[8px] font-bold uppercase tracking-[0.12em] ${finalizado ? 'text-yellow-400' : 'text-green-400'}`}><span className={`h-1.5 w-1.5 rounded-full ${finalizado ? 'bg-yellow-400' : 'animate-pulse bg-green-400'}`} /> {finalizado ? 'Pontuação final da rodada' : 'Pontuação parcial da rodada'}</div>
+      <div className={`flex items-center justify-center gap-2 border-t border-white/[0.06] px-4 py-2 text-[8px] font-bold uppercase tracking-[0.12em] ${finalizado ? 'text-yellow-400' : possuiEscalacoes ? 'text-green-400' : 'text-slate-500'}`}><span className={`h-1.5 w-1.5 rounded-full ${finalizado ? 'bg-yellow-400' : possuiEscalacoes ? 'animate-pulse bg-green-400' : 'bg-slate-600'}`} /> {finalizado ? 'Pontuação final da rodada' : possuiEscalacoes ? 'Pontuação parcial da rodada' : 'Aguardando escalações da rodada'}</div>
     </section>
   );
 }

@@ -155,6 +155,9 @@ table { font-variant-numeric: tabular-nums; }
 }
 
 @media (max-width: 767px) {
+  .chart-scroll-fade {
+    mask-image: linear-gradient(to right, transparent 0, #000 .85rem, #000 calc(100% - 1.4rem), transparent 100%);
+  }
   .site-nav {
     width: 100%;
     min-height: auto;

@@ -189,9 +189,17 @@ export default function PerfilPublicoTime({ time, partidas, erroPartidas = false
   const wins = finished.filter((match) => resultFor(match, time.id) === "V").length;
   const draws = finished.filter((match) => resultFor(match, time.id) === "E").length;
   const losses = finished.filter((match) => resultFor(match, time.id) === "D").length;
-  const nextMatch = partidas
+  const scheduledMatches = partidas
     .filter(isScheduled)
-    .sort((a, b) => (unwrap(a.campeonato)?.ano || 0) - (unwrap(b.campeonato)?.ano || 0) || (a.rodada_cartola ?? Number.MAX_SAFE_INTEGER) - (b.rodada_cartola ?? Number.MAX_SAFE_INTEGER) || a.rodada - b.rodada)[0];
+    .sort((a, b) => (unwrap(a.campeonato)?.ano || 0) - (unwrap(b.campeonato)?.ano || 0) || (a.rodada_cartola ?? Number.MAX_SAFE_INTEGER) - (b.rodada_cartola ?? Number.MAX_SAFE_INTEGER) || a.rodada - b.rodada);
+  const nextMatch = scheduledMatches[0];
+  const nextMatches = nextMatch
+    ? scheduledMatches.filter((match) => {
+        if (nextMatch.rodada_cartola == null) return match.id === nextMatch.id;
+        return match.rodada_cartola === nextMatch.rodada_cartola
+          && unwrap(match.campeonato)?.ano === unwrap(nextMatch.campeonato)?.ano;
+      })
+    : [];
 
   const seasonMatches = partidas.filter((match) => season === "all" || unwrap(match.campeonato)?.ano === season);
 
@@ -217,9 +225,6 @@ export default function PerfilPublicoTime({ time, partidas, erroPartidas = false
   const finishedGroups = groupByCartolaRound(seasonMatches.filter(isFinished), "desc");
   const activeGroups = matchView === "finished" ? finishedGroups : upcomingGroups;
   const activeMatchCount = activeGroups.reduce((total, group) => total + group.matches.length, 0);
-
-  const nextOpponent = nextMatch ? (nextMatch.time_casa === time.id ? unwrap(nextMatch.visitante) : unwrap(nextMatch.casa)) : null;
-  const nextCompetition = nextMatch ? unwrap(nextMatch.campeonato) : null;
 
   function voltarParaOrigem() {
     if (window.history.length > 1) router.back();
@@ -254,18 +259,25 @@ export default function PerfilPublicoTime({ time, partidas, erroPartidas = false
 
             <div className="rounded-2xl border border-yellow-400/15 bg-[#15160f] p-5 sm:p-6">
               <div className="flex items-center justify-between gap-3">
-                <div><span className="text-[10px] font-black uppercase tracking-[0.14em] text-yellow-400">Próximo jogo</span><h2 className="mt-1 text-lg font-black text-white">{nextMatch ? nextMatch.rodada_cartola ? `Rodada ${nextMatch.rodada_cartola} do Cartola` : `Rodada ${nextMatch.rodada}` : "Agenda livre"}</h2></div>
+                <div><span className="text-[10px] font-black uppercase tracking-[0.14em] text-yellow-400">{nextMatches.length > 1 ? "Próximos jogos" : "Próximo jogo"}</span><h2 className="mt-1 text-lg font-black text-white">{nextMatch ? nextMatch.rodada_cartola ? `Rodada ${nextMatch.rodada_cartola} do Cartola` : `Rodada ${nextMatch.rodada}` : "Agenda livre"}</h2></div>
                 <CalendarDays size={20} className="text-yellow-400" />
               </div>
-              {nextMatch && nextOpponent && nextCompetition ? (
-                <div className="mt-7">
-                  <div className="flex items-center gap-4">
-                    <img src={nextOpponent.escudo || "/shield-placeholder.png"} alt={`Escudo do ${nextOpponent.nome}`} className="h-14 w-14 object-contain" />
-                    <div className="min-w-0"><p className="text-[10px] font-bold uppercase tracking-[0.1em] text-slate-600">{nextMatch.time_casa === time.id ? "Em casa contra" : "Fora contra"}</p><p className="mt-1 text-xl font-black leading-tight text-white">{nextOpponent.nome}</p></div>
-                  </div>
-                  <Link href={competitionPath(nextCompetition)} className="mt-6 flex items-center justify-between rounded-xl border border-white/[0.07] bg-black/20 px-4 py-3 text-xs font-bold text-slate-300 hover:border-yellow-400/30 hover:text-yellow-400">
-                    <span>{nextCompetition.nome}</span><ChevronRight size={15} />
-                  </Link>
+              {nextMatches.length > 0 ? (
+                <div className="mt-5 divide-y divide-yellow-400/10">
+                  {nextMatches.map((match) => {
+                    const opponent = match.time_casa === time.id ? unwrap(match.visitante) : unwrap(match.casa);
+                    const competition = unwrap(match.campeonato);
+                    if (!opponent || !competition) return null;
+                    return <div key={match.id} className="py-4 first:pt-0 last:pb-0">
+                      <div className="flex items-center gap-3.5">
+                        <img src={opponent.escudo || "/shield-placeholder.png"} alt={`Escudo do ${opponent.nome}`} className="h-11 w-11 shrink-0 object-contain" />
+                        <div className="min-w-0 flex-1"><p className="text-[9px] font-bold uppercase tracking-[0.1em] text-slate-600">{match.time_casa === time.id ? "Em casa contra" : "Fora contra"}</p><p className="mt-1 truncate text-base font-black leading-tight text-white">{opponent.nome}</p></div>
+                      </div>
+                      <Link href={competitionPath(competition)} className="mt-3 flex items-center justify-between rounded-lg border border-white/[0.07] bg-black/20 px-3.5 py-2.5 text-[11px] font-bold text-slate-300 transition-colors hover:border-yellow-400/30 hover:text-yellow-400">
+                        <span className="truncate">{competition.nome}</span><ChevronRight size={14} className="shrink-0" />
+                      </Link>
+                    </div>;
+                  })}
                 </div>
               ) : <p className="mt-8 max-w-sm text-sm leading-relaxed text-slate-500">Não há partidas futuras cadastradas para este time.</p>}
             </div>
@@ -273,12 +285,12 @@ export default function PerfilPublicoTime({ time, partidas, erroPartidas = false
         </div>
       </section>
 
-      <div className="mx-auto max-w-5xl px-4 py-7 md:px-6 md:py-10">
-        <div className="rounded-2xl border border-white/[0.07] bg-[#10120f] p-4 sm:p-5">
+      <div className="mx-auto max-w-5xl px-3 py-5 sm:px-4 sm:py-7 md:px-6 md:py-10">
+        <div className="rounded-2xl border border-white/[0.07] bg-[#10120f] p-3 sm:p-5">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <nav className="grid min-h-12 grid-cols-2 rounded-xl border border-white/[0.08] bg-[#090a09] p-1" aria-label="Conteúdo do perfil">
-              <button onClick={() => setProfileView("matches")} aria-current={profileView === "matches" ? "page" : undefined} className={`flex items-center justify-center gap-2 rounded-lg px-5 py-2.5 text-xs font-black transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400 ${profileView === "matches" ? "bg-[#1b1e19] text-white shadow-[0_5px_18px_rgba(0,0,0,.24)]" : "text-slate-500 hover:bg-white/[0.035] hover:text-white"}`}><ListChecks size={15} /> Partidas</button>
-              <button onClick={() => setProfileView("stats")} aria-current={profileView === "stats" ? "page" : undefined} className={`flex items-center justify-center gap-2 rounded-lg px-5 py-2.5 text-xs font-black transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400 ${profileView === "stats" ? "bg-[#1b1e19] text-white shadow-[0_5px_18px_rgba(0,0,0,.24)]" : "text-slate-500 hover:bg-white/[0.035] hover:text-white"}`}><BarChart3 size={15} /> Estatísticas</button>
+            <nav className="grid min-h-12 w-full grid-cols-2 rounded-xl border border-white/[0.08] bg-[#090a09] p-1 lg:w-auto" aria-label="Conteúdo do perfil">
+              <button onClick={() => setProfileView("matches")} aria-current={profileView === "matches" ? "page" : undefined} className={`flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-[11px] font-black transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400 sm:px-5 sm:text-xs ${profileView === "matches" ? "bg-[#1b1e19] text-white shadow-[0_5px_18px_rgba(0,0,0,.24)]" : "text-slate-500 hover:bg-white/[0.035] hover:text-white"}`}><ListChecks size={14} /> Partidas</button>
+              <button onClick={() => setProfileView("stats")} aria-current={profileView === "stats" ? "page" : undefined} className={`flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-[11px] font-black transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400 sm:px-5 sm:text-xs ${profileView === "stats" ? "bg-[#1b1e19] text-white shadow-[0_5px_18px_rgba(0,0,0,.24)]" : "text-slate-500 hover:bg-white/[0.035] hover:text-white"}`}><BarChart3 size={14} /> Estatísticas</button>
             </nav>
             <div className="flex w-full flex-col gap-2.5 sm:flex-row lg:w-auto">
               {profileView === "matches" && <div className="grid min-h-11 flex-1 grid-cols-2 rounded-xl border border-white/[0.08] bg-[#090a09] p-1 sm:min-w-64" aria-label="Tipo de partida">

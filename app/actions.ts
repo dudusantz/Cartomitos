@@ -432,6 +432,32 @@ export async function buscarPerfilPublicoTime(timeId: number) {
   return { time, partidas: partidas || [], erroPartidas: false };
 }
 
+export async function buscarComparativoConfronto(timeCasaId: number, timeVisitanteId: number) {
+  if (![timeCasaId, timeVisitanteId].every((id) => Number.isInteger(id) && id > 0) || timeCasaId === timeVisitanteId) {
+    return { success: false, partidas: [], msg: 'Clubes inválidos para o comparativo.' };
+  }
+
+  const { data, error } = await supabase
+    .from('partidas')
+    .select(`
+      id, rodada, rodada_cartola, time_casa, time_visitante,
+      placar_casa, placar_visitante, status,
+      casa:times!partidas_time_casa_fkey(id, nome, escudo),
+      visitante:times!partidas_time_visitante_fkey(id, nome, escudo),
+      campeonato:campeonatos(id, nome, ano)
+    `)
+    .or(`and(time_casa.eq.${timeCasaId},time_visitante.eq.${timeVisitanteId}),and(time_casa.eq.${timeVisitanteId},time_visitante.eq.${timeCasaId})`)
+    .eq('status', 'finalizado')
+    .order('id', { ascending: false });
+
+  if (error) {
+    console.error('Erro ao buscar comparativo do confronto:', error);
+    return { success: false, partidas: [], msg: 'Não foi possível carregar o retrospecto.' };
+  }
+
+  return { success: true, partidas: data || [] };
+}
+
 export async function removerTime(timeIdCartola: number) {
   try {
     await verificarAdmin();

@@ -3,9 +3,10 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, CalendarDays, ChevronRight, CircleAlert, Trophy } from "lucide-react";
+import { ArrowLeft, BarChart3, CalendarDays, ChevronRight, CircleAlert, ListChecks, Trophy } from "lucide-react";
 import TeamLink from "./TeamLink";
 import ModalConfrontoAoVivo from "./ModalConfrontoAoVivo";
+import EstatisticasClube from "./EstatisticasClube";
 
 type Team = {
   id: number;
@@ -180,10 +181,11 @@ export default function PerfilPublicoTime({ time, partidas, erroPartidas = false
   const router = useRouter();
   const seasons = useMemo(() => Array.from(new Set(partidas.map((match) => unwrap(match.campeonato)?.ano).filter((year): year is number => Boolean(year)))).sort((a, b) => b - a), [partidas]);
   const [season, setSeason] = useState<number | "all">(seasons[0] || "all");
+  const [profileView, setProfileView] = useState<"matches" | "stats">("matches");
   const [matchView, setMatchView] = useState<"finished" | "upcoming">("finished");
   const [selectedMatch, setSelectedMatch] = useState<Partida | null>(null);
 
-  const finished = partidas.filter(isFinished);
+  const finished = partidas.filter(match => isFinished(match) && (season === "all" || unwrap(match.campeonato)?.ano === season));
   const wins = finished.filter((match) => resultFor(match, time.id) === "V").length;
   const draws = finished.filter((match) => resultFor(match, time.id) === "E").length;
   const losses = finished.filter((match) => resultFor(match, time.id) === "D").length;
@@ -273,13 +275,16 @@ export default function PerfilPublicoTime({ time, partidas, erroPartidas = false
 
       <div className="mx-auto max-w-5xl px-4 py-7 md:px-6 md:py-10">
         <div className="rounded-2xl border border-white/[0.07] bg-[#10120f] p-4 sm:p-5">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-            <div><h2 className="text-2xl font-black tracking-[-0.03em] text-white">Partidas do clube</h2><p className="mt-1 text-sm text-slate-500">Resultados e agenda pela rodada oficial do Cartola.</p></div>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <nav className="grid min-h-12 grid-cols-2 rounded-xl border border-white/[0.08] bg-[#090a09] p-1" aria-label="Conteúdo do perfil">
+              <button onClick={() => setProfileView("matches")} aria-current={profileView === "matches" ? "page" : undefined} className={`flex items-center justify-center gap-2 rounded-lg px-5 py-2.5 text-xs font-black transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400 ${profileView === "matches" ? "bg-[#1b1e19] text-white shadow-[0_5px_18px_rgba(0,0,0,.24)]" : "text-slate-500 hover:bg-white/[0.035] hover:text-white"}`}><ListChecks size={15} /> Partidas</button>
+              <button onClick={() => setProfileView("stats")} aria-current={profileView === "stats" ? "page" : undefined} className={`flex items-center justify-center gap-2 rounded-lg px-5 py-2.5 text-xs font-black transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400 ${profileView === "stats" ? "bg-[#1b1e19] text-white shadow-[0_5px_18px_rgba(0,0,0,.24)]" : "text-slate-500 hover:bg-white/[0.035] hover:text-white"}`}><BarChart3 size={15} /> Estatísticas</button>
+            </nav>
             <div className="flex w-full flex-col gap-2.5 sm:flex-row lg:w-auto">
-              <div className="grid min-h-11 flex-1 grid-cols-2 rounded-xl border border-white/[0.08] bg-[#090a09] p-1 sm:min-w-64" aria-label="Tipo de partida">
-                <button onClick={() => setMatchView("finished")} aria-pressed={matchView === "finished"} className={`rounded-lg px-4 py-2.5 text-[10px] font-black uppercase tracking-[0.08em] ${matchView === "finished" ? "bg-yellow-400 text-[#11130f] shadow-[0_5px_16px_rgba(216,170,50,.15)]" : "text-slate-500 hover:bg-white/[0.035] hover:text-white"}`}>Encerrados</button>
-                <button onClick={() => setMatchView("upcoming")} aria-pressed={matchView === "upcoming"} className={`rounded-lg px-4 py-2.5 text-[10px] font-black uppercase tracking-[0.08em] ${matchView === "upcoming" ? "bg-yellow-400 text-[#11130f] shadow-[0_5px_16px_rgba(216,170,50,.15)]" : "text-slate-500 hover:bg-white/[0.035] hover:text-white"}`}>Próximos</button>
-              </div>
+              {profileView === "matches" && <div className="grid min-h-11 flex-1 grid-cols-2 rounded-xl border border-white/[0.08] bg-[#090a09] p-1 sm:min-w-64" aria-label="Tipo de partida">
+                <button onClick={() => setMatchView("finished")} aria-pressed={matchView === "finished"} className={`rounded-lg px-4 py-2.5 text-[10px] font-black uppercase tracking-[0.08em] transition-all ${matchView === "finished" ? "bg-yellow-400 text-[#11130f] shadow-[0_5px_16px_rgba(216,170,50,.15)]" : "text-slate-500 hover:bg-white/[0.035] hover:text-white"}`}>Encerrados</button>
+                <button onClick={() => setMatchView("upcoming")} aria-pressed={matchView === "upcoming"} className={`rounded-lg px-4 py-2.5 text-[10px] font-black uppercase tracking-[0.08em] transition-all ${matchView === "upcoming" ? "bg-yellow-400 text-[#11130f] shadow-[0_5px_16px_rgba(216,170,50,.15)]" : "text-slate-500 hover:bg-white/[0.035] hover:text-white"}`}>Próximos</button>
+              </div>}
               <select aria-label="Filtrar temporada" value={season} onChange={(event) => setSeason(event.target.value === "all" ? "all" : Number(event.target.value))} className="min-h-11 rounded-xl border border-white/[0.08] bg-[#090a09] px-4 py-2.5 text-xs font-bold text-white outline-none focus:border-yellow-400 sm:min-w-48">
               <option value="all">Todas as temporadas</option>
               {seasons.map((year) => <option key={year} value={year}>Temporada {year}</option>)}
@@ -288,7 +293,9 @@ export default function PerfilPublicoTime({ time, partidas, erroPartidas = false
           </div>
         </div>
 
-        {erroPartidas ? (
+        {profileView === "stats" && !erroPartidas && <EstatisticasClube partidas={seasonMatches} teamId={time.id} />}
+
+        {profileView === "matches" && (erroPartidas ? (
           <div className="mt-6 flex items-start gap-3 rounded-2xl border border-red-400/20 bg-red-400/[0.05] p-5 text-sm text-red-300"><CircleAlert size={18} className="mt-0.5 shrink-0" /><div><strong className="block text-white">Não foi possível carregar as partidas</strong><span className="mt-1 block text-slate-500">Atualize a página para tentar novamente.</span></div></div>
         ) : activeGroups.length > 0 ? (
           <section className="mt-7" aria-labelledby="lista-partidas-selecionada">
@@ -305,7 +312,7 @@ export default function PerfilPublicoTime({ time, partidas, erroPartidas = false
           </section>
         ) : (
           <div className="mt-6 flex min-h-56 flex-col items-center justify-center rounded-2xl border border-dashed border-white/[0.1] bg-white/[0.015] px-6 text-center"><CalendarDays size={24} className="text-slate-700" /><h3 className="mt-4 text-base font-black text-white">{matchView === "finished" ? "Nenhum resultado encerrado" : "Nenhum próximo jogo"}</h3><p className="mt-1 max-w-sm text-sm text-slate-500">Não há partidas desta categoria na temporada selecionada.</p></div>
-        )}
+        ))}
       </div>
       {selectedMatch && <ModalConfrontoAoVivo jogo={selectedMatch} onClose={() => setSelectedMatch(null)} />}
     </div>

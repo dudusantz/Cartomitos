@@ -129,6 +129,31 @@ table { font-variant-numeric: tabular-nums; }
 .bg-\[\#151515\], .bg-\[\#1a1a1a\] { background-color: var(--surface-raised) !important; }
 .shadow-2xl { box-shadow: 0 24px 70px rgba(0, 0, 0, .28) !important; }
 
+/* Rolagem horizontal dos gráficos do perfil do clube. */
+.club-stats-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(234, 179, 8, .72) rgba(255, 255, 255, .045);
+  scrollbar-gutter: stable;
+}
+.club-stats-scrollbar::-webkit-scrollbar { height: .5rem; }
+.club-stats-scrollbar::-webkit-scrollbar-track {
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .045);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .035);
+}
+.club-stats-scrollbar::-webkit-scrollbar-thumb {
+  min-width: 3rem;
+  border: 2px solid #111410;
+  border-radius: 999px;
+  background: rgba(234, 179, 8, .72);
+}
+.club-stats-scrollbar::-webkit-scrollbar-thumb:hover { background: #eab308; }
+.club-stats-scrollbar:focus-visible {
+  border-radius: .5rem;
+  outline: 2px solid rgba(234, 179, 8, .65);
+  outline-offset: 4px;
+}
+
 @media (max-width: 767px) {
   .site-nav {
     width: 100%;

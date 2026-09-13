@@ -10,6 +10,7 @@ import {
 } from '@/app/actions' 
 import { ModalConfirmacao } from './ModalConfirmacao' 
 import { RefreshCw, Save, X, Calendar, PlayCircle, GripVertical, Eye, Shuffle, Check, RotateCcw } from 'lucide-react'
+import { findClassificationZone, normalizeClassificationZones } from '@/lib/classification-zones'
 
 interface Props {
   campeonatoId: number
@@ -75,7 +76,7 @@ export default function PainelFaseGrupos({ campeonatoId, times = [] }: Props) {
     // Busca as zonas dinâmicas e a mensagem salva no banco
     const { data: camp } = await supabase.from('campeonatos').select('config_zonas, mensagem_atualizacao').eq('id', campeonatoId).single();
     if (camp) {
-        const zonasOrdenadas = Array.isArray(camp.config_zonas) ? camp.config_zonas.sort((a: any, b: any) => a.posicao - b.posicao) : [];
+        const zonasOrdenadas = normalizeClassificationZones(camp.config_zonas);
         setConfigZonas(zonasOrdenadas);
         setMensagemModal(camp.mensagem_atualizacao || "Deseja salvar os resultados definitivamente?");
     }
@@ -528,7 +529,7 @@ export default function PainelFaseGrupos({ campeonatoId, times = [] }: Props) {
                                     const nome = timeDados?.nome || 'Time';
                                     
                                     // Acha a zona dinâmica para pintar a linha
-                                    const zonaAtiva = configZonas.find((z) => (idx + 1) <= z.posicao);
+                                    const zonaAtiva = findClassificationZone(configZonas, idx + 1);
                                     const corZona = zonaAtiva ? zonaAtiva.cor : 'transparent';
                                     const isClassificado = zonaAtiva !== undefined;
 

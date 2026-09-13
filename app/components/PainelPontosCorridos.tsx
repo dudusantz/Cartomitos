@@ -13,6 +13,8 @@ import {
 } from '@/app/actions'
 import { ModalConfirmacao } from './ModalConfirmacao'
 import { Trophy, RefreshCw, Trash2, Save, X, Calendar, PlayCircle } from 'lucide-react'
+import { supabase } from '@/lib/supabase'
+import { ClassificationZone, findClassificationZone, normalizeClassificationZones } from '@/lib/classification-zones'
 
 interface Props {
   campeonatoId: number
@@ -29,6 +31,7 @@ export default function PainelPontosCorridos({ campeonatoId, times = [] }: Props
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [viewAdjusted, setViewAdjusted] = useState(false)
+  const [configZonas, setConfigZonas] = useState<ClassificationZone[]>([])
   
   const [modalOpen, setModalOpen] = useState(false)
   const [modalConfig, setModalConfig] = useState<any>({})
@@ -50,6 +53,13 @@ export default function PainelPontosCorridos({ campeonatoId, times = [] }: Props
   }, [campeonatoId])
 
   async function carregarDados() {
+    const { data: campeonato } = await supabase
+      .from('campeonatos')
+      .select('config_zonas')
+      .eq('id', campeonatoId)
+      .single()
+    setConfigZonas(normalizeClassificationZones(campeonato?.config_zonas))
+
     const dadosTabela = await buscarTabelaPontosCorridos(campeonatoId)
     setTabela(dadosTabela)
     
@@ -308,19 +318,18 @@ export default function PainelPontosCorridos({ campeonatoId, times = [] }: Props
                   const timeInfo = Array.isArray(t.times) ? t.times[0] : t.times
                   const escudo = timeInfo?.escudo || '/shield-placeholder.png'
                   const nome = timeInfo?.nome || 'Time Desconhecido'
-                  const isG4 = i < 4
-                  const isZ4 = i >= tabela.length - 4 && tabela.length > 4
+                  const zonaAtiva = findClassificationZone(configZonas, i + 1)
+                  const corZona = zonaAtiva?.cor || 'transparent'
                   return (
                     <tr key={t.id} className="group relative transition-colors hover:bg-white/[0.025]">
                       <td className="py-3 pl-6 text-center relative">
-                        {isG4 && <div className="absolute bottom-2 left-0 top-2 w-0.5 bg-yellow-500"></div>}
-                        {isZ4 && <div className="absolute bottom-2 left-0 top-2 w-0.5 bg-red-500"></div>}
-                        <span className={`font-mono text-xs font-bold ${isG4 ? 'text-yellow-500' : isZ4 ? 'text-red-400' : 'text-gray-600'}`}>{i + 1}</span>
+                        {zonaAtiva && <div className="absolute bottom-2 left-0 top-2 w-0.5 rounded-r" style={{ backgroundColor: corZona }}></div>}
+                        <span className="font-mono text-xs font-bold" style={{ color: zonaAtiva ? corZona : '#4b5563' }}>{i + 1}</span>
                       </td>
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-3">
                           <img src={escudo} className="h-8 w-8 shrink-0 object-contain transition-transform group-hover:scale-105" alt={nome} />
-                          <span className={`font-bold text-sm transition-colors ${isZ4 ? 'text-gray-400 group-hover:text-red-300' : 'text-gray-200 group-hover:text-white'} whitespace-nowrap`}>{nome}</span>
+                          <span className="whitespace-nowrap text-sm font-bold text-gray-200 transition-colors group-hover:text-white">{nome}</span>
                         </div>
                       </td>
                       <td className="bg-yellow-500/[0.025] py-3 text-center font-mono text-sm font-black text-white">{formatDecimal(t.pts)}</td>
@@ -337,6 +346,12 @@ export default function PainelPontosCorridos({ campeonatoId, times = [] }: Props
               </tbody>
             </table>
           </div>
+          {configZonas.length > 0 && <div className="flex flex-wrap gap-x-5 gap-y-2 border-t border-white/[0.06] px-5 py-3.5">
+            {configZonas.map((zona, index) => <div key={`${zona.inicio}-${zona.fim}-${index}`} className="flex items-center gap-2 text-[10px] font-semibold text-gray-500">
+              <span className="h-2 w-2 rounded-sm" style={{ backgroundColor: zona.cor }}></span>
+              <span>{zona.texto || `${zona.inicio}º ao ${zona.fim}º`}</span>
+            </div>)}
+          </div>}
         </div>
       </section>
 

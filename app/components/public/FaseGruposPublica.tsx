@@ -10,6 +10,7 @@ import {
 import ModalConfrontoAoVivo from "./ModalConfrontoAoVivo";
 import TeamLink from "./TeamLink";
 import toast from "react-hot-toast";
+import { findClassificationZone, normalizeClassificationZones } from "@/lib/classification-zones";
 
 interface Props {
   campeonatoId: number;
@@ -46,9 +47,7 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
 
         if (camp && camp.config_zonas) {
           // Ordena as zonas pela posição para garantir o funcionamento do .find() depois
-          const zonasOrdenadas = Array.isArray(camp.config_zonas) 
-            ? camp.config_zonas.sort((a, b) => a.posicao - b.posicao)
-            : [];
+          const zonasOrdenadas = normalizeClassificationZones(camp.config_zonas);
           setZonasClassificacao(zonasOrdenadas);
         }
 
@@ -280,7 +279,7 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
                     <tbody className="divide-y divide-white/[0.055] bg-[#101210]">
                   {gruposExibidos[letra].map((t: any, idx: number) => {
                     const time = Array.isArray(t.times) ? t.times[0] : t.times;
-                    const zonaAtiva = zonasClassificacao.find((z) => (idx + 1) <= z.posicao);
+                    const zonaAtiva = findClassificationZone(zonasClassificacao, idx + 1);
                     const corZona = zonaAtiva ? zonaAtiva.cor : "#707770";
 
                     return (
@@ -338,7 +337,7 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
                         const time = Array.isArray(t.times) ? t.times[0] : t.times;
                         
                         // Encontra a cor da zona baseada na posição do time
-                        const zonaAtiva = zonasClassificacao.find((z) => (idx + 1) <= z.posicao);
+                        const zonaAtiva = findClassificationZone(zonasClassificacao, idx + 1);
                         const corZona = zonaAtiva ? zonaAtiva.cor : 'transparent';
                         const isClassificado = zonaAtiva !== undefined; // Tem cor, tem destaque
 

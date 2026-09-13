@@ -23,6 +23,7 @@ import PainelMataMata from "@/app/components/PainelMataMata";
 import PainelFaseGrupos from "@/app/components/PainelFaseGrupos";
 import PainelTimes from "@/app/components/PainelTimes";
 import PainelGrid from "@/app/components/PainelGrid";
+import { normalizeClassificationZones } from "@/lib/classification-zones";
 
 export default function GerenciarLiga() {
   const { id } = useParams();
@@ -107,7 +108,8 @@ export default function GerenciarLiga() {
     
     // Carrega zonas e mensagem
     setMensagemAtualizacao(data?.mensagem_atualizacao || "");
-    setConfigZonas(data?.config_zonas || []);
+    const zonasNormalizadas = normalizeClassificationZones(data?.config_zonas);
+    setConfigZonas(zonasNormalizadas);
 
     // Salva os originais
     setOrigNome(data?.nome || "");
@@ -116,7 +118,7 @@ export default function GerenciarLiga() {
     setOrigUsarDecimais(data?.usar_decimais || false);
     setOrigFinalUnica(data?.final_unica || false);
     setOrigMensagem(data?.mensagem_atualizacao || "");
-    setOrigConfigZonas(data?.config_zonas || []);
+    setOrigConfigZonas(zonasNormalizadas);
 
     if (data && !data.ativo) {
       const p = await buscarPodium(campeonatoId);
@@ -184,6 +186,18 @@ export default function GerenciarLiga() {
   async function handleSalvarConfiguracoes() {
     if (!nomeLiga.trim()) {
       toast.error("O nome da liga não pode estar vazio.");
+      return;
+    }
+
+    const zonasOrdenadas = [...configZonas].sort((a, b) => Number(a.inicio ?? 1) - Number(b.inicio ?? 1));
+    const zonaInvalida = zonasOrdenadas.some((zona) => Number(zona.inicio) < 1 || Number(zona.fim) < Number(zona.inicio));
+    if (zonaInvalida) {
+      toast.error("Confira as posições inicial e final das zonas de classificação.");
+      return;
+    }
+    const zonasSobrepostas = zonasOrdenadas.some((zona, index) => index > 0 && Number(zona.inicio) <= Number(zonasOrdenadas[index - 1].fim));
+    if (zonasSobrepostas) {
+      toast.error("As zonas de classificação não podem ocupar as mesmas posições.");
       return;
     }
 
@@ -549,10 +563,13 @@ export default function GerenciarLiga() {
               <div className="flex justify-between items-center">
                 <div>
                   <label className="text-xs font-bold text-gray-400 uppercase tracking-wider block">Zonas de Classificação e Legendas</label>
-                  <span className="text-[10px] text-gray-500">Defina as cores e legendas das posições na tabela pública.</span>
+                  <span className="text-[10px] text-gray-500">Defina um intervalo para cada zona. Exemplo: da posição 17 até a 20 para o Z4.</span>
                 </div>
                 <button 
-                  onClick={() => setConfigZonas([...configZonas, { posicao: 1, cor: "#22c55e", texto: "" }])}
+                  onClick={() => {
+                    const ultimaPosicao = Math.max(0, ...configZonas.map((zona) => Number(zona.fim ?? zona.posicao ?? 0)));
+                    setConfigZonas([...configZonas, { inicio: ultimaPosicao + 1, fim: ultimaPosicao + 1, posicao: ultimaPosicao + 1, cor: "#22c55e", texto: "" }]);
+                  }}
                   className="text-[10px] bg-blue-600 px-4 py-2 rounded-xl font-bold uppercase tracking-wider hover:bg-blue-500 transition shadow-lg shadow-blue-900/20"
                 >
                   + Adicionar Zona
@@ -566,7 +583,7 @@ export default function GerenciarLiga() {
                   </div>
                 )}
                 {configZonas.map((zona, index) => (
-                  <div key={index} className="flex items-center gap-4 bg-black/40 p-4 rounded-xl border border-gray-800 transition hover:border-gray-700">
+                  <div key={index} className="grid grid-cols-[auto_1fr_1fr_auto] items-end gap-3 bg-black/40 p-4 rounded-xl border border-gray-800 transition hover:border-gray-700 md:grid-cols-[auto_4rem_4rem_minmax(0,1fr)_auto]">
                     <div className="flex flex-col items-center gap-1">
                       <span className="text-[9px] text-gray-500 font-bold uppercase">Cor</span>
                       <input 
@@ -582,21 +599,38 @@ export default function GerenciarLiga() {
                     </div>
                     
                     <div className="flex flex-col">
-                      <span className="text-[9px] text-gray-500 font-bold uppercase">Até Pos.</span>
+                      <span className="text-[9px] text-gray-500 font-bold uppercase">Da posição</span>
                       <input 
                         type="number" 
                         min="1"
-                        value={zona.posicao} 
+                        value={zona.inicio ?? 1}
                         onChange={e => {
                           const novas = [...configZonas];
-                          novas[index].posicao = Number(e.target.value);
+                          novas[index].inicio = Math.max(1, Number(e.target.value));
                           setConfigZonas(novas);
                         }}
                         className="w-16 bg-[#1a1a1a] border border-gray-800 text-white font-bold outline-none rounded-lg p-2 text-center focus:border-blue-500"
                       />
                     </div>
 
-                    <div className="flex flex-col flex-1">
+                    <div className="flex flex-col">
+                      <span className="text-[9px] text-gray-500 font-bold uppercase">Até posição</span>
+                      <input
+                        type="number"
+                        min={zona.inicio ?? 1}
+                        value={zona.fim ?? zona.posicao ?? 1}
+                        onChange={e => {
+                          const novas = [...configZonas];
+                          const fim = Math.max(Number(novas[index].inicio ?? 1), Number(e.target.value));
+                          novas[index].fim = fim;
+                          novas[index].posicao = fim;
+                          setConfigZonas(novas);
+                        }}
+                        className="w-16 bg-[#1a1a1a] border border-gray-800 text-white font-bold outline-none rounded-lg p-2 text-center focus:border-blue-500"
+                      />
+                    </div>
+
+                    <div className="col-span-4 flex min-w-0 flex-col md:col-span-1">
                       <span className="text-[9px] text-gray-500 font-bold uppercase">Nome da Zona / Legenda</span>
                       <input 
                         type="text" 
@@ -613,7 +647,7 @@ export default function GerenciarLiga() {
 
                     <button 
                       onClick={() => setConfigZonas(configZonas.filter((_, i) => i !== index))}
-                      className="text-red-500 hover:text-red-400 p-2 mt-4 transition"
+                      className="col-start-4 row-start-1 p-2 text-red-500 transition hover:text-red-400 md:col-start-auto md:row-start-auto"
                       title="Remover Zona"
                     >
                       <X size={18} />

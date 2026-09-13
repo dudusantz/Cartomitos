@@ -10,6 +10,7 @@ import {
 import ModalConfrontoAoVivo from "./ModalConfrontoAoVivo";
 import TeamLink from "./TeamLink";
 import toast from "react-hot-toast";
+import { findClassificationZone, normalizeClassificationZones } from "@/lib/classification-zones";
 
 interface Props {
   campeonatoId: number;
@@ -42,9 +43,7 @@ export default function TabelaPublica({ campeonatoId }: Props) {
         .single();
       
       if (camp && camp.config_zonas) {
-        const zonasOrdenadas = Array.isArray(camp.config_zonas) 
-          ? camp.config_zonas.sort((a, b) => a.posicao - b.posicao)
-          : [];
+        const zonasOrdenadas = normalizeClassificationZones(camp.config_zonas);
         setZonasClassificacao(zonasOrdenadas);
       }
 
@@ -237,7 +236,7 @@ export default function TabelaPublica({ campeonatoId }: Props) {
                   const diff = t.posOriginal - (i + 1);
 
                   // Busca a cor e verifica se tem estilo na borda
-                  const zonaAtiva = zonasClassificacao.find((z) => (i + 1) <= z.posicao);
+                  const zonaAtiva = findClassificationZone(zonasClassificacao, i + 1);
                   const corZona = zonaAtiva ? zonaAtiva.cor : 'transparent';
                   const isClassificado = zonaAtiva !== undefined;
 

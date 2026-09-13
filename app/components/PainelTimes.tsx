@@ -182,7 +182,7 @@ export default function PainelTimes({ campeonatoId, timesLiga, todosTimes, aoAtu
             </span>
           </div>
 
-          <div className="max-h-[620px] space-y-2 overflow-y-auto pr-1 [scrollbar-color:#343a32_transparent] [scrollbar-width:thin]">
+          <div className="custom-scrollbar max-h-[620px] space-y-2 overflow-y-auto pr-1">
             {timesFiltrados.length === 0 && (
               <div className="rounded-2xl border border-dashed border-white/10 px-4 py-12 text-center"><Search className="mx-auto mb-3 text-slate-700" size={24}/><p className="text-xs font-bold text-slate-500">Nenhum time encontrado</p><p className="mt-1 text-[10px] text-slate-700">Tente buscar por outro nome.</p></div>
             )}

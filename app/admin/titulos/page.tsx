@@ -156,7 +156,7 @@ export default function AdminTitulosPage() {
                         </span>
                     </div>
 
-                    <div className="overflow-x-auto">
+                    <div className="custom-scrollbar overflow-x-auto">
                         <table className="w-full text-left text-sm">
                             <thead className="bg-[#121212] text-gray-500 uppercase text-[10px] font-bold tracking-widest border-b border-white/5">
                                 <tr>

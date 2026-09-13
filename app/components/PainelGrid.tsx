@@ -190,7 +190,7 @@ export default function PainelGrid({ campeonatoId }: Props) {
                           {visaoTabela === 'geral' ? 'Classificação Geral' : visaoTabela === 'aovivo' ? 'Parciais Ao Vivo' : `Classificação Rodada ${visaoTabela}`}
                       </h3>
                       
-                      <div className="flex items-center gap-1 bg-black p-1 rounded-lg border border-gray-800 overflow-x-auto max-w-full">
+                      <div className="custom-scrollbar flex max-w-full items-center gap-1 overflow-x-auto rounded-lg border border-gray-800 bg-black p-1">
                           {/* Botão Geral */}
                           <button 
                               onClick={() => setVisaoTabela('geral')}

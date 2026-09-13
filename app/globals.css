@@ -20,9 +20,53 @@
 
 * {
   box-sizing: border-box;
+  scrollbar-width: thin;
+  scrollbar-color: #454a42 #0b0d0b;
 }
 
-html { scroll-behavior: smooth; }
+html {
+  scroll-behavior: smooth;
+  scrollbar-gutter: stable;
+}
+
+/* Sistema global de rolagem: página, tabelas, modais e painéis. */
+*::-webkit-scrollbar { width: .65rem; height: .65rem; }
+*::-webkit-scrollbar-track { background: #0b0d0b; }
+*::-webkit-scrollbar-thumb {
+  min-width: 2.75rem;
+  min-height: 2.75rem;
+  border: 2px solid #0b0d0b;
+  border-radius: 999px;
+  background: #454a42;
+}
+*::-webkit-scrollbar-thumb:hover { background: #676d62; }
+*::-webkit-scrollbar-thumb:active { background: var(--accent); }
+*::-webkit-scrollbar-corner { background: #0b0d0b; }
+
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(216, 170, 50, .58) transparent;
+}
+.custom-scrollbar::-webkit-scrollbar { width: .5rem; height: .5rem; }
+.custom-scrollbar::-webkit-scrollbar-track {
+  margin: .25rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, .035);
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: rgba(216, 170, 50, .58);
+  background-clip: padding-box;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(240, 200, 75, .88); background-clip: padding-box; }
+.custom-scrollbar::-webkit-scrollbar-thumb:active { background: var(--accent-bright); background-clip: padding-box; }
+
+.no-scrollbar {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar { display: none !important; }
 
 body {
   min-height: 100dvh;
@@ -155,6 +199,8 @@ table { font-variant-numeric: tabular-nums; }
 }
 
 @media (max-width: 767px) {
+  *::-webkit-scrollbar { width: .45rem; height: .45rem; }
+  .custom-scrollbar::-webkit-scrollbar { width: .4rem; height: .4rem; }
   .chart-scroll-fade {
     mask-image: linear-gradient(to right, transparent 0, #000 .85rem, #000 calc(100% - 1.4rem), transparent 100%);
   }

@@ -485,7 +485,7 @@ export async function removerTime(timeIdCartola: number) {
 
 export async function listarPartidas(campeonatoId: number) {
   const { data } = await supabase.from('partidas')
-    .select(`*, casa:times!partidas_time_casa_fkey(*), visitante:times!partidas_time_visitante_fkey(*)`)
+    .select(`*, casa:times!partidas_time_casa_fkey(*), visitante:times!partidas_time_visitante_fkey(*), campeonato:campeonatos(id, nome, ano, usar_decimais)`)
     .eq('campeonato_id', campeonatoId)
     .order('rodada', { ascending: true })
     .order('id', { ascending: true })

@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --port 3001",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"
@@ -12,11 +12,13 @@
     "@hello-pangea/dnd": "^18.0.1",
     "@supabase/supabase-js": "^2.86.0",
     "canvas-confetti": "^1.9.4",
+    "html-to-image": "^1.11.13",
     "lucide-react": "^0.561.0",
     "next": "^15.1.11",
     "react": "19.0.0",
     "react-dom": "19.0.0",
-    "react-hot-toast": "^2.6.0"
+    "react-hot-toast": "^2.6.0",
+    "sharp": "^0.35.4"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

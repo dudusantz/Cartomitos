@@ -2,7 +2,7 @@
 
 import { listarCampeonatos } from '@/app/actions'
 import Link from 'next/link'
-import { Trophy, Calendar, DollarSign, Lock, Radio, Archive } from 'lucide-react'
+import { Trophy, Calendar, DollarSign, Lock, Radio, Archive, RefreshCw } from 'lucide-react'
 import { useState, useEffect } from 'react'
 
 // Função auxiliar para gerar a URL amigável
@@ -21,15 +21,25 @@ function gerarSlug(nome: string, id: number) {
 export default function CampeonatosPage() {
   const [campeonatos, setCampeonatos] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [erro, setErro] = useState(false)
   // Estado para controlar qual aba está ativa
   const [visualizacao, setVisualizacao] = useState<'oficiais' | 'pagas'>('oficiais')
 
-  useEffect(() => {
-    async function load() {
-        const dados = await listarCampeonatos()
-        setCampeonatos(dados)
-        setLoading(false)
+  async function load() {
+    setLoading(true)
+    setErro(false)
+    try {
+      const dados = await listarCampeonatos()
+      setCampeonatos(Array.isArray(dados) ? dados : [])
+    } catch (error) {
+      console.error('Erro ao carregar campeonatos:', error)
+      setErro(true)
+    } finally {
+      setLoading(false)
     }
+  }
+
+  useEffect(() => {
     load()
   }, [])
 
@@ -101,6 +111,13 @@ export default function CampeonatosPage() {
       {/* === LOADING === */}
       {loading ? (
          <div className="text-center py-20 text-gray-500 animate-pulse text-sm font-bold uppercase tracking-widest">Carregando competições...</div>
+      ) : erro ? (
+        <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-red-400/20 bg-red-400/[0.025] px-6 py-24 text-center">
+          <span className="grid h-12 w-12 place-items-center rounded-xl border border-red-400/20 bg-red-400/10 text-red-400"><RefreshCw size={20} /></span>
+          <h2 className="mt-4 text-lg font-black text-white">Não foi possível carregar as competições</h2>
+          <p className="mt-1 max-w-md text-sm leading-relaxed text-slate-500">Verifique a conexão com o servidor e tente novamente.</p>
+          <button onClick={load} className="mt-5 flex items-center gap-2 rounded-xl bg-yellow-400 px-5 py-3 text-[10px] font-black uppercase tracking-[0.08em] text-black transition hover:bg-yellow-300 active:scale-[.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#090a09]"><RefreshCw size={14} /> Tentar novamente</button>
+        </div>
       ) : (
         <>
             {/* === LISTAGEM (GRID) === */}

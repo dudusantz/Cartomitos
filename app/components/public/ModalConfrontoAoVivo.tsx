@@ -2,10 +2,11 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { X, RefreshCw, ChevronDown, ChevronUp, History, LayoutGrid, List, Swords, Users } from "lucide-react";
+import { X, RefreshCw, ChevronDown, ChevronUp, History, LayoutGrid, List, Share2, Swords, Users } from "lucide-react";
 import { buscarComparativoConfronto, buscarDetalhesConfrontoAoVivo } from "@/app/actions";
 import { teamPath } from "@/lib/routes";
 import toast from "react-hot-toast";
+import CompartilharConfronto from "./CompartilharConfronto";
 
 interface Props {
   jogo: any;
@@ -19,6 +20,7 @@ export default function ModalConfrontoAoVivo({ jogo, onClose }: Props) {
   const [loadingComparativo, setLoadingComparativo] = useState(true);
   const [activeSection, setActiveSection] = useState<'lineups' | 'history'>('lineups');
   const [viewMode, setViewMode] = useState<'pitch' | 'list'>('pitch');
+  const [shareOpen, setShareOpen] = useState(false);
 
   useEffect(() => {
     setActiveSection('lineups');
@@ -84,6 +86,9 @@ export default function ModalConfrontoAoVivo({ jogo, onClose }: Props) {
             <h2 className="mt-0.5 text-sm font-black tracking-[-0.015em] text-white md:text-base">Central do confronto <span className="font-medium text-gray-600">· Rodada {rodadaExibida}</span></h2>
           </div>
           <div className="flex items-center gap-2">
+            <button onClick={() => setShareOpen(true)} className="flex items-center gap-2 rounded-lg border border-yellow-400/20 bg-yellow-400/[0.06] px-2.5 py-2 text-[9px] font-bold uppercase tracking-[0.08em] text-yellow-400 transition hover:border-yellow-400/40 hover:bg-yellow-400/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400 md:px-3">
+              <Share2 size={14} /> <span className="hidden sm:inline">Compartilhar</span>
+            </button>
             {/* BOTÃO TOGGLE CAMPINHO/LISTA */}
             {activeSection === 'lineups' && <button
                 onClick={() => setViewMode(prev => prev === 'pitch' ? 'list' : 'pitch')} 
@@ -136,6 +141,21 @@ export default function ModalConfrontoAoVivo({ jogo, onClose }: Props) {
             <div className="text-center text-gray-500 py-20 font-bold uppercase text-xs tracking-widest">Erro ao carregar dados da rodada.</div>
           )}
         </div>
+        <CompartilharConfronto
+          aberto={shareOpen}
+          onClose={() => setShareOpen(false)}
+          casa={casaExibida || perfilCasa || {}}
+          visitante={visitanteExibido || perfilVisitante || {}}
+          placarCasa={Number(casaExibida?.pontos ?? jogo.placar_casa ?? 0)}
+          placarVisitante={Number(visitanteExibido?.pontos ?? jogo.placar_visitante ?? 0)}
+          campeonato={campeonatoAtual?.nome}
+          rodada={rodadaExibida}
+          finalizado={finalizado}
+          jogadoresCasa={casaExibida?.titulares || []}
+          jogadoresVisitante={visitanteExibido?.titulares || []}
+          reservasCasa={casaExibida?.reservas || []}
+          reservasVisitante={visitanteExibido?.reservas || []}
+        />
       </div>
     </div>
   );

@@ -231,6 +231,8 @@ export default function PaginaPublicaCampeonato() {
       {activeTab === 'fase_final' ? (
         <MataMataPublico
           campeonatoId={id}
+          campeonatoNome={campeonato.nome}
+          campeonatoAno={campeonato.ano}
           rodadasCorte={campeonato.tipo === 'copa' ? 6 : 0}
           usarDecimais={campeonato.usar_decimais === true}
         />
@@ -239,7 +241,7 @@ export default function PaginaPublicaCampeonato() {
           
           {activeTab === 'classificacao' && (
               <div className="animate-fadeIn">
-                <TabelaPublica campeonatoId={id} />
+                <TabelaPublica campeonatoId={id} campeonatoNome={campeonato.nome} campeonatoAno={campeonato.ano} usarDecimais={campeonato.usar_decimais === true} />
               </div>
           )}
           
@@ -251,7 +253,7 @@ export default function PaginaPublicaCampeonato() {
           
           {activeTab === 'grupos' && (
               <div className="animate-fadeIn">
-                <FaseGruposPublica campeonatoId={id} />
+                <FaseGruposPublica campeonatoId={id} usarDecimais={campeonato.usar_decimais === true} />
               </div>
           )}
       </div>

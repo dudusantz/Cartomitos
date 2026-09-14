@@ -2,13 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { listarPartidas, buscarParciaisAoVivo } from "../../actions";
-import { RefreshCcw, Trophy, Move } from "lucide-react";
+import { RefreshCcw, Trophy, Move, Share2 } from "lucide-react";
 import toast from "react-hot-toast";
 import ModalConfrontoAoVivo from "./ModalConfrontoAoVivo";
 import MataMataBracket, { type JogoBracket } from "../MataMataBracket";
+import CompartilharCampeonato from "./CompartilharCampeonato";
 
 interface Props {
   campeonatoId: number;
+  campeonatoNome: string;
+  campeonatoAno?: number | string;
   rodadasCorte: number;
   usarDecimais?: boolean;
 }
@@ -20,6 +23,8 @@ function normalizarPlacar(valor: number, usarDecimais: boolean) {
 
 export default function MataMataPublico({
   campeonatoId,
+  campeonatoNome,
+  campeonatoAno,
   rodadasCorte,
   usarDecimais = false,
 }: Props) {
@@ -29,6 +34,8 @@ export default function MataMataPublico({
   const [loading, setLoading] = useState(true);
   const [loadingLive, setLoadingLive] = useState(false);
   const [modoAoVivo, setModoAoVivo] = useState(false);
+  const [partidasParciais, setPartidasParciais] = useState<JogoBracket[] | null>(null);
+  const [compartilharAberto, setCompartilharAberto] = useState(false);
 
   const [jogoSelecionado, setJogoSelecionado] = useState<JogoBracket | null>(null);
 
@@ -59,65 +66,71 @@ export default function MataMataPublico({
     load();
   }, [campeonatoId, rodadasCorte]);
 
-  async function toggleAoVivo() {
-    if (!modoAoVivo) {
-      setLoadingLive(true);
-      try {
-        const todosPendentes = partidasRaw.filter(
-          (j) => j.status !== "finalizado" && j.status !== "bye"
-        );
-        const rodadaPendenteAtual = todosPendentes.length > 0
-          ? Math.min(...todosPendentes.map((j) => j.rodada))
-          : null;
-        const pendentes = todosPendentes
-          .filter((j) => j.rodada === rodadaPendenteAtual)
-          .map((j) => ({
-            ...j,
-            rodada: j.rodada_cartola,
-          }));
+  async function carregarParciais(aplicarNaTela = true): Promise<JogoBracket[] | null> {
+    setLoadingLive(true);
+    try {
+      const todosPendentes = partidasRaw.filter(
+        (j) => j.status !== "finalizado" && j.status !== "bye"
+      );
+      const rodadaPendenteAtual = todosPendentes.length > 0
+        ? Math.min(...todosPendentes.map((j) => j.rodada))
+        : null;
+      const pendentes = todosPendentes
+        .filter((j) => j.rodada === rodadaPendenteAtual)
+        .map((j) => ({ ...j, rodada: j.rodada_cartola }));
 
-        if (pendentes.length === 0) {
-          toast.error("Todos os jogos desta fase já foram finalizados.");
-          setLoadingLive(false);
-          return;
-        }
-
-        const resposta = await buscarParciaisAoVivo(pendentes);
-        if (!resposta.success) {
-          toast.error(resposta.msg || "Não foi possível carregar as parciais.");
-          return;
-        }
-        const parciais = resposta.jogos;
-
-        const atualizados = partidasRaw.map((jogo) => {
-          const p = parciais?.find((x: any) => x.id === jogo.id);
-          if (p && p.is_parcial) {
-            return {
-              ...jogo,
-              placar_casa: normalizarPlacar(p.placar_casa, usarDecimais),
-              placar_visitante: normalizarPlacar(p.placar_visitante, usarDecimais),
-              is_parcial: true,
-              is_live: true,
-              status: "finalizado",
-            };
-          }
-          return jogo;
-        });
-
-        setPartidasExibidas(atualizados);
-        setModoAoVivo(true);
-        toast.success("Modo Ao Vivo ativado!");
-      } catch (e) {
-        console.error(e);
-        toast.error("Erro ao buscar parciais.");
-      } finally {
-        setLoadingLive(false);
+      if (pendentes.length === 0) {
+        toast.error("Todos os jogos desta fase já foram finalizados.");
+        return null;
       }
-    } else {
-      setPartidasExibidas(partidasRaw);
-      setModoAoVivo(false);
+
+      const resposta = await buscarParciaisAoVivo(pendentes);
+      if (!resposta.success) {
+        toast.error(resposta.msg || "Não foi possível carregar as parciais.");
+        return null;
+      }
+
+      const atualizados = partidasRaw.map((jogo) => {
+        const parcial = resposta.jogos?.find((item: any) => item.id === jogo.id);
+        if (!parcial?.is_parcial) return jogo;
+        return {
+          ...jogo,
+          placar_casa: normalizarPlacar(parcial.placar_casa, usarDecimais),
+          placar_visitante: normalizarPlacar(parcial.placar_visitante, usarDecimais),
+          is_parcial: true,
+          is_live: true,
+          status: "finalizado",
+        };
+      });
+
+      setPartidasParciais(atualizados);
+      if (aplicarNaTela) setPartidasExibidas(atualizados);
+      return atualizados;
+    } catch (error) {
+      console.error(error);
+      toast.error("Erro ao buscar parciais.");
+      return null;
+    } finally {
+      setLoadingLive(false);
     }
   }
+
+  async function toggleAoVivo() {
+    if (modoAoVivo) {
+      setPartidasExibidas(partidasRaw);
+      setModoAoVivo(false);
+      return;
+    }
+    const atualizados = await carregarParciais(true);
+    if (atualizados) {
+      setModoAoVivo(true);
+      toast.success("Modo ao vivo ativado.");
+    }
+  }
+
+  const rodadaParcial = partidasRaw
+    .filter((jogo) => jogo.status !== "finalizado" && jogo.status !== "bye" && jogo.rodada_cartola)
+    .sort((a, b) => Number(a.rodada) - Number(b.rodada))[0]?.rodada_cartola;
 
   if (loading) {
     return (
@@ -156,24 +169,17 @@ export default function MataMataPublico({
           </span>
         </div>
 
-        <button
-          onClick={toggleAoVivo}
-          disabled={loadingLive}
-          className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all shadow-lg flex items-center gap-2
-            ${
-              modoAoVivo
-                ? "bg-red-500/10 text-red-500 border border-red-500/50 hover:bg-red-500/20"
-                : "bg-yellow-500 text-black hover:bg-yellow-400 border border-yellow-400"
-            }
-          `}
-        >
-          {loadingLive && <RefreshCcw className="animate-spin w-3 h-3" />}
-          {loadingLive
-            ? "Buscando..."
-            : modoAoVivo
-              ? "Sair do Ao Vivo"
-              : "Ver Parciais"}
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setCompartilharAberto(true)} className="flex items-center gap-2 rounded-lg border border-yellow-400/20 bg-yellow-400/[.06] px-3 py-2 text-[9px] font-black uppercase tracking-[.08em] text-yellow-400 transition hover:border-yellow-400/40 hover:bg-yellow-400/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400"><Share2 size={13} /><span className="hidden sm:inline">Compartilhar</span></button>
+          <button
+            onClick={toggleAoVivo}
+            disabled={loadingLive}
+            className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all shadow-lg flex items-center gap-2 ${modoAoVivo ? "bg-red-500/10 text-red-500 border border-red-500/50 hover:bg-red-500/20" : "bg-yellow-500 text-black hover:bg-yellow-400 border border-yellow-400"}`}
+          >
+            {loadingLive && <RefreshCcw className="animate-spin w-3 h-3" />}
+            {loadingLive ? "Buscando..." : modoAoVivo ? "Sair do Ao Vivo" : "Ver Parciais"}
+          </button>
+        </div>
       </div>
 
       <MataMataBracket
@@ -190,6 +196,18 @@ export default function MataMataPublico({
           onClose={() => setJogoSelecionado(null)}
         />
       )}
+      <CompartilharCampeonato
+        aberto={compartilharAberto}
+        onClose={() => setCompartilharAberto(false)}
+        tipo="mata_mata"
+        campeonato={campeonatoNome}
+        ano={campeonatoAno}
+        dadosOficiais={partidasRaw}
+        dadosParciais={partidasParciais}
+        rodadaParcial={rodadaParcial}
+        usarDecimais={usarDecimais}
+        onCarregarParciais={() => carregarParciais(false)}
+      />
     </div>
   );
 }

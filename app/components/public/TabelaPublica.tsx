@@ -11,12 +11,17 @@ import ModalConfrontoAoVivo from "./ModalConfrontoAoVivo";
 import TeamLink from "./TeamLink";
 import toast from "react-hot-toast";
 import { findClassificationZone, normalizeClassificationZones } from "@/lib/classification-zones";
+import { Share2 } from "lucide-react";
+import CompartilharCampeonato from "./CompartilharCampeonato";
 
 interface Props {
   campeonatoId: number;
+  campeonatoNome: string;
+  campeonatoAno?: number | string;
+  usarDecimais?: boolean;
 }
 
-export default function TabelaPublica({ campeonatoId }: Props) {
+export default function TabelaPublica({ campeonatoId, campeonatoNome, campeonatoAno, usarDecimais = false }: Props) {
   const [dadosOriginais, setDadosOriginais] = useState<{
     tabela: any[];
     jogos: any[];
@@ -26,12 +31,19 @@ export default function TabelaPublica({ campeonatoId }: Props) {
   const [rodadaView, setRodadaView] = useState(1);
   const [modoAoVivo, setModoAoVivo] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [tabelaParcial, setTabelaParcial] = useState<any[] | null>(null);
+  const [compartilharAberto, setCompartilharAberto] = useState(false);
   
   // Zonas Dinâmicas
   const [zonasClassificacao, setZonasClassificacao] = useState<any[]>([]);
 
   // State para o Modal
   const [jogoSelecionado, setJogoSelecionado] = useState<any>(null);
+
+  const normalizarPlacar = (valor: unknown) => {
+    const numero = Number(valor) || 0;
+    return usarDecimais ? Number(numero.toFixed(2)) : Math.floor(numero);
+  };
 
   useEffect(() => {
     async function init() {
@@ -75,14 +87,14 @@ export default function TabelaPublica({ campeonatoId }: Props) {
     if (dadosOriginais.tabela.length === 0) return;
 
     if (modoAoVivo) {
-      atualizarDadosAoVivo();
+      void atualizarDadosAoVivo(true);
     } else {
       setTabelaExibida(dadosOriginais.tabela);
       setJogosExibidos(dadosOriginais.jogos);
     }
   }, [modoAoVivo, rodadaView, dadosOriginais]);
 
-  async function atualizarDadosAoVivo() {
+  async function atualizarDadosAoVivo(aplicarNaTela = true): Promise<any[] | null> {
     setLoading(true);
     try {
       const jogosParaAtualizar = dadosOriginais.jogos.filter(
@@ -92,7 +104,7 @@ export default function TabelaPublica({ campeonatoId }: Props) {
       const resposta = await buscarParciaisAoVivo(jogosParaAtualizar);
       if (!resposta.success) {
         toast.error(resposta.msg || "Não foi possível carregar as parciais.");
-        return;
+        return null;
       }
       const parciais = resposta.jogos;
 
@@ -102,16 +114,14 @@ export default function TabelaPublica({ campeonatoId }: Props) {
           if (p && p.is_parcial) {
             return {
               ...jogo,
-              placar_casa: p.placar_casa,
-              placar_visitante: p.placar_visitante,
+              placar_casa: normalizarPlacar(p.placar_casa),
+              placar_visitante: normalizarPlacar(p.placar_visitante),
               is_parcial: true,
             };
           }
         }
         return jogo;
       });
-      setJogosExibidos(novosJogos);
-
       const novaTabela = dadosOriginais.tabela
         .map((time) => {
           const jogosTime = novosJogos.filter(
@@ -131,8 +141,8 @@ export default function TabelaPublica({ campeonatoId }: Props) {
             sg = 0;
 
           jogosTime.forEach((j: any) => {
-            const c = j.placar_casa;
-            const vis = j.placar_visitante;
+            const c = normalizarPlacar(j.placar_casa);
+            const vis = normalizarPlacar(j.placar_visitante);
             const isCasa = j.time_casa === time.time_id;
 
             const golsPro = isCasa ? c : vis;
@@ -175,11 +185,19 @@ export default function TabelaPublica({ campeonatoId }: Props) {
         })
         .sort((a, b) => b.pts - a.pts || b.v - a.v || b.sg - a.sg);
 
-      setTabelaExibida(novaTabela);
+      setTabelaParcial(novaTabela);
+      if (aplicarNaTela) {
+        setJogosExibidos(novosJogos);
+        setTabelaExibida(novaTabela);
+      }
+      return novaTabela;
     } catch (e) {
       console.error(e);
+      toast.error("Não foi possível calcular a classificação parcial.");
+      return null;
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   const jogosDaRodada = jogosExibidos.filter((j) => j.rodada === rodadaView);
@@ -201,12 +219,11 @@ export default function TabelaPublica({ campeonatoId }: Props) {
                 Classificação
               </h2>
             </div>
-            <span className="hidden sm:block text-[10px] text-gray-600 font-medium">{tabelaExibida.length} clubes</span>
-            {modoAoVivo && (
-              <span className="text-[9px] font-bold text-green-400 uppercase tracking-widest animate-pulse border border-green-500/20 px-2.5 py-1 rounded-md bg-green-500/10">
-                Ao Vivo (R{rodadaView})
-              </span>
-            )}
+            <div className="flex items-center gap-2">
+              <span className="hidden sm:block text-[10px] text-gray-600 font-medium">{tabelaExibida.length} clubes</span>
+              {modoAoVivo && <span className="hidden text-[9px] font-bold text-green-400 uppercase tracking-widest animate-pulse border border-green-500/20 px-2.5 py-1 rounded-md bg-green-500/10 sm:inline-flex">Ao Vivo (R{rodadaView})</span>}
+              <button onClick={() => setCompartilharAberto(true)} className="flex items-center gap-2 rounded-lg border border-yellow-400/20 bg-yellow-400/[.06] px-2.5 py-2 text-[9px] font-black uppercase tracking-[.08em] text-yellow-400 transition hover:border-yellow-400/40 hover:bg-yellow-400/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400"><Share2 size={13} /><span className="hidden sm:inline">Compartilhar</span></button>
+            </div>
           </div>
 
           <div className="flex items-center justify-between border-b border-white/[0.06] bg-yellow-500/[0.035] px-4 py-2 sm:hidden">
@@ -277,7 +294,7 @@ export default function TabelaPublica({ campeonatoId }: Props) {
                             </span>
                             {modoAoVivo && t.ptsExtra > 0 && (
                               <span className="text-[9px] text-green-500 font-bold leading-none block">
-                                +3 pts
+                                +{t.ptsExtra} {t.ptsExtra === 1 ? "pt" : "pts"}
                               </span>
                             )}
                           </div>
@@ -450,6 +467,19 @@ export default function TabelaPublica({ campeonatoId }: Props) {
           onClose={() => setJogoSelecionado(null)} 
         />
       )}
+      <CompartilharCampeonato
+        aberto={compartilharAberto}
+        onClose={() => setCompartilharAberto(false)}
+        tipo="classificacao"
+        campeonato={campeonatoNome}
+        ano={campeonatoAno}
+        dadosOficiais={dadosOriginais.tabela}
+        dadosParciais={tabelaParcial}
+        rodadaParcial={rodadaView}
+        zonas={zonasClassificacao}
+        usarDecimais={usarDecimais}
+        onCarregarParciais={() => atualizarDadosAoVivo(false)}
+      />
     </div>
   );
 }

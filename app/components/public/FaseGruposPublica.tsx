@@ -14,9 +14,10 @@ import { findClassificationZone, normalizeClassificationZones } from "@/lib/clas
 
 interface Props {
   campeonatoId: number;
+  usarDecimais?: boolean;
 }
 
-export default function FaseGruposPublica({ campeonatoId }: Props) {
+export default function FaseGruposPublica({ campeonatoId, usarDecimais = false }: Props) {
   const [dadosOriginais, setDadosOriginais] = useState<{
     grupos: any;
     jogos: any[];
@@ -34,6 +35,11 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
   const [modoAoVivo, setModoAoVivo] = useState(false);
   
   const [jogoSelecionado, setJogoSelecionado] = useState<any>(null);
+
+  const normalizarPlacar = (valor: unknown) => {
+    const numero = Number(valor) || 0;
+    return usarDecimais ? Number(numero.toFixed(2)) : Math.floor(numero);
+  };
 
   useEffect(() => {
     async function carregar() {
@@ -103,8 +109,8 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
             if (p && p.is_parcial) {
               return {
                 ...jogo,
-                placar_casa: p.placar_casa,
-                placar_visitante: p.placar_visitante,
+                placar_casa: normalizarPlacar(p.placar_casa),
+                placar_visitante: normalizarPlacar(p.placar_visitante),
                 is_parcial: true,
                 status: "finalizado",
               };
@@ -139,19 +145,22 @@ export default function FaseGruposPublica({ campeonatoId }: Props) {
             c.pj++;
             v.pj++;
             
-            c.pp += jogo.placar_casa;
-            c.pc += jogo.placar_visitante;
-            v.pp += jogo.placar_visitante;
-            v.pc += jogo.placar_casa;
+            const placarCasa = normalizarPlacar(jogo.placar_casa);
+            const placarVisitante = normalizarPlacar(jogo.placar_visitante);
+
+            c.pp += placarCasa;
+            c.pc += placarVisitante;
+            v.pp += placarVisitante;
+            v.pc += placarCasa;
             
             c.sp = c.pp - c.pc;
             v.sp = v.pp - v.pc;
 
-            if (jogo.placar_casa > jogo.placar_visitante) {
+            if (placarCasa > placarVisitante) {
               c.pts += 3;
               c.v++;
               v.d++;
-            } else if (jogo.placar_visitante > jogo.placar_casa) {
+            } else if (placarVisitante > placarCasa) {
               v.pts += 3;
               v.v++;
               c.d++;

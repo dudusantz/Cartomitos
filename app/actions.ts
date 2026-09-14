@@ -1758,7 +1758,7 @@ export async function buscarParciaisAoVivo(jogos: any[]) {
               if (!jogou) {
                   const encerrou = jogoEncerrou(titular.clube_id);
                   if (encerrou) {
-                      const reservaDisponivel = res.find((r: any) => r.jogou && !r.usado);
+                      const reservaDisponivel = res.find((r: any) => r.jogou && r.pts > 0 && !r.usado);
                       if (reservaDisponivel) {
                           reservaDisponivel.usado = true;
                           if (titular.idStr === capitaoId) capitaoId = reservaDisponivel.idStr; 
@@ -1779,7 +1779,7 @@ export async function buscarParciaisAoVivo(jogos: any[]) {
           if (!houveSubstituicaoNormal && !trocaLuxoRealizada && luxoIdOficial !== "0") {
               const reservaLuxo = res.find((r: any) => r.idStr === luxoIdOficial);
 
-              if (reservaLuxo && reservaLuxo.jogou && !reservaLuxo.usado) {
+              if (reservaLuxo && reservaLuxo.jogou && reservaLuxo.pts > 0 && !reservaLuxo.usado) {
                   // Pega APENAS os titulares que já começaram a jogar
                   const titsQueJaComecaram = titularesDestaPosicao.filter((tit: any) => jogoEncerrou(tit.clube_id));
 
@@ -2543,7 +2543,7 @@ export async function buscarParciaisGrid(campeonatoId: number) {
               if (!jogou) {
                   const comecou = jogoComecou(titular.clube_id);
                   if (comecou) {
-                      const reservaDisponivel = res.find((r: any) => r.jogou && !r.usado);
+                      const reservaDisponivel = res.find((r: any) => r.jogou && r.pts > 0 && !r.usado);
                       if (reservaDisponivel) {
                           reservaDisponivel.usado = true;
                           if (titular.idStr === capitaoId) capitaoId = reservaDisponivel.idStr; 
@@ -2562,7 +2562,7 @@ export async function buscarParciaisGrid(campeonatoId: number) {
 
           if (!houveSubstituicaoNormal && !trocaLuxoRealizada && luxoIdOficial !== "0") {
               const reservaLuxo = res.find((r: any) => r.idStr === luxoIdOficial);
-              if (reservaLuxo && reservaLuxo.jogou && !reservaLuxo.usado) {
+              if (reservaLuxo && reservaLuxo.jogou && reservaLuxo.pts > 0 && !reservaLuxo.usado) {
                   const piorTitular = titularesDestaPosicao.reduce((min:any, curr:any) => curr.pts < min.pts ? curr : min, titularesDestaPosicao[0]);
                   if (reservaLuxo.pts > piorTitular.pts) {
                       titularesDestaPosicao = titularesDestaPosicao.map(t => {
@@ -2783,7 +2783,7 @@ export async function buscarDetalhesConfrontoAoVivo(timeCasaIdCartola: number, t
               for (let i = 0; i < titsByPos[posId].length; i++) {
                   const titular = titsByPos[posId][i];
                   if (!titular.jogou && jogoEncerrou(titular.clube_id)) {
-                      const rDisponivel = res.find((r: any) => r.jogou && !r.usado);
+                      const rDisponivel = res.find((r: any) => r.jogou && r.pontos > 0 && !r.usado);
                       if (rDisponivel) {
                           rDisponivel.usado = true;
                           if (titular.id === capitaoRealId) capitaoRealId = rDisponivel.id;
@@ -2796,7 +2796,7 @@ export async function buscarDetalhesConfrontoAoVivo(timeCasaIdCartola: number, t
           // B. Reserva de Luxo AGRESSIVO
           if (luxoIdOficial !== "0") {
               const rLuxo = reservas.find((r: any) => r.id === luxoIdOficial);
-              if (rLuxo && rLuxo.jogou && !rLuxo.usado) {
+              if (rLuxo && rLuxo.jogou && rLuxo.pontos > 0 && !rLuxo.usado) {
                   const titsDaMesmaPosicao = titsByPos[rLuxo.posicao_id] || [];
                   
                   // Pega apenas os titulares da posição que JÁ COMEÇARAM a jogar

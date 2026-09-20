@@ -2,6 +2,7 @@
 
 import { supabase, supabaseAdmin } from "@/lib/supabase"
 import { revalidatePath } from "next/cache"
+import { resumirEscalacoes, type EscalacaoRodada } from "@/lib/lineup-stats"
 
 // ==============================================================================
 // SEGURANÇA E BANCO DE DADOS
@@ -430,6 +431,41 @@ export async function buscarPerfilPublicoTime(timeId: number) {
   }
 
   return { time, partidas: partidas || [], erroPartidas: false };
+}
+
+export async function buscarEstatisticasEscalacoesClube(timeId: number, ano: number) {
+  if (!Number.isInteger(timeId) || timeId <= 0 || !Number.isInteger(ano) || ano !== new Date().getFullYear()) {
+    return null;
+  }
+
+  const [{ data: time, error: timeError }, { data: partidas, error: partidasError }] = await Promise.all([
+    supabase.from('times').select('time_id_cartola').eq('id', timeId).single(),
+    supabase.from('partidas')
+      .select('rodada_cartola, campeonato:campeonatos(ano)')
+      .or(`time_casa.eq.${timeId},time_visitante.eq.${timeId}`)
+      .eq('status', 'finalizado'),
+  ]);
+  if (timeError || partidasError || !time?.time_id_cartola) return null;
+
+  const rodadas = [...new Set((partidas || [])
+    .filter((partida) => {
+      const campeonato = Array.isArray(partida.campeonato) ? partida.campeonato[0] : partida.campeonato;
+      return campeonato?.ano === ano && Number.isInteger(partida.rodada_cartola) && partida.rodada_cartola! > 0;
+    })
+    .map((partida) => Number(partida.rodada_cartola)))].sort((a, b) => a - b);
+
+  const escalacoes: EscalacaoRodada[] = [];
+  for (let indice = 0; indice < rodadas.length; indice += 6) {
+    const lote = await Promise.all(rodadas.slice(indice, indice + 6).map((rodada) =>
+      fetchCartola(`https://api.cartola.globo.com/time/id/${time.time_id_cartola}/${rodada}`)
+    ));
+    for (const escalacao of lote) {
+      if (Array.isArray(escalacao?.atletas) && escalacao.atletas.length > 0) escalacoes.push(escalacao);
+    }
+  }
+
+  const clubes = await fetchCartola('https://api.cartola.globo.com/clubes');
+  return resumirEscalacoes(escalacoes, clubes && typeof clubes === 'object' ? clubes : {});
 }
 
 export async function buscarComparativoConfronto(timeCasaId: number, timeVisitanteId: number) {

@@ -7,6 +7,7 @@ import { ArrowLeft, BarChart3, CalendarDays, ChevronRight, CircleAlert, ListChec
 import TeamLink from "./TeamLink";
 import ModalConfrontoAoVivo from "./ModalConfrontoAoVivo";
 import EstatisticasClube from "./EstatisticasClube";
+import EstatisticasEscalacoesClube from "./EstatisticasEscalacoesClube";
 
 type Team = {
   id: number;
@@ -305,7 +306,7 @@ export default function PerfilPublicoTime({ time, partidas, erroPartidas = false
           </div>
         </div>
 
-        {profileView === "stats" && !erroPartidas && <EstatisticasClube partidas={seasonMatches} teamId={time.id} />}
+        {profileView === "stats" && !erroPartidas && <><EstatisticasClube partidas={seasonMatches} teamId={time.id} /><EstatisticasEscalacoesClube teamId={time.id} ano={season} /></>}
 
         {profileView === "matches" && (erroPartidas ? (
           <div className="mt-6 flex items-start gap-3 rounded-2xl border border-red-400/20 bg-red-400/[0.05] p-5 text-sm text-red-300"><CircleAlert size={18} className="mt-0.5 shrink-0" /><div><strong className="block text-white">Não foi possível carregar as partidas</strong><span className="mt-1 block text-slate-500">Atualize a página para tentar novamente.</span></div></div>

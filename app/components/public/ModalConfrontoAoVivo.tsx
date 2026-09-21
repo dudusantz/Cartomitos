@@ -21,12 +21,21 @@ export default function ModalConfrontoAoVivo({ jogo, onClose }: Props) {
   const [activeSection, setActiveSection] = useState<'lineups' | 'history'>('lineups');
   const [viewMode, setViewMode] = useState<'pitch' | 'list'>('pitch');
   const [shareOpen, setShareOpen] = useState(false);
+  const [selectedPlayer, setSelectedPlayer] = useState<any>(null);
 
   useEffect(() => {
     setActiveSection('lineups');
+    setSelectedPlayer(null);
     setViewMode(window.matchMedia('(max-width: 767px)').matches ? 'list' : 'pitch');
     carregarDetalhes();
   }, [jogo]);
+
+  useEffect(() => {
+    if (!selectedPlayer) return;
+    const closeOnEscape = (event: KeyboardEvent) => { if (event.key === 'Escape') setSelectedPlayer(null); };
+    window.addEventListener('keydown', closeOnEscape);
+    return () => window.removeEventListener('keydown', closeOnEscape);
+  }, [selectedPlayer]);
 
   async function carregarDetalhes() {
     setLoading(true);
@@ -126,8 +135,8 @@ export default function ModalConfrontoAoVivo({ jogo, onClose }: Props) {
               <MatchScoreHero casa={casaExibida} visitante={visitanteExibido} perfilCasa={perfilCasa} perfilVisitante={perfilVisitante} finalizado={finalizado} possuiEscalacoes={possuiEscalacoes} onNavigate={onClose} />
               {possuiEscalacoes ? (
                 <div className={`mt-5 grid lg:grid-cols-2 lg:gap-6 ${viewMode === 'list' ? 'grid-cols-2 gap-2.5' : 'grid-cols-1 gap-8'}`}>
-                  <TeamColumn team={casaExibida} isCasa={true} viewMode={viewMode} />
-                  <TeamColumn team={visitanteExibido} isCasa={false} viewMode={viewMode} />
+                  <TeamColumn team={casaExibida} isCasa={true} viewMode={viewMode} onPlayerClick={setSelectedPlayer} />
+                  <TeamColumn team={visitanteExibido} isCasa={false} viewMode={viewMode} onPlayerClick={setSelectedPlayer} />
                 </div>
               ) : (
                 <section className="mt-5 flex min-h-64 flex-col items-center justify-center rounded-2xl border border-dashed border-white/[0.1] bg-[#0e100e] px-6 text-center">
@@ -156,6 +165,7 @@ export default function ModalConfrontoAoVivo({ jogo, onClose }: Props) {
           reservasCasa={casaExibida?.reservas || []}
           reservasVisitante={visitanteExibido?.reservas || []}
         />
+        {selectedPlayer && <PlayerScoutModal atleta={selectedPlayer} finalizado={finalizado} onClose={() => setSelectedPlayer(null)} />}
       </div>
     </div>
   );
@@ -295,7 +305,7 @@ function IconSaiu({ className }: { className?: string }) {
   );
 }
 
-function TeamColumn({ team, isCasa, viewMode }: { team: any, isCasa: boolean, viewMode: 'pitch' | 'list' }) {
+function TeamColumn({ team, isCasa, viewMode, onPlayerClick }: { team: any, isCasa: boolean, viewMode: 'pitch' | 'list', onPlayerClick: (atleta: any) => void }) {
     
     const currentPitchPlayers = team.titulares.map((t: any) => {
         const tId = String(t.id || t.atleta_id);
@@ -358,6 +368,7 @@ function TeamColumn({ team, isCasa, viewMode }: { team: any, isCasa: boolean, vi
                         posicao: "SAIU",
                         pontosCalculados: ptsSaiu,
                         pontos: ptsSaiu,
+                        scout: saiu.scout || {},
                         isSubOut: true,
                         jogou: ptsSaiu !== 0 
                     });
@@ -392,17 +403,17 @@ function TeamColumn({ team, isCasa, viewMode }: { team: any, isCasa: boolean, vi
             
             {/* RENDER CONDICIONAL: CAMPINHO VS LISTA */}
             {viewMode === 'pitch' ? (
-                <HalfField fieldPlayers={currentPitchPlayers} />
+                <HalfField fieldPlayers={currentPitchPlayers} onPlayerClick={onPlayerClick} />
             ) : (
-                <FieldList fieldPlayers={currentPitchPlayers} isCasa={isCasa} />
+                <FieldList fieldPlayers={currentPitchPlayers} isCasa={isCasa} onPlayerClick={onPlayerClick} />
             )}
 
-            <BenchList benchPlayers={activeBenchPlayers} isCasa={isCasa} />
+            <BenchList benchPlayers={activeBenchPlayers} isCasa={isCasa} onPlayerClick={onPlayerClick} />
         </section>
     );
 }
 
-function HalfField({ fieldPlayers }: { fieldPlayers: any[] }) {
+function HalfField({ fieldPlayers, onPlayerClick }: { fieldPlayers: any[], onPlayerClick: (atleta: any) => void }) {
   const playersByPos: Record<number, any[]> = {};
   fieldPlayers.forEach(p => {
     if (!playersByPos[p.posicao_id]) playersByPos[p.posicao_id] = [];
@@ -430,6 +441,7 @@ function HalfField({ fieldPlayers }: { fieldPlayers: any[] }) {
                   atleta={atleta} 
                   style={coords} 
                   isDNP={!atleta.jogou} 
+                  onClick={() => onPlayerClick(atleta)}
               />
             );
         })}
@@ -451,7 +463,7 @@ function getCoordinatesByPosition(posicaoId: number, indexNaPosicao: number, tot
     return { top: `${y}%`, left: `${x}%` };
 }
 
-function PlayerPin({ atleta, style, isDNP }: { atleta: any, style: React.CSSProperties, isDNP: boolean }) {
+function PlayerPin({ atleta, style, isDNP, onClick }: { atleta: any, style: React.CSSProperties, isDNP: boolean, onClick: () => void }) {
 
   const pts = atleta.pontosCalculados ?? atleta.pontos;
   const basePts = atleta.pontos; 
@@ -470,7 +482,7 @@ function PlayerPin({ atleta, style, isDNP }: { atleta: any, style: React.CSSProp
                        'border-[#151515] group-hover:border-gray-400';
 
   return (
-    <div className="group pointer-events-auto absolute z-10 flex w-[58px] -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-0.5 hover:z-30 md:w-[70px] md:gap-1" style={style}>
+    <button type="button" onClick={onClick} aria-label={`Ver scouts de ${atleta.nome}`} className="group pointer-events-auto absolute z-10 flex w-[58px] -translate-x-1/2 -translate-y-1/2 cursor-pointer flex-col items-center gap-0.5 hover:z-30 focus-visible:z-30 focus-visible:rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400 md:w-[70px] md:gap-1" style={style}>
       <div className="relative shrink-0">
         <img 
             src={atleta.foto} 
@@ -523,12 +535,12 @@ function PlayerPin({ atleta, style, isDNP }: { atleta: any, style: React.CSSProp
             )}
         </div>
       </div>
-    </div>
+    </button>
   );
 }
 
 // NOVA LISTA TÁTICA COMO ALTERNATIVA AO CAMPINHO
-function FieldList({ fieldPlayers, isCasa }: { fieldPlayers: any[], isCasa: boolean }) {
+function FieldList({ fieldPlayers, isCasa, onPlayerClick }: { fieldPlayers: any[], isCasa: boolean, onPlayerClick: (atleta: any) => void }) {
     if (!fieldPlayers || fieldPlayers.length === 0) return null;
     const borderColor = isCasa ? 'border-blue-900/30' : 'border-red-900/30';
     const bgContainer = isCasa ? 'bg-blue-950/5' : 'bg-red-950/5';
@@ -549,14 +561,14 @@ function FieldList({ fieldPlayers, isCasa }: { fieldPlayers: any[], isCasa: bool
             </div>
             <div className="flex flex-col gap-1.5 md:gap-2.5">
                 {sortedPlayers.map((atleta: any, idx: number) => (
-                    <FieldPlayerCard key={`${atleta.id}-${idx}`} atleta={atleta} />
+                    <FieldPlayerCard key={`${atleta.id}-${idx}`} atleta={atleta} onClick={() => onPlayerClick(atleta)} />
                 ))}
             </div>
         </div>
     );
 }
 
-function FieldPlayerCard({ atleta }: { atleta: any }) {
+function FieldPlayerCard({ atleta, onClick }: { atleta: any, onClick: () => void }) {
     const pts = atleta.pontosCalculados ?? atleta.pontos;
     const basePts = atleta.pontos; 
     const isDNP = !atleta.jogou;
@@ -570,7 +582,7 @@ function FieldPlayerCard({ atleta }: { atleta: any }) {
     }
 
     return (
-        <div className="flex min-h-13 items-stretch justify-between gap-1 rounded-lg border border-white/[0.08] bg-[#151815] p-1.5 transition-colors hover:bg-[#1a1d1a] md:min-h-0 md:items-center md:gap-2 md:rounded-xl md:p-2">
+        <button type="button" onClick={onClick} aria-label={`Ver scouts de ${atleta.nome}`} className="flex min-h-13 w-full cursor-pointer items-stretch justify-between gap-1 rounded-lg border border-white/[0.08] bg-[#151815] p-1.5 text-left transition-colors hover:bg-[#1a1d1a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400 md:min-h-0 md:items-center md:gap-2 md:rounded-xl md:p-2">
             <div className="flex min-w-0 flex-1 items-center gap-1.5 md:gap-3.5">
                 <div className="relative shrink-0">
                     <img 
@@ -617,11 +629,11 @@ function FieldPlayerCard({ atleta }: { atleta: any }) {
                     <span className={`${colorClass} text-[11px] md:text-xs font-black font-mono leading-none`}>{pts.toFixed(1)}</span>
                 )}
             </div>
-        </div>
+        </button>
     );
 }
 
-function BenchList({ benchPlayers, isCasa }: { benchPlayers: any[], isCasa: boolean }) {
+function BenchList({ benchPlayers, isCasa, onPlayerClick }: { benchPlayers: any[], isCasa: boolean, onPlayerClick: (atleta: any) => void }) {
     if (!benchPlayers || benchPlayers.length === 0) return null;
     const borderColor = isCasa ? 'border-blue-900/30' : 'border-red-900/30';
     const bgContainer = isCasa ? 'bg-blue-950/5' : 'bg-red-950/5';
@@ -635,14 +647,14 @@ function BenchList({ benchPlayers, isCasa }: { benchPlayers: any[], isCasa: bool
             </div>
             <div className="flex flex-col gap-1.5 md:gap-2.5">
                 {benchPlayers.map((atleta: any) => (
-                    <BenchPlayerCard key={atleta.id} atleta={atleta} />
+                    <BenchPlayerCard key={atleta.id} atleta={atleta} onClick={() => onPlayerClick(atleta)} />
                 ))}
             </div>
         </div>
     );
 }
 
-function BenchPlayerCard({ atleta }: { atleta: any }) {
+function BenchPlayerCard({ atleta, onClick }: { atleta: any, onClick: () => void }) {
     const isSubOut = atleta.isSubOut; 
     const pts = atleta.pontosCalculados ?? atleta.pontos;
     const basePts = atleta.pontos; 
@@ -658,7 +670,7 @@ function BenchPlayerCard({ atleta }: { atleta: any }) {
     }
 
     return (
-        <div className={`flex min-h-13 items-stretch justify-between gap-1 rounded-lg border border-white/[0.08] bg-[#151815] p-1.5 transition-colors hover:bg-[#1a1d1a] md:min-h-0 md:items-center md:gap-2 md:rounded-xl md:p-2 ${isSubOut ? 'opacity-75' : ''}`}>
+        <button type="button" onClick={onClick} aria-label={`Ver scouts de ${atleta.nome}`} className={`flex min-h-13 w-full cursor-pointer items-stretch justify-between gap-1 rounded-lg border border-white/[0.08] bg-[#151815] p-1.5 text-left transition-colors hover:bg-[#1a1d1a] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400 md:min-h-0 md:items-center md:gap-2 md:rounded-xl md:p-2 ${isSubOut ? 'opacity-75' : ''}`}>
             <div className="flex min-w-0 flex-1 items-center gap-1.5 md:gap-3.5">
                 <div className="relative shrink-0">
                     <img src={atleta.foto} className={`h-8 w-8 rounded-full border bg-black object-cover shadow-inner md:h-9 md:w-9 ${isSubOut ? 'border-red-500 shadow-[0_0_8px_rgba(239,68,68,0.4)]' : 'border-gray-700'}`} alt={`Foto de ${atleta.nome}`} />
@@ -701,6 +713,57 @@ function BenchPlayerCard({ atleta }: { atleta: any }) {
                     <span className={`${colorClass} text-[11px] md:text-xs font-black font-mono leading-none ${isSubOut ? 'line-through' : ''}`}>{pts.toFixed(1)}</span>
                 )}
             </div>
-        </div>
+        </button>
     );
+}
+
+const scoutInfo: Record<string, { label: string; points: number }> = {
+  G: { label: 'Gol', points: 8 }, A: { label: 'Assistência', points: 5 },
+  FT: { label: 'Finalização na trave', points: 3 }, FD: { label: 'Finalização defendida', points: 1.2 },
+  FF: { label: 'Finalização para fora', points: 0.8 }, FS: { label: 'Falta sofrida', points: 0.5 },
+  PS: { label: 'Pênalti sofrido', points: 1 }, SG: { label: 'Jogo sem sofrer gols', points: 5 },
+  DP: { label: 'Pênalti defendido', points: 7 }, DE: { label: 'Defesa', points: 1.3 },
+  DS: { label: 'Desarme', points: 1.5 }, V: { label: 'Vitória do técnico', points: 1 },
+  GC: { label: 'Gol contra', points: -3 }, CV: { label: 'Cartão vermelho', points: -3 },
+  CA: { label: 'Cartão amarelo', points: -1 }, GS: { label: 'Gol sofrido', points: -1 },
+  FC: { label: 'Falta cometida', points: -0.3 }, PC: { label: 'Pênalti cometido', points: -1 },
+  I: { label: 'Impedimento', points: -0.1 },
+};
+
+function PlayerScoutModal({ atleta, finalizado, onClose }: { atleta: any; finalizado: boolean; onClose: () => void }) {
+  const scouts = Object.entries(atleta.scout || {})
+    .map(([code, value]) => ({ code, count: Number(value), info: scoutInfo[code] }))
+    .filter(({ count }) => Number.isFinite(count) && count !== 0)
+    .sort((a, b) => (b.info?.points || 0) - (a.info?.points || 0));
+  const pontos = Number(atleta.pontos || 0);
+  const pontosCalculados = Number(atleta.pontosCalculados ?? pontos);
+  const formatar = (value: number) => value.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+
+  return <div className="absolute inset-0 z-[150] flex items-center justify-center bg-black/80 p-3 backdrop-blur-sm sm:p-6" onClick={onClose}>
+    <section role="dialog" aria-modal="true" aria-label={`Scouts de ${atleta.nome}`} onClick={(event) => event.stopPropagation()} className="flex max-h-full w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-white/15 bg-[#141814] shadow-2xl">
+      <header className="flex items-start justify-between gap-4 border-b border-white/10 px-5 py-4">
+        <div className="flex min-w-0 items-center gap-3">
+          <img src={atleta.foto || '/user-placeholder.png'} alt="" className="h-12 w-12 shrink-0 rounded-full border border-white/15 bg-black object-cover" />
+          <div className="min-w-0"><p className="text-[10px] font-bold uppercase tracking-[.12em] text-yellow-400">Detalhes da pontuação</p><h3 className="truncate text-lg font-black text-white">{atleta.nome}</h3><p className="text-xs text-slate-400">{atleta.posicao || 'Jogador'}{atleta.isSubIn ? ' · Entrou' : atleta.isSubOut ? ' · Saiu' : ''}</p></div>
+        </div>
+        <button type="button" autoFocus onClick={onClose} aria-label="Fechar detalhes do jogador" className="rounded-lg border border-white/10 p-2 text-slate-400 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-yellow-400"><X size={18} /></button>
+      </header>
+      <div className="custom-scrollbar overflow-y-auto p-5">
+        <div className="flex items-end justify-between rounded-xl border border-emerald-400/20 bg-emerald-400/[.06] p-4">
+          <div><span className="block text-[10px] font-bold uppercase tracking-[.1em] text-emerald-400">{finalizado ? 'Pontuação final' : 'Pontuação parcial'}</span><strong className={`mt-1 block font-mono text-4xl font-black tabular-nums ${pontosCalculados < 0 ? 'text-red-400' : 'text-white'}`}>{formatar(pontosCalculados)}</strong></div>
+          {atleta.isCapitao && <div className="text-right text-xs text-slate-400"><span className="block">{formatar(pontos)} pontos</span><strong className="text-yellow-400">× 1,5 capitão</strong></div>}
+        </div>
+        {atleta.isSubOut && <p className="mt-3 rounded-lg border border-red-400/15 bg-red-400/[.05] px-3 py-2 text-xs text-red-300">Saiu da escalação; esta pontuação não entra no total do time.</p>}
+        <div className="mt-5 flex items-center justify-between"><h4 className="text-sm font-black text-white">Scouts da rodada</h4><span className="text-[10px] font-bold uppercase tracking-[.1em] text-slate-500">Cartola</span></div>
+        {scouts.length ? <div className="mt-3 space-y-1.5">{scouts.map(({ code, count, info }) => {
+          const subtotal = info ? count * info.points : null;
+          return <div key={code} className="grid grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-3 rounded-lg border border-white/[.06] bg-black/20 px-3 py-2.5">
+            <span className="font-mono text-[10px] font-black text-slate-500">{code}</span><span className="min-w-0 text-xs font-semibold text-slate-200">{info?.label || `Scout ${code}`} <span className="ml-1 text-slate-500">× {count}</span></span>
+            {subtotal !== null && <strong className={`font-mono text-xs tabular-nums ${subtotal >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>{subtotal > 0 ? '+' : ''}{formatar(subtotal)}</strong>}
+          </div>;
+        })}</div> : <p className="mt-3 rounded-lg border border-dashed border-white/10 px-4 py-5 text-center text-xs text-slate-400">Nenhum scout publicado para este jogador nesta rodada.</p>}
+        <p className="mt-4 text-[11px] leading-relaxed text-slate-500">Os scouts mostram as ações registradas pelo Cartola. A pontuação exibida acima vem da API oficial{finalizado ? '.' : ' e pode mudar até o fechamento da rodada.'}</p>
+      </div>
+    </section>
+  </div>;
 }

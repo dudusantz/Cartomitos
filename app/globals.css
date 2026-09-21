@@ -153,6 +153,11 @@ table { font-variant-numeric: tabular-nums; }
 .admin-entry:hover, .admin-entry.is-active { background: #f7d96f; transform: translateY(-1px); }
 .site-main { min-height: calc(100dvh - 10rem); }
 
+/* Campos numéricos continuam validando números, sem controles de incremento. */
+input[type='number'] { appearance: textfield; -moz-appearance: textfield; }
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+
 .site-footer {
   width: min(100% - 2rem, 80rem);
   margin: 4rem auto 0;

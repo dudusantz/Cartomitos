@@ -3,6 +3,7 @@
 import { supabase, supabaseAdmin } from "@/lib/supabase"
 import { revalidatePath } from "next/cache"
 import { resumirEscalacoes, type EscalacaoRodada } from "@/lib/lineup-stats"
+import { rodadasValidas } from "@/lib/mata-mata-calendar"
 
 // ==============================================================================
 // SEGURANÇA E BANCO DE DADOS
@@ -372,10 +373,13 @@ const ULTIMA_RODADA_CARTOLA = 38;
 async function buscarDesempateAutomatico(
   jogoDecisivo: any,
   rodadaOficial: number,
-  usarDecimais: boolean
+  usarDecimais: boolean,
+  rodadaConfigurada?: number
 ) {
   const rodadaInicial = Math.min(Math.max(Math.trunc(rodadaOficial), 1), ULTIMA_RODADA_CARTOLA);
-  const rodadasCandidatas = rodadaInicial < ULTIMA_RODADA_CARTOLA
+  const rodadasCandidatas = rodadaConfigurada
+    ? [rodadaConfigurada]
+    : rodadaInicial < ULTIMA_RODADA_CARTOLA
     ? [rodadaInicial + 1]
     : Array.from({ length: ULTIMA_RODADA_CARTOLA - 1 }, (_, indice) => ULTIMA_RODADA_CARTOLA - 1 - indice);
 
@@ -402,6 +406,62 @@ async function buscarDesempateAutomatico(
   }
 
   return null;
+}
+
+export async function salvarCalendarioMataMata(
+  campeonatoId: number,
+  fase: number,
+  ida: number,
+  volta: number | null,
+  desempate: number | null
+) {
+  try {
+    await verificarAdmin();
+    if (!Number.isInteger(campeonatoId) || campeonatoId <= 0 || !Number.isInteger(fase) || fase <= 0 ||
+        !rodadasValidas(ida, volta, desempate)) {
+      return { success: false, msg: 'Confira as rodadas: use números de 1 a 38, com volta após a ida e desempate em outra rodada.' };
+    }
+
+    const db = getDb();
+    const [{ data: campeonato, error: erroCampeonato }, { data: partidas, error: erroPartidas }] = await Promise.all([
+      db.from('campeonatos').select('tipo,calendario_mata_mata').eq('id', campeonatoId).single(),
+      db.from('partidas').select('rodada,rodada_cartola,status').eq('campeonato_id', campeonatoId).in('rodada', [fase, fase + 1]).neq('status', 'bye'),
+    ]);
+    if (erroCampeonato || erroPartidas || !campeonato) return { success: false, msg: erroCampeonato?.message || erroPartidas?.message || 'Campeonato não encontrado.' };
+    const tipo = String(campeonato.tipo || '').toLowerCase().replace('-', '_');
+    const primeiraFase = tipo === 'copa' ? 7 : 1;
+    if (!['copa', 'mata_mata'].includes(tipo) || fase < primeiraFase || (fase - primeiraFase) % 2 !== 0) {
+      return { success: false, msg: 'Esta rodada não corresponde a uma fase eliminatória do campeonato.' };
+    }
+    if (volta === null && (partidas || []).some((jogo) => jogo.rodada === fase + 1)) {
+      return { success: false, msg: 'Esta fase já tem jogos de volta. Informe a rodada correspondente.' };
+    }
+    if ((partidas || []).some((jogo) => jogo.status === 'finalizado' &&
+      Number(jogo.rodada_cartola) !== (jogo.rodada === fase ? ida : volta))) {
+      return { success: false, msg: 'Uma rodada desta fase já tem resultado final. Não é seguro alterar seu calendário.' };
+    }
+
+    const atual = campeonato.calendario_mata_mata && typeof campeonato.calendario_mata_mata === 'object' && !Array.isArray(campeonato.calendario_mata_mata)
+      ? campeonato.calendario_mata_mata : {};
+    const { error } = await db.from('campeonatos').update({
+      calendario_mata_mata: { ...atual, [String(fase)]: { ida, volta, desempate } },
+    }).eq('id', campeonatoId);
+    if (error) return { success: false, msg: error.message };
+
+    for (const [rodada, rodadaCartola] of [[fase, ida], [fase + 1, volta]] as const) {
+      if (rodadaCartola === null || !(partidas || []).some((jogo) => jogo.rodada === rodada)) continue;
+      const { error: erroAtualizacao } = await db.from('partidas').update({ rodada_cartola: rodadaCartola })
+        .eq('campeonato_id', campeonatoId).eq('rodada', rodada).neq('status', 'bye');
+      if (erroAtualizacao) return { success: false, msg: erroAtualizacao.message };
+    }
+    revalidatePath(`/admin/ligas/${campeonatoId}`);
+    revalidatePath(`/campeonatos/${campeonatoId}`);
+    return { success: true, msg: (partidas || []).length
+      ? 'Calendário salvo. Atualize os resultados para recalcular possíveis desempates.'
+      : 'Calendário da fase futura salvo.' };
+  } catch (error: any) {
+    return { success: false, msg: error.message || 'Não foi possível salvar o calendário.' };
+  }
 }
 
 export async function buscarPerfilPublicoTime(timeId: number) {
@@ -965,6 +1025,9 @@ export async function atualizarRodadaMataMata(
     
     const p = partidas as any[];
     const usarDecimais = partidas[0].campeonato?.usar_decimais === true;
+    const { data: campeonato, error: erroCalendario } = await db.from('campeonatos').select('calendario_mata_mata').eq('id', campeonatoId).single();
+    if (erroCalendario) throw erroCalendario;
+    const rodadaDesempate = Number(campeonato?.calendario_mata_mata?.[String(fase)]?.desempate) || undefined;
 
     for (const jogo of partidas) {
         let r = 0;
@@ -1027,7 +1090,7 @@ export async function atualizarRodadaMataMata(
           Number(ida.rodada_cartola || rodadaIda || 0),
           Number(volta?.rodada_cartola || rodadaVolta || 0)
         );
-        const desempate = await buscarDesempateAutomatico(decisivo, rodadaOficial, usarDecimais);
+        const desempate = await buscarDesempateAutomatico(decisivo, rodadaOficial, usarDecimais, rodadaDesempate);
 
         const { error: erroDesempate } = await db.from('partidas').update(desempate ? {
           desempate_casa: desempate.pontosCasa,
@@ -1157,7 +1220,7 @@ async function verificarEAvancarFase(campeonatoId: number, rodadaAtual: number) 
 
     if (classificados.length < 2) return;
 
-    const { data: camp } = await db.from('campeonatos').select('final_unica').eq('id', campeonatoId).single();
+    const { data: camp } = await db.from('campeonatos').select('final_unica,calendario_mata_mata').eq('id', campeonatoId).single();
     const ehFinal = classificados.length === 2;
     const criarJogoUnico = ehFinal && (camp?.final_unica === true);
 
@@ -1189,7 +1252,13 @@ async function verificarEAvancarFase(campeonatoId: number, rodadaAtual: number) 
         }
     }
 
-    await db.from('partidas').insert(novasPartidas);
+    const calendario = camp?.calendario_mata_mata?.[String(proximaRodada)];
+    const partidasComCalendario = novasPartidas.map((jogo) => ({
+      ...jogo,
+      ...(jogo.status !== 'bye' && (jogo.rodada === proximaRodada ? calendario?.ida : calendario?.volta)
+        ? { rodada_cartola: jogo.rodada === proximaRodada ? calendario.ida : calendario.volta } : {}),
+    }));
+    await db.from('partidas').insert(partidasComCalendario);
   } catch (e) {
     console.error("Erro interno em verificarEAvancarFase:", e);
   }
@@ -2764,14 +2833,17 @@ export async function buscarDetalhesConfrontoAoVivo(timeCasaIdCartola: number, t
              return !!parciais?.atletas?.[id];
           };
 
+          const abreviacoesPosicao: Record<number, string> = { 1: 'GOL', 2: 'LAT', 3: 'ZAG', 4: 'MEI', 5: 'ATA', 6: 'TEC' };
+
           const formatPlayer = (at: any) => ({
               id: String(at.atleta_id),
               nome: at.apelido,
               foto: at.foto ? at.foto.replace('FORMATO', '140x140') : '/user-placeholder.png',
-              posicao: dataTime.posicoes?.[at.posicao_id]?.abreviacao || '-',
+              posicao: dataTime.posicoes?.[at.posicao_id]?.abreviacao || abreviacoesPosicao[at.posicao_id] || '-',
               posicao_id: at.posicao_id,
               clube_id: at.clube_id,
               pontos: getPontos(String(at.atleta_id), at.pontos_num),
+              scout: isRodadaPassada ? at.scout || {} : parciais?.atletas?.[String(at.atleta_id)]?.scout || {},
               jogou: checarJogou(String(at.atleta_id), at.pontos_num),
               isCapitao: String(at.atleta_id) === capitaoId,
               isLuxo: String(at.atleta_id) === luxoIdOficial,

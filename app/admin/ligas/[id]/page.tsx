@@ -440,9 +440,11 @@ export default function GerenciarLiga() {
           <PainelMataMata
             key={mmKey}
             campeonatoId={campeonatoId}
-            rodadasCorte={liga.rodada_inicial_mata_mata || 0}
+            rodadasCorte={0}
             bloquearGerador={false}
             isCopa={false}
+            finalUnica={Boolean(liga.final_unica)}
+            calendarioInicial={liga.calendario_mata_mata || {}}
           />
         )}
 
@@ -508,7 +510,7 @@ export default function GerenciarLiga() {
                 </div>
               )}
             </div>
-            <PainelMataMata key={mmKey} campeonatoId={campeonatoId} rodadasCorte={6} bloquearGerador={true} isCopa={true} />
+            <PainelMataMata key={mmKey} campeonatoId={campeonatoId} rodadasCorte={6} bloquearGerador={true} isCopa={true} finalUnica={Boolean(liga.final_unica)} calendarioInicial={liga.calendario_mata_mata || {}} />
           </div>
         )}
 

@@ -3,7 +3,7 @@
 import { supabase, supabaseAdmin } from "@/lib/supabase"
 import { revalidatePath } from "next/cache"
 import { resumirEscalacoes, type EscalacaoRodada } from "@/lib/lineup-stats"
-import { rodadasValidas } from "@/lib/mata-mata-calendar"
+import { rodadaPodeSerAtualizada, rodadasValidas } from "@/lib/mata-mata-calendar"
 
 // ==============================================================================
 // SEGURANÇA E BANCO DE DADOS
@@ -606,7 +606,7 @@ export async function zerarJogos(campeonatoId: number) {
 }
 
 async function atualizarJogoIndividual(jogo: any, rodadaCartola: number, usarDecimais: boolean = false) {
-    if (!rodadaCartola || rodadaCartola <= 0) return;
+    if (!rodadaCartola || rodadaCartola <= 0) return false;
     try {
         const db = getDb();
         const [resCasa, resVis] = await Promise.all([
@@ -614,8 +614,10 @@ async function atualizarJogoIndividual(jogo: any, rodadaCartola: number, usarDec
             fetchCartola(`https://api.cartola.globo.com/time/id/${jogo.visitante.time_id_cartola}/${rodadaCartola}`)
         ]);
 
-        const ptsCasa = resCasa?.pontos || 0;
-        const ptsVis = resVis?.pontos || 0;
+        if (!Number.isFinite(resCasa?.pontos) || !Number.isFinite(resVis?.pontos)) return false;
+
+        const ptsCasa = Number(resCasa.pontos);
+        const ptsVis = Number(resVis.pontos);
 
         const placarC = usarDecimais ? ptsCasa : Math.floor(ptsCasa);
         const placarV = usarDecimais ? ptsVis : Math.floor(ptsVis);
@@ -630,6 +632,7 @@ async function atualizarJogoIndividual(jogo: any, rodadaCartola: number, usarDec
         }).eq('id', jogo.id);
 
         if (updateError) throw updateError;
+        return true;
     } catch (e) { 
         console.error("Erro ao atualizar jogo individual", e); 
         throw e;
@@ -1029,12 +1032,46 @@ export async function atualizarRodadaMataMata(
     if (erroCalendario) throw erroCalendario;
     const rodadaDesempate = Number(campeonato?.calendario_mata_mata?.[String(fase)]?.desempate) || undefined;
 
+    const statusCartola = await fetchCartola('https://api.cartola.globo.com/mercado/status');
+    const rodadaAtualCartola = Number(statusCartola?.rodada_atual);
+    if (!Number.isInteger(rodadaAtualCartola) || rodadaAtualCartola <= 0) {
+      return { success: false, msg: 'Não foi possível consultar a rodada atual do Cartola. Nenhum resultado foi alterado.' };
+    }
+
+    const rodadasFuturas = new Set<number>();
+    let quantidadeAtualizada = 0;
+    let corrigiuAvancoIndevido = false;
     for (const jogo of partidas) {
         let r = 0;
         if (jogo.rodada === fase) r = rodadaIda;
         else if (jogo.rodada === fase + 1) r = rodadaVolta;
 
-        if (r > 0) await atualizarJogoIndividual(jogo, r, usarDecimais); 
+        if (r > 0 && !rodadaPodeSerAtualizada(r, rodadaAtualCartola)) {
+          rodadasFuturas.add(r);
+          if (jogo.status === 'finalizado') {
+            const { error: erroCorrecao } = await db.from('partidas').update({
+              placar_casa: null,
+              placar_visitante: null,
+              pontos_reais_casa: null,
+              pontos_reais_visitante: null,
+              desempate_casa: null,
+              desempate_visitante: null,
+              rodada_desempate: null,
+              status: 'agendado'
+            }).eq('id', jogo.id);
+            if (erroCorrecao) throw erroCorrecao;
+            corrigiuAvancoIndevido = true;
+          }
+          continue;
+        }
+        if (r > 0 && await atualizarJogoIndividual(jogo, r, usarDecimais)) quantidadeAtualizada += 1;
+    }
+
+    if (corrigiuAvancoIndevido) {
+      const { error: erroLimpeza } = await db.from('partidas').delete()
+        .eq('campeonato_id', campeonatoId)
+        .gt('rodada', fase + 1);
+      if (erroLimpeza) throw erroLimpeza;
     }
 
     // O desempate é automático. Antes da R38, usa exclusivamente a rodada
@@ -1107,12 +1144,18 @@ export async function atualizarRodadaMataMata(
         else desempatesPendentes += 1;
     }
 
-    await verificarEAvancarFase(campeonatoId, fase);
+    if (rodadasFuturas.size === 0 && quantidadeAtualizada > 0) {
+      await verificarEAvancarFase(campeonatoId, fase);
+    }
     
     revalidatePath(`/campeonatos/${campeonatoId}`)
     return {
       success: true,
-      msg: desempatesPendentes > 0
+      msg: rodadasFuturas.size > 0
+        ? `Resultados disponíveis atualizados. ${[...rodadasFuturas].map(r => `R${r}`).join(' e ')} ainda não começou; a chave não avançou.${corrigiuAvancoIndevido ? ' O avanço incorreto anterior foi removido.' : ''}`
+        : quantidadeAtualizada === 0
+          ? 'A API do Cartola ainda não possui pontuações válidas para esta fase.'
+          : desempatesPendentes > 0
         ? `Resultados atualizados. ${desempatesPendentes} desempate(s) ainda aguarda(m) pontuação válida.`
         : desempatesResolvidos > 0
           ? `Resultados atualizados e ${desempatesResolvidos} desempate(s) resolvido(s) automaticamente!`

@@ -13,3 +13,7 @@ export function rodadasValidas(ida: number, volta: number | null, desempate: num
     (volta === null || (valida(volta) && volta > ida)) &&
     (desempate === null || (valida(desempate) && desempate !== ida && desempate !== volta));
 }
+
+export function rodadaPodeSerAtualizada(rodada: number, rodadaAtual: number) {
+  return Number.isInteger(rodada) && rodada > 0 && Number.isInteger(rodadaAtual) && rodada <= rodadaAtual;
+}
